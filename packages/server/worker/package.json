@@ -1,0 +1,17 @@
+{
+  "name": "@wavenotes/worker",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "ts-node-dev src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.3",
+    "bullmq": "^5.1.1"
+  },
+  "devDependencies": {
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  }
+}

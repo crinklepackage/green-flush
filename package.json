@@ -1,4 +1,17 @@
 {
-  "name": "wavenotes-new",
-  "packageManager": "yarn@4.5.2"
+  "name": "wavenotes",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "packages/server/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build"
+  },
+  "devDependencies": {
+    "turbo": "^1.12.4",
+    "typescript": "^5.3.3"
+  },
+  "packageManager": "yarn@4.1.0+sha512.5b7bc055cad63273dda27df1570a5d2eb4a9f03b35b394d3d55393c2a5560a17f5cef30944b11d6a48bcbcfc1c3a26d618aae77044774c529ba36cb771ad5b0f"
 }
