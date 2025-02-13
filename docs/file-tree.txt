@@ -1,0 +1,63 @@
+/wavenotes
+├── package.json  # Workspace definitions
+└── packages
+   ├── shared           # Shared types/utils
+   │   └── src
+   │       └── types.ts # Core types used across all services
+   │
+   ├── server
+   │   ├── api/        # Deploys to Railway (API service)
+   │   │   ├── src/
+   │   │   │   ├── index.ts            # Express app setup
+   │   │   │   ├── routes
+   │   │   │   │   ├── podcasts.ts     # Podcast submission/status
+   │   │   │   │   └── summaries.ts    # Summary retrieval
+   │   │   │   ├── platforms
+   │   │   │   │   ├── spotify.ts      # Spotify API integration
+   │   │   │   │   ├── youtube.ts      # YouTube metadata/transcript
+   │   │   │   │   └── matcher.ts      # Spotify -> YouTube matching
+   │   │   │   └── lib
+   │   │   │       ├── supabase.ts     # Database client
+   │   │   │       └── queue.ts        # Queue client (Redis/Bull)
+   │   │   └── Dockerfile
+   │   │
+   │   └── worker/     # Deploys to Railway (Worker service) 
+   │       ├── src/
+   │       │   ├── index.ts            # Worker setup
+   │       │   ├── processors
+   │       │   │   ├── transcript.ts    # YouTube transcript processing
+   │       │   │   └── summary.ts       # Claude summarization
+   │       │   └── lib
+   │       │       ├── supabase.ts      # Database client
+   │       │       ├── claude.ts        # Claude API client
+   │       │       └── queue.ts         # Queue processing
+   │       └── Dockerfile
+   │
+   └── client          # Deploys to Vercel
+       └── src
+           ├── pages
+           │   ├── index.tsx            # / (marketing homepage)
+           │   ├── pricing.tsx          # /pricing
+           │   ├── auth
+           │   │   ├── login.tsx        # /auth/login
+           │   │   └── signup.tsx       # /auth/signup
+           │   ├── app
+           │   │   ├── index.tsx        # /app (dashboard)
+           │   │   └── [id].tsx         # /app/[id] (summary page)
+           │   └── s
+           │       └── [id].tsx         # /s/[id] (public summaries)
+           │
+           ├── components
+           │   ├── marketing            # Marketing components
+           │   │   ├── Hero.tsx
+           │   │   ├── Pricing.tsx
+           │   │   └── Features.tsx
+           │   └── app                  # App components
+           │       ├── PodcastInput.tsx
+           │       ├── Summary.tsx
+           │       └── Navigation.tsx
+           │
+           └── lib
+               ├── supabase.ts          # Supabase client
+               ├── api.ts               # API client functions
+               └── auth.ts              # Auth utilities & hooks
