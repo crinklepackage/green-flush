@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+      "target": "es2019",
+      "module": "commonjs",
+      "moduleResolution": "node",
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "outDir": "dist",
+      "baseUrl": "./",
+      "types": ["node", "express"]
+    },
+    "include": ["src"]
+  }

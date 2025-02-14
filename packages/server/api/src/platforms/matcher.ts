@@ -2,7 +2,7 @@
 import { SpotifyMetadata, VideoMetadata } from '@wavenotes/shared'
 import { logger } from '../lib/logger'
 import { SpotifyService } from './spotify'
-import { YouTubeService } from '../../worker/src/platforms/youtube'
+//import { YouTubeService } from '../../worker/src/platforms/youtube'
 
 export class PlatformMatcher {
   static async findYouTubeMatch(spotifyUrl: string): Promise<string | null> {

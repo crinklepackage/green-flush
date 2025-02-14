@@ -1,8 +1,8 @@
 {
-  "name": "@wavenotes/api",
+  "name": "@wavenotes-new/api",
   "version": "0.0.1",
   "scripts": {
-    "dev": "ts-node-dev src/index.ts",
+    "dev": "ts-node-dev ./src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },
@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
+    "@types/node": "^20.11.16",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"
   }

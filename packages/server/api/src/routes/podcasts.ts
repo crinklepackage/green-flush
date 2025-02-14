@@ -1,85 +1,44 @@
-// packages/server/api/src/routes/podcasts.ts
-import { z } from 'zod'
-import { Router } from 'express'
-import { ProcessingStatus } from '@wavenotes/shared'
+// packages/server/api/src/services/podcast.ts
+//import { 
+//  PlatformError, 
+//  DatabaseError,
+//  VideoMetadata
+// } from '@wavenotes/shared'
+// import { DatabaseService } from '../lib/database'
+// import { YouTubeService } from '../platforms/youtube'
+// import { QueueService } from '../lib/queue'
+import express from 'express';
 
-const router = Router()
+const router = express.Router();
 
-// Request validation schemas
-const createPodcastSchema = z.object({
-  url: z.string().url(),
-  platform: z.enum(['spotify', 'youtube'])
-})
+/*
+  Purpose:
+  - POST /summary: Create a podcast record, create a summary record, and enqueue a job.
+  - GET /summaries: Retrieve summaries for the dashboard.
+  - GET /summary/:id: Retrieve single summary details.
+*/
 
-const getSummarySchema = z.object({
-  id: z.string().uuid()
-})
+// POST /summary
+router.post('/summary', async (req, res) => {
+  // 1. Create podcast record
+  // 2. Create summary record
+  // 3. Enqueue job
+  // (Insert your logic here)
+  res.status(201).send({ message: 'Podcast summary created' });
+});
 
-// Error handler middleware
-const validateRequest = (schema: z.ZodSchema) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      await schema.parseAsync(req.body)
-      next()
-    } catch (error) {
-      res.status(400).json({
-        error: 'Invalid request',
-        details: error.errors
-      })
-    }
-  }
-}
+// GET /summaries
+router.get('/summaries', async (req, res) => {
+  // Retrieve summary list for dashboard
+  // (Insert your logic here)
+  res.send({ message: 'Summary list retrieved' });
+});
 
-router.post('/podcasts', 
-  validateRequest(createPodcastSchema),
-  async (req, res) => {
-    const { url, platform } = req.body
+// GET /summary/:id
+router.get('/summary/:id', async (req, res) => {
+  // Retrieve a single summary's details
+  // (Insert your logic here)
+  res.send({ message: `Summary details for id: ${req.params.id}` });
+});
 
-    try {
-      // Create initial records
-      const podcastService = new PodcastService(db, queue)
-      const summaryId = await podcastService.createPodcastRequest(url, platform)
-
-      res.json({ summaryId })
-    } catch (error) {
-      if (error instanceof PlatformError) {
-        res.status(400).json({
-          error: 'Platform error',
-          message: error.message,
-          code: error.code
-        })
-        return
-      }
-
-      res.status(500).json({
-        error: 'Internal server error',
-        message: 'Failed to process podcast'
-      })
-    }
-})
-
-router.get('/summaries/:id',
-  validateRequest(getSummarySchema),
-  async (req, res) => {
-    const { id } = req.params
-
-    try {
-      const summary = await db.getSummaryWithPodcast(id)
-      res.json(summary)
-    } catch (error) {
-      if (error instanceof DatabaseError) {
-        res.status(404).json({
-          error: 'Not found',
-          message: 'Summary not found'
-        })
-        return
-      }
-
-      res.status(500).json({
-        error: 'Internal server error',
-        message: 'Failed to fetch summary'
-      })
-    }
-})
-
-export default router
+export default router;

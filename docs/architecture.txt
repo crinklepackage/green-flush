@@ -1,5 +1,5 @@
 
-File Tree
+## File Tree
 
 /wavenotes-new
 ├── package.json  # Workspace definitions

@@ -1,8 +1,8 @@
 {
-  "name": "@wavenotes/worker",
+  "name": "@wavenotes-new/worker",
   "version": "0.0.1",
   "scripts": {
-    "dev": "ts-node-dev src/index.ts",
+    "dev": "ts-node-dev ./src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },

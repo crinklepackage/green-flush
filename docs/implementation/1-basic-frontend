@@ -1,0 +1,36 @@
+Proposed Incremental Plan
+1. Set Up Local Development Environment:
+Initialize the Next.js client using Yarn to ensure consistency with our workspace.
+Configure environment variables (e.g., for Supabase) for local development.
+Ensure Vercel-specific or local configurations are properly accounted for.
+
+2. Basic Page Routing:
+Marketing/Homepage:
+Create a landing page (e.g., pages/index.tsx) that can serve for static marketing content.
+Authentication Pages:
+Create placeholder pages for login and signup (e.g., pages/auth/login.tsx and pages/auth/signup.tsx).
+Dashboard:
+Set up the app dashboard page (e.g., pages/app/index.tsx) with a simple URL submission form.
+Summary Details:
+Create a summary details page (e.g., pages/app/[id].tsx) to display the progress and results of a summary.
+
+3. Basic Functionality Without Full Implementation:
+UI Placeholder Elements:
+Put in simple components so that each page displays basic, static content.
+Supabase Connection Configuration:
+Set up and verify that the Supabase client is connecting correctly.
+Routing Verification:
+Ensure that navigation between pages (marketing, auth, dashboard, summary) works correctly.
+
+4. Incremental Feature Development:
+URL Submission Flow:
+Start by having the URL submission form create an initial summary record (even a dummy record) and redirect to the summary page.
+Auth Integration:
+Add proper authentication flows as soon as the basic routing is in place.
+Real-Time Updates:
+Prepare a basic setup to show real-time updates (e.g., via Supabase realtime or an SSE endpoint) on the summary page.
+Summary Viewing:
+Once backend endpoints and worker processing are integrated, display the live summary text and status updates.
+Next Steps
+Would you like me to show you how to set up the Next.js client with basic routing first, including placeholder pages and the Supabase connection?
+That way, we can get a solid foundation locally before incrementally adding more functionality.
