@@ -1,23 +1,27 @@
-//written by o3…needs qa
+// packages/server/worker/src/index.ts
+import { WorkerService } from './worker.service'
+import { env } from './config/environment'
+import { youtubeApiClient } from './platforms/youtube/api-client'
 
-import { Worker } from 'bullmq';
-import { processPodcastJob } from './processors/podcast';
-import { logger } from './lib/logger';
+const startWorker = async () => {
+  try {
+    // Initialize services
+    await youtubeApiClient.initialize()
+    
+    // Create worker service
+    const worker = new WorkerService()
 
-const queueName = process.env.PODCAST_QUEUE_NAME || 'podcastQueue';
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: Number(process.env.REDIS_PORT) || 6379,
-};
+    // Handle shutdown
+    process.on('SIGTERM', async () => {
+      await worker.close()
+      process.exit(0)
+    })
 
-const worker = new Worker(queueName, async job => {
-  logger.info(`Started processing job ${job.id}`);
-  await processPodcastJob(job.data);
-  logger.info(`Finished processing job ${job.id}`);
-}, { connection });
+    console.log(`Worker started in ${env.NODE_ENV} mode`)
+  } catch (error) {
+    console.error('Failed to start worker:', error)
+    process.exit(1)
+  }
+}
 
-worker.on('failed', (job, err) => {
-  logger.error(`Job ${job?.id} failed with error: ${err.message}`);
-});
-
-console.log('Worker is running...');
+startWorker()

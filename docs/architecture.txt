@@ -73,3 +73,19 @@
                ├── supabase.ts      # Supabase client
                ├── api.ts           # API client functions
                └── auth.ts          # Auth utilities & hooks
+
+
+
+worker updates on feb 14
+    │   └── worker/
+    │       └── src/
+    │           ├── platforms/
+    │           │   └── youtube/
+    │           │       ├── api-client.ts     # YouTube API + OAuth
+    │           │       ├── transcript-api.ts  # youtube-transcript
+    │           │       └── supadata.ts        # Supadata integration
+    │           ├── processors/
+    │           │   ├── transcript.ts          # Transcript processing
+    │           │   └── summary.ts            # Summary generation
+    │           └── jobs/                     # Need to create
+    │               └── podcast.ts            # Job handler               

@@ -1,104 +1,124 @@
 // packages/server/worker/src/processors/transcript.ts
-import { TranscriptSource, TranscriptResult } from '@wavenotes/shared'
-import { TranscriptError } from '@wavenotes/shared'
-import { logger } from '../lib/logger'
+import { TranscriptSource, TranscriptResult, TranscriptError } from '@wavenotes/shared'
+import { youtubeApiClient } from '../platforms/youtube/api-client'
+import { youtubeTranscriptApi } from '../platforms/youtube/transcript-api'
+import { supadataApi } from '../platforms/youtube/supadata'
 
 export class TranscriptProcessor {
-  // ... previous code ...
+ private static getSourceOrder(): TranscriptSource[] {
+   if (process.env.NODE_ENV === 'production') {
+     return [
+       TranscriptSource.SUPADATA,
+       TranscriptSource.YOUTUBE_TRANSCRIPT,
+       TranscriptSource.YOUTUBE_API
+     ]
+   }
+   return [
+     TranscriptSource.YOUTUBE_TRANSCRIPT,
+     TranscriptSource.YOUTUBE_API,
+     TranscriptSource.SUPADATA
+   ]
+ }
 
-  static async getTranscript(youtubeUrl: string): Promise<TranscriptResult> {
-    const sources = this.getSourceOrder()
-    const errors: Record<TranscriptSource, Error | null> = {} as any
-    
-    for (const source of sources) {
-      try {
-        logger.info(`Attempting to fetch transcript using ${source}`, { url: youtubeUrl })
-        const result = await this.fetchFromSource(source, youtubeUrl)
-        if (result) {
-          logger.info(`Successfully fetched transcript via ${source}`, { 
-            url: youtubeUrl,
-            textLength: result.text.length 
-          })
-          return result
-        }
-      } catch (error) {
-        errors[source] = error as Error
-        logger.error(`Failed to fetch transcript from ${source}`, {
-          url: youtubeUrl,
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined
-        })
-        continue // Try next source
-      }
-    }
-    
-    // If we get here, all sources failed
-    throw new TranscriptError(
-      'Failed to fetch transcript from all available sources',
-      'ALL',
-      youtubeUrl,
-      new AggregateError(Object.values(errors).filter(Boolean))
-    )
-  }
+ static async getTranscript(youtubeUrl: string): Promise<TranscriptResult> {
+   const videoId = this.extractVideoId(youtubeUrl)
+   if (!videoId) {
+     throw new TranscriptError(
+       'Invalid YouTube URL',
+       'INVALID_URL',
+       youtubeUrl
+     )
+   }
 
-  private static async fetchUsingYoutubeTranscript(url: string): Promise<TranscriptResult | null> {
-    try {
-      logger.debug('Fetching transcript using youtube-transcript package', { url })
-      const segments = await YoutubeTranscript.fetchTranscript(url)
-      
-      if (!segments?.length) {
-        logger.warn('youtube-transcript returned empty segments', { url })
-        return null
-      }
+   const sources = this.getSourceOrder()
+   const errors: Record<TranscriptSource, Error | null> = {} as any
 
-      const text = segments.map(segment => segment.text).join(' ')
-      if (!text.trim()) {
-        logger.warn('youtube-transcript returned empty text', { url })
-        return null
-      }
+   // Try each source in parallel
+   const attempts = sources.map(async (source) => {
+     try {
+       console.info(`Attempting to fetch transcript using ${source}`, { videoId })
+       const result = await this.fetchFromSource(source, videoId)
+       
+       if (result?.text) {
+         console.info(`Successfully fetched transcript via ${source}`, { 
+           videoId,
+           textLength: result.text.length 
+         })
+         return result
+       }
+       return null
+     } catch (error) {
+       errors[source] = error as Error
+       console.error(`Failed to fetch transcript from ${source}`, {
+         videoId,
+         error: error instanceof Error ? error.message : String(error)
+       })
+       return null
+     }
+   })
 
-      return {
-        text,
-        source: TranscriptSource.YOUTUBE_TRANSCRIPT,
-        metadata: { segments }
-      }
-    } catch (error) {
-      throw new TranscriptError(
-        'Failed to fetch transcript using youtube-transcript',
-        TranscriptSource.YOUTUBE_TRANSCRIPT,
-        url,
-        error as Error
-      )
-    }
-  }
+   // Wait for first successful result or all failures
+   const results = await Promise.all(attempts)
+   const firstSuccess = results.find(result => result !== null)
 
-  private static async fetchUsingYTDLP(url: string): Promise<TranscriptResult | null> {
-    try {
-      logger.debug('Fetching transcript using yt-dlp', { url })
-      const command = `yt-dlp --skip-download --write-auto-sub --sub-lang en --convert-subs srt --get-subs ${url}`
-      
-      const { stdout, stderr } = await execAsync(command)
-      if (stderr) {
-        logger.warn('yt-dlp command produced stderr output', { url, stderr })
-      }
+   if (firstSuccess) {
+     return firstSuccess
+   }
 
-      const text = stdout.trim()
-      if (!text) {
-        logger.warn('yt-dlp returned empty transcript', { url })
-        return null
-      }
+   // If all sources failed, throw error with details
+   throw new TranscriptError(
+     'Failed to fetch transcript from all available sources',
+     'ALL_SOURCES_FAILED',
+     youtubeUrl,
+     new AggregateError(Object.values(errors).filter(Boolean))
+   )
+ }
 
-      return {
-        text,
-        source: TranscriptSource.YT_DLP
-      }
-    } catch (error) {
-      throw new TranscriptError(
-        'Failed to fetch transcript using yt-dlp',
-        TranscriptSource.YT_DLP,
-        url,
-        error as Error
-      )
-    }
-  }
+ private static async fetchFromSource(
+   source: TranscriptSource, 
+   videoId: string
+ ): Promise<TranscriptResult | null> {
+   switch (source) {
+     case TranscriptSource.YOUTUBE_TRANSCRIPT:
+       return youtubeTranscriptApi.getTranscript(videoId)
+     case TranscriptSource.YOUTUBE_API:
+       return youtubeApiClient.getTranscript(videoId)
+     case TranscriptSource.SUPADATA:
+       return supadataApi.getTranscript(videoId)
+     default:
+       return null
+   }
+ }
+
+ private static extractVideoId(url: string): string | null {
+   try {
+     const urlObj = new URL(url)
+     
+     // Handle youtu.be format
+     if (urlObj.hostname === 'youtu.be') {
+       return urlObj.pathname.slice(1)
+     }
+
+     // Handle youtube.com formats
+     if (urlObj.hostname.includes('youtube.com')) {
+       // Handle /shorts/
+       if (urlObj.pathname.startsWith('/shorts/')) {
+         return urlObj.pathname.split('/')[2]
+       }
+
+       // Handle watch?v=
+       const videoId = urlObj.searchParams.get('v')
+       if (videoId) return videoId
+
+       // Handle /embed/ or /v/
+       if (urlObj.pathname.startsWith('/embed/') || urlObj.pathname.startsWith('/v/')) {
+         return urlObj.pathname.split('/')[2]
+       }
+     }
+
+     return null
+   } catch {
+     return null
+   }
+ }
 }
