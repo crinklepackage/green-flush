@@ -509,7 +509,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@supabase/supabase-js@npm:^2.39.3":
+"@supabase/supabase-js@npm:^2.39.3, @supabase/supabase-js@npm:^2.48.1":
   version: 2.48.1
   resolution: "@supabase/supabase-js@npm:2.48.1"
   dependencies:
@@ -805,7 +805,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@wavenotes-new/api@workspace:packages/server/api"
   dependencies:
-    "@supabase/supabase-js": "npm:^2.39.3"
+    "@supabase/supabase-js": "npm:^2.48.1"
     "@types/express": "npm:^4.17.21"
     "@types/node": "npm:^20.11.16"
     bullmq: "npm:^5.1.1"

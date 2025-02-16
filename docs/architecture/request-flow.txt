@@ -81,19 +81,19 @@ Updates UI based on summary.status and content changes
 
 API Service Environment Variables:
 SUPABASE_URL=
-SUPABASE_SERVICE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 REDIS_URL=
 YOUTUBE_API_KEY=
 SPOTIFY_ACCESS_TOKEN=
 
 Worker Service Environment Variables:
 SUPABASE_URL=
-SUPABASE_SERVICE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 REDIS_URL=
 YOUTUBE_OAUTH_CLIENT_ID=
 YOUTUBE_OAUTH_CLIENT_SECRET=
 YOUTUBE_OAUTH_REFRESH_TOKEN=
-CLAUDE_API_KEY=
+ANTHROPIC_API_KEY=
 
 ## Common Failure Scenarios
 
@@ -115,4 +115,33 @@ CLAUDE_API_KEY=
 
 5. Network timeouts
    - Handled by: Retry mechanisms
-   - Result: Temporary delays or FAILED status if retries exhausted 
+   - Result: Temporary delays or FAILED status if retries exhausted
+
+## API Endpoints
+For detailed implementation of these endpoints, see docs/routes-and-services.md
+
+1. Podcast Submission
+   POST /api/podcasts
+   - Accepts: { url: string, type: 'youtube' | 'spotify' }
+   - Returns: { podcast: PodcastRecord, summary: SummaryRecord }
+   - Purpose: Initial submission and job creation
+   - Auth: Required
+
+2. Summary Status
+   GET /api/summaries/:id
+   - Returns: SummaryRecord with current status and content
+   - Purpose: Direct fetch of summary data
+   - Note: Most clients use Supabase subscriptions instead
+   - Auth: Required
+
+3. Summary Stream
+   GET /api/summaries/:id/stream
+   - Returns: Server-sent events of summary generation
+   - Purpose: Legacy endpoint for non-Supabase streaming
+   - Note: Prefer Supabase real-time subscriptions
+   - Auth: Required
+
+Note: While we maintain these REST endpoints, our primary real-time updates 
+flow through Supabase subscriptions. The frontend typically only uses 
+POST /api/podcasts for submission, then relies on Supabase for all 
+subsequent updates. 

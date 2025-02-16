@@ -1,0 +1,68 @@
+File Naming Conventions
+
+1. Universal Rules (All Packages)
+- Use dash-case for all files and directories: podcast-service.ts, api-client.ts
+- Drop redundant suffixes when in descriptive directories:
+
+services/
+├── database.ts        # NOT database-service.ts
+├── queue.ts          # NOT queue-service.ts
+└── platforms/
+    └── youtube.ts    # NOT youtube-service.ts
+
+2. Frontend Exceptions (packages/client)
+- Use PascalCase for React components:
+
+components/
+├── PodcastForm.tsx
+├── SummaryDisplay.tsx
+└── common/
+    └── Button.tsx
+
+- Use dash-case for everything else:
+
+src/
+├── utils/
+│   └── format-time.ts
+└── services/
+    └── api-client.ts
+
+3. Backend (packages/server/api and packages/server/worker)
+- Consistent dash-case throughout:
+
+src/
+├── services/
+│   ├── database.ts
+│   └── platforms/
+│       └── youtube.ts
+├── routes/
+│   └── podcast-routes.ts
+└── middleware/
+    └── auth-middleware.ts
+
+4. Examples
+
+CORRECT:
+packages/
+├── client/
+│   └── src/
+│       ├── components/
+│       │   ├── PodcastForm.tsx      # PascalCase for React components
+│       │   └── common/
+│       │       └── Button.tsx       # PascalCase for React components
+│       └── services/
+│           └── api-client.ts        # dash-case for everything else
+└── server/
+    ├── api/
+    │   └── src/
+    │       └── services/
+    │           └── database.ts      # dash-case, no redundant suffix
+    └── worker/
+        └── src/
+            └── services/
+                └── transcript-processor.ts  # dash-case
+
+INCORRECT:
+- apiService.ts        # camelCase
+- queue_service.ts     # underscores
+- YouTubeClient.ts     # PascalCase for non-component 

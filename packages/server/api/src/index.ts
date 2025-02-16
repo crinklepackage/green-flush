@@ -1,7 +1,7 @@
 import { validateEnv } from './config/environment'
-import { ApiService } from './services/api.service'
-import { DatabaseService } from './services/database.service'
-import { QueueService } from './services/queue.service'
+import { ApiService } from './services/api-service'
+import { DatabaseService } from './services/database'
+import { QueueService } from './services/queue'
 
 async function main() {
   const env = validateEnv()

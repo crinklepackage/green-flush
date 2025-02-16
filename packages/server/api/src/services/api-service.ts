@@ -1,9 +1,9 @@
 import { Queue } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
 import { ProcessingStatus, PodcastJob } from '@wavenotes/shared'
-import { YouTubeApiClient } from './platforms/youtube/api-client'
-import { SpotifyApiClient } from './platforms/spotify/api-client'
-import { env } from './config/environment'
+import { YouTubeApiClient } from '../platforms/youtube/api-client'
+import { SpotifyApiClient } from '../platforms/spotify/api-client'
+import { env } from '../config/environment'
 
 export class ApiService {
   private readonly supabase

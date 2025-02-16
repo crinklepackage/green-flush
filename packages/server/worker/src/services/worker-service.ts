@@ -1,12 +1,12 @@
 // packages/server/worker/src/worker.service.ts
 import { Queue, Worker, Job } from 'bullmq'
-import { env } from './config/environment'
-import { TranscriptProcessor } from './processors/transcript'
-import { SummaryProcessor } from './processors/summary'
+import { env } from '../config/environment'
+import { TranscriptProcessor } from '../processors/transcript'
+import { SummaryProcessor } from '../processors/summary'
 import { createClient } from '@supabase/supabase-js'
 import { Anthropic } from '@anthropic-ai/sdk'
 import { ProcessingStatus, PodcastJob } from '@wavenotes/shared'
-import { YouTubeApiClient } from './platforms/youtube/api-client'
+import { YouTubeApiClient } from '../platforms/youtube/api-client'
 
 export class WorkerService {
   private readonly supabase
