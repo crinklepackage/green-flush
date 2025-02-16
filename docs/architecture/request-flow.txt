@@ -1,0 +1,118 @@
+# Request Flow Documentation
+
+## Overview
+This document describes the complete flow of a podcast summary request, from initial URL submission to final summary delivery.
+
+## High-Level Flow Diagram
+[Note: The following represents a sequence diagram. Consider visualizing with Mermaid or similar tool]
+
+Client -> API: Submit URL (POST /api/podcasts)
+API -> External Services: Fetch metadata
+API -> Supabase: Create podcast record
+API -> Supabase: Create summary record (status: IN_QUEUE)
+API -> Redis Queue: Enqueue processing job
+API -> Client: Return summaryId
+
+Worker -> Redis Queue: Dequeue job
+Worker -> Supabase: Update status (FETCHING_TRANSCRIPT)
+Worker -> External Services: Fetch transcript
+Worker -> Supabase: Update status (GENERATING_SUMMARY)
+Worker -> External Services: Generate summary (streaming)
+Worker -> Supabase: Update content (chunks)
+Worker -> Supabase: Update status (COMPLETED)
+
+[Note: Real-time updates happen via Supabase subscriptions throughout the process]
+
+## Detailed Component Responsibilities
+
+1. API Service (ApiService)
+   Constructor dependencies:
+   - youtube: YouTubeApiClient
+   - spotify: SpotifyApiClient
+   - supabase: SupabaseClient
+   - podcastQueue: Queue
+
+   Responsibilities:
+   - Validates incoming URLs
+   - Fetches initial metadata via platform clients
+   - Creates database records
+   - Enqueues processing jobs
+
+2. Worker Service (WorkerService)
+   Constructor dependencies:
+   - youtube: YouTubeApiClient
+   - transcriptProcessor: TranscriptProcessor
+   - summaryProcessor: SummaryProcessor
+   - supabase: SupabaseClient
+
+   Responsibilities:
+   - Processes queued jobs
+   - Handles transcript acquisition
+   - Manages summary generation
+   - Updates record statuses
+
+## Status Flow
+IN_QUEUE -> FETCHING_TRANSCRIPT -> GENERATING_SUMMARY -> COMPLETED
+(Any state can transition to FAILED on error)
+
+## Implementation Details
+
+1. Platform Clients
+Both API and Worker services use instance-based clients:
+
+YouTubeApiClient:
+- Constructor takes apiKey and optional oauth2Client
+- Handles video info retrieval and transcript fetching
+
+SpotifyApiClient:
+- Constructor takes accessToken
+- Handles episode metadata retrieval
+
+2. Real-time Updates
+Frontend subscribes to Supabase real-time updates on the summaries table
+Updates UI based on summary.status and content changes
+
+3. Error Handling
+- API errors return appropriate HTTP status codes
+- Worker errors update summary status to FAILED with error details
+- All errors are logged and monitored
+
+## Configuration Required
+
+API Service Environment Variables:
+SUPABASE_URL=
+SUPABASE_SERVICE_KEY=
+REDIS_URL=
+YOUTUBE_API_KEY=
+SPOTIFY_ACCESS_TOKEN=
+
+Worker Service Environment Variables:
+SUPABASE_URL=
+SUPABASE_SERVICE_KEY=
+REDIS_URL=
+YOUTUBE_OAUTH_CLIENT_ID=
+YOUTUBE_OAUTH_CLIENT_SECRET=
+YOUTUBE_OAUTH_REFRESH_TOKEN=
+CLAUDE_API_KEY=
+
+## Common Failure Scenarios
+
+1. Invalid/private YouTube URL
+   - Handled by: API validation and worker verification
+   - Result: FAILED status with specific error message
+
+2. No matching YouTube video for Spotify episode
+   - Handled by: Worker matching process
+   - Result: FAILED status with "No matching video found" message
+
+3. No available transcript
+   - Handled by: Worker's transcript fetching fallback system
+   - Result: FAILED status with "No transcript available" message
+
+4. Rate limiting from external services
+   - Handled by: Retry mechanisms with exponential backoff
+   - Result: Temporary delays or FAILED status if retries exhausted
+
+5. Network timeouts
+   - Handled by: Retry mechanisms
+   - Result: Temporary delays or FAILED status if retries exhausted 

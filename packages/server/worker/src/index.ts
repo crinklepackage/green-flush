@@ -1,15 +1,19 @@
-// packages/server/worker/src/index.ts
 import { WorkerService } from './worker.service'
 import { env } from './config/environment'
-import { youtubeApiClient } from './platforms/youtube/api-client'
+import { YouTubeApiClient } from './platforms/youtube/api-client'
 
 const startWorker = async () => {
   try {
-    // Initialize services
-    await youtubeApiClient.initialize()
+    // Initialize YouTube client
+    const youtube = new YouTubeApiClient(
+      env.YOUTUBE_OAUTH_CLIENT_ID,
+      env.YOUTUBE_OAUTH_CLIENT_SECRET,
+      env.YOUTUBE_OAUTH_REFRESH_TOKEN
+    )
+    await youtube.initialize()
     
-    // Create worker service
-    const worker = new WorkerService()
+    // Create worker service with YouTube client
+    const worker = new WorkerService(youtube)
 
     // Handle shutdown
     process.on('SIGTERM', async () => {

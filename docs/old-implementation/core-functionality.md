@@ -1,3 +1,7 @@
+READ THIS FIRST:
+This is how our old code worked. It is not necessarily how the new code in this project will work. It's a reference point, a starting point for conversation and ideas as we re-architect the code in the new codebase. In other words, don't follow these exactly. Before using any of the following, ask to confirm if it's compliant with the new codebase and architecture.
+*****
+
 # Core Functionality Overview for WaveNotes
 
 This document highlights key code snippets that represent the core functionality of our WaveNotes system.It covers:

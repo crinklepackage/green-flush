@@ -1,14 +1,24 @@
-//written by o3…needs qa
+import { validateEnv } from './config/environment'
+import { ApiService } from './services/api.service'
+import { DatabaseService } from './services/database.service'
+import { QueueService } from './services/queue.service'
 
-import express from 'express';
-import podcastsRouter from './routes/podcasts';
+async function main() {
+  const env = validateEnv()
+  
+  const db = new DatabaseService(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY)
+  const queue = new QueueService(env.REDIS_URL)
+  const api = new ApiService(db, queue)
 
-const app = express();
-const PORT = process.env.PORT || 3001;
+  await api.start(Number(env.PORT))
 
-app.use(express.json());
-app.use('/api/podcasts', podcastsRouter);
+  process.on('SIGTERM', async () => {
+    await api.shutdown()
+    process.exit(0)
+  })
+}
 
-app.listen(PORT, () => {
-  console.log(`API server is running on port ${PORT}`);
-});
+main().catch((error) => {
+  console.error('Failed to start API:', error)
+  process.exit(1)
+})

@@ -3,36 +3,36 @@ import { google } from 'googleapis'
 import { TranscriptSource, TranscriptResult } from '@wavenotes/shared'
 
 export class YouTubeApiClient {
-  private static oauth2Client: any = null
-  private static readonly OAUTH_REDIRECT_URI = 'https://wavenotes-api-production.up.railway.app/auth/youtube/callback'
-  private static readonly REQUIRED_SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl']
+  private oauth2Client: any = null
+  private readonly OAUTH_REDIRECT_URI = 'https://wavenotes-api-production.up.railway.app/auth/youtube/callback'
+  private readonly REQUIRED_SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl']
 
-  static async initialize(): Promise<void> {
-    const {
-      YOUTUBE_OAUTH_CLIENT_ID,
-      YOUTUBE_OAUTH_CLIENT_SECRET,
-      YOUTUBE_OAUTH_REFRESH_TOKEN
-    } = process.env
+  constructor(
+    private clientId: string,
+    private clientSecret: string,
+    private refreshToken: string
+  ) {}
 
-    if (!YOUTUBE_OAUTH_CLIENT_ID || !YOUTUBE_OAUTH_CLIENT_SECRET || !YOUTUBE_OAUTH_REFRESH_TOKEN) {
+  async initialize(): Promise<void> {
+    if (!this.clientId || !this.clientSecret || !this.refreshToken) {
       console.warn('Missing OAuth credentials. YouTube API OAuth features will be disabled.')
       return
     }
 
     this.oauth2Client = new google.auth.OAuth2(
-      YOUTUBE_OAUTH_CLIENT_ID,
-      YOUTUBE_OAUTH_CLIENT_SECRET,
+      this.clientId,
+      this.clientSecret,
       this.OAUTH_REDIRECT_URI
     )
 
     this.oauth2Client.setCredentials({
-      refresh_token: YOUTUBE_OAUTH_REFRESH_TOKEN
+      refresh_token: this.refreshToken
     })
 
     await this.refreshAccessToken()
   }
 
-  private static async refreshAccessToken(): Promise<void> {
+  private async refreshAccessToken(): Promise<void> {
     try {
       if (!this.oauth2Client) {
         throw new Error('OAuth2 client not initialized')
@@ -50,7 +50,7 @@ export class YouTubeApiClient {
     try {
       const youtube = google.youtube({ 
         version: 'v3', 
-        auth: YouTubeApiClient.oauth2Client 
+        auth: this.oauth2Client 
       })
 
       // List available captions

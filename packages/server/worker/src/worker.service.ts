@@ -6,6 +6,7 @@ import { SummaryProcessor } from './processors/summary'
 import { createClient } from '@supabase/supabase-js'
 import { Anthropic } from '@anthropic-ai/sdk'
 import { ProcessingStatus, PodcastJob } from '@wavenotes/shared'
+import { YouTubeApiClient } from './platforms/youtube/api-client'
 
 export class WorkerService {
   private readonly supabase
@@ -14,14 +15,20 @@ export class WorkerService {
   private readonly podcastWorker: Worker
   private readonly transcriptProcessor: TranscriptProcessor
   private readonly summaryProcessor: SummaryProcessor
+  private readonly youtube: YouTubeApiClient
 
   constructor() {
     // Initialize clients
     this.supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY)
     this.claude = new Anthropic({ apiKey: env.CLAUDE_API_KEY })
-
+    this.youtube = new YouTubeApiClient(
+      env.YOUTUBE_OAUTH_CLIENT_ID,
+      env.YOUTUBE_OAUTH_CLIENT_SECRET,
+      env.YOUTUBE_OAUTH_REFRESH_TOKEN
+    )
+    
     // Initialize processors
-    this.transcriptProcessor = new TranscriptProcessor()
+    this.transcriptProcessor = new TranscriptProcessor(this.youtube)
     this.summaryProcessor = new SummaryProcessor(this.claude)
 
     // Initialize queue
@@ -62,6 +69,9 @@ export class WorkerService {
     const { url, summaryId } = job.data
 
     try {
+      // Initialize YouTube client if not already done
+      await this.youtube.initialize()
+
       // Get transcript
       await this.updateStatus(summaryId, ProcessingStatus.FETCHING_TRANSCRIPT)
       const transcript = await this.transcriptProcessor.getTranscript(url)

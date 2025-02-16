@@ -1,3 +1,7 @@
+READ THIS FIRST:
+This is how our old code worked. It is not necessarily how the new code in this project will work. It's a reference point, a starting point for conversation and ideas as we re-architect the code in the new codebase. In other words, don't follow these exactly. Before using any of the following, ask to confirm if it's compliant with the new codebase and architecture.
+*****
+
 
 1. Matching Logic (Spotify → YouTube)
 This snippet shows our matching logic where we take a Spotify link, extract its metadata, and then search for a corresponding YouTube video by calling our YouTube service. The matching logic also updates the podcast record if a good match is found.
