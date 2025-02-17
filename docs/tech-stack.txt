@@ -11,7 +11,7 @@ Integration with external APIs (Spotify, YouTube) for metadata and transcript pr
 AI summary generation using Claude Streaming (via Anthropic’s SDK)
 
 Frontend:
-React application, built using Vite
+React application, built using Next.js
 Additional client package for a Chrome extension (browser-specific logic)
 Uses shared browser-safe modules from our shared package
 

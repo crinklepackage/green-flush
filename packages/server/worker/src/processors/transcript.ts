@@ -1,8 +1,21 @@
 // packages/server/worker/src/processors/transcript.ts
+import { z } from 'zod'
 import { TranscriptSource, TranscriptResult, TranscriptError } from '@wavenotes/shared'
 import { youtubeApiClient } from '../platforms/youtube/api-client'
 import { youtubeTranscriptApi } from '../platforms/youtube/transcript-api'
 import { supadataApi } from '../platforms/youtube/supadata'
+
+// Validation schemas
+const TranscriptResultSchema = z.object({
+  text: z.string(),
+  source: z.enum([
+    TranscriptSource.SUPADATA,
+    TranscriptSource.YOUTUBE_TRANSCRIPT,
+    TranscriptSource.YOUTUBE_API
+  ]),
+  language: z.string().optional(),
+  duration: z.number().optional()
+})
 
 export class TranscriptProcessor {
  private static getSourceOrder(): TranscriptSource[] {
@@ -37,9 +50,15 @@ export class TranscriptProcessor {
    const attempts = sources.map(async (source) => {
      try {
        console.info(`Attempting to fetch transcript using ${source}`, { videoId })
-       const result = await this.fetchFromSource(source, videoId)
+       const rawResult = await this.fetchFromSource(source, videoId)
        
-       if (result?.text) {
+       if (rawResult?.text) {
+         // Validate the result
+         const result = TranscriptResultSchema.parse({
+           ...rawResult,
+           source // Ensure source is included
+         })
+         
          console.info(`Successfully fetched transcript via ${source}`, { 
            videoId,
            textLength: result.text.length 
@@ -48,11 +67,16 @@ export class TranscriptProcessor {
        }
        return null
      } catch (error) {
-       errors[source] = error as Error
-       console.error(`Failed to fetch transcript from ${source}`, {
-         videoId,
-         error: error instanceof Error ? error.message : String(error)
-       })
+       if (error instanceof z.ZodError) {
+         console.error(`Invalid transcript data from ${source}:`, error.errors)
+         errors[source] = new Error(`Invalid transcript format: ${error.message}`)
+       } else {
+         errors[source] = error as Error
+         console.error(`Failed to fetch transcript from ${source}`, {
+           videoId,
+           error: error instanceof Error ? error.message : String(error)
+         })
+       }
        return null
      }
    })

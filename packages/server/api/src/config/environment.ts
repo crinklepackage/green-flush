@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-const envSchema = z.object({
-  PORT: z.string().transform(Number).default('3001'),
+export const envSchema = z.object({
+  PORT: z.number().default(3001),
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_KEY: z.string(),
   REDIS_URL: z.string().url(),
@@ -10,13 +10,5 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production']).default('development')
 })
 
-export const validateEnv = () => {
-  try {
-    return envSchema.parse(process.env)
-  } catch (error) {
-    console.error('❌ Invalid environment variables:', error.errors)
-    process.exit(1)
-  }
-}
-
-export const env = validateEnv()
+// Parse and export environment
+export const env = envSchema.parse(process.env)

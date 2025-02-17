@@ -1,9 +1,11 @@
 import { Queue } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
-import { ProcessingStatus, PodcastJob } from '@wavenotes/shared'
+// import { ProcessingStatus, PodcastJob } from '@wavenotes/shared'
 import { YouTubeApiClient } from '../platforms/youtube/api-client'
 import { SpotifyApiClient } from '../platforms/spotify/api-client'
 import { env } from '../config/environment'
+import { DatabaseService } from '../services/database'
+import { QueueService } from '../services/queue'
 
 export class ApiService {
   private readonly supabase
@@ -11,7 +13,10 @@ export class ApiService {
   private readonly spotify: SpotifyApiClient
   private readonly podcastQueue: Queue
 
-  constructor() {
+  constructor(
+    private db: DatabaseService,
+    private queue: QueueService
+  ) {
     // Initialize clients
     this.supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY)
     this.youtube = new YouTubeApiClient(env.YOUTUBE_API_KEY)
@@ -98,5 +103,13 @@ export class ApiService {
 
   async close() {
     await this.podcastQueue.close()
+  }
+
+  async start(port: number) {
+    // Initialize Express app and start server
+  }
+
+  async shutdown() {
+    // Cleanup and close server
   }
 }

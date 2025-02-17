@@ -1,4 +1,27 @@
 // packages/server/worker/src/processors/summary.ts
+import { z } from 'zod'
+import { DatabaseService } from '../services/database'
+import { ClaudeClient } from '../services/claude'
+import { QueueService } from '../services/queue'
+import { ProcessingStatus } from '@wavenotes-new/shared/node'
+import Bull from 'bull'
+import { PodcastJob } from '../types/jobs'
+
+// Validation schemas
+const ProgressUpdateSchema = z.object({
+  status: z.enum([
+    ProcessingStatus.FETCHING_TRANSCRIPT,
+    ProcessingStatus.GENERATING_SUMMARY,
+    ProcessingStatus.COMPLETED,
+    ProcessingStatus.FAILED
+  ]),
+  progress: z.number().min(0).max(100),
+  content: z.string().optional(),
+  error_message: z.string().optional()
+})
+
+type ProgressUpdate = z.infer<typeof ProgressUpdateSchema>
+
 export class SummaryProcessor {
   constructor(
     private db: DatabaseService,
@@ -41,23 +64,30 @@ export class SummaryProcessor {
 
   private async updateProgress(
     summaryId: string, 
-    update: { 
-      status: ProcessingStatus
-      progress: number
-      content?: string
-    }
+    update: ProgressUpdate
   ): Promise<void> {
-    await this.db.updateSummary(summaryId, {
-      ...update,
-      updated_at: new Date()
-    })
+    try {
+      // Validate update data
+      const validatedUpdate = ProgressUpdateSchema.parse({
+        ...update,
+        updated_at: new Date()
+      })
+
+      await this.db.updateSummary(summaryId, validatedUpdate)
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error('Invalid progress update:', error.errors)
+        throw new Error(`Invalid progress update format: ${error.message}`)
+      }
+      throw error
+    }
   }
 
   private async handleError(summaryId: string, error: Error): Promise<void> {
-    await this.db.updateSummary(summaryId, {
+    await this.updateProgress(summaryId, {
       status: ProcessingStatus.FAILED,
-      error_message: error.message,
-      updated_at: new Date()
+      progress: 0,
+      error_message: error.message
     })
   }
 }

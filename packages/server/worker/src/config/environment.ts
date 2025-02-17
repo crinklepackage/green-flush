@@ -1,7 +1,7 @@
 // packages/server/worker/src/config/environment.ts
 import { z } from 'zod'
 
-const envSchema = z.object({
+export const envSchema = z.object({
   // Queue
   REDIS_URL: z.string().url(),
   
@@ -18,16 +18,10 @@ const envSchema = z.object({
   SUPABASE_SERVICE_KEY: z.string(),
   
   // Optional
-  NODE_ENV: z.enum(['development', 'production']).default('development')
+  NODE_ENV: z.enum(['development', 'production']).default('development'),
+  
+  // Anthropic
+  ANTHROPIC_API_KEY: z.string()
 })
 
-export const validateEnv = () => {
-  try {
-    return envSchema.parse(process.env)
-  } catch (error) {
-    console.error('❌ Invalid environment variables:', error.errors)
-    process.exit(1)
-  }
-}
-
-export const env = validateEnv()
+export const env = envSchema.parse(process.env)

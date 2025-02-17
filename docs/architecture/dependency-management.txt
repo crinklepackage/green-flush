@@ -1,0 +1,72 @@
+Dependency Management Strategy
+
+1. Workspace Structure
+Our monorepo uses Yarn workspaces:
+packages/
+├── client/        # Frontend package
+├── server/
+│   ├── api/      # API package
+│   └── worker/   # Worker package
+└── shared/       # Shared package
+
+2. Adding Dependencies
+
+CORRECT:
+# From root directory (preferred method)
+yarn workspace @o3/api add @supabase/supabase-js
+yarn workspace @o3/client add react-query
+yarn workspace @o3/worker add bullmq
+
+# Alternative: from package directory
+cd packages/server/api
+yarn add @supabase/supabase-js
+
+INCORRECT:
+❌ Running yarn install in individual packages
+❌ Installing shared dependencies in multiple packages
+❌ Installing service-specific deps in root package.json
+
+3. Dependency Principles
+
+a) Package Independence
+- Each package should manage its own dependencies
+- Dependencies should be declared where they're used
+- Avoid duplicate dependencies across packages
+
+b) Shared Dependencies
+- Common utilities go in shared package
+- Types used by multiple packages go in shared
+- Core libraries used everywhere should be in root
+
+c) Examples:
+CORRECT:
+- @supabase/supabase-js in api package (API-specific)
+- bullmq in worker package (Worker-specific)
+- typescript in root (used by all)
+- @types/node in root (used by all)
+
+INCORRECT:
+- @supabase/supabase-js in root (service-specific)
+- react in worker (frontend-only)
+- shared types in individual packages
+
+4. Installation and Updates
+
+Always run these commands from root:
+yarn install          # Install all dependencies
+yarn upgrade         # Update all dependencies
+yarn clean          # Clean all node_modules
+
+Never run in individual packages:
+❌ cd packages/api && yarn install
+❌ cd packages/worker && yarn upgrade
+
+5. Dependency Resolution
+- Yarn workspaces handles dependency hoisting
+- node_modules are primarily in root
+- Package-specific node_modules only contain unique deps
+
+6. Version Management
+- Lock files are managed at root level
+- Package versions are managed in individual package.json files
+- Shared dependencies should use same version across packages 
