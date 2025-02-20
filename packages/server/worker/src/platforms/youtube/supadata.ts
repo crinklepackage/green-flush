@@ -1,6 +1,6 @@
 // packages/server/worker/src/platforms/youtube/supadata.ts
 import { Supadata } from '@supadata/js'
-import { TranscriptSource, TranscriptResult } from '@wavenotes/shared'
+import { TranscriptSource, TranscriptResult } from '@wavenotes-new/shared'
 
 export class SupadataApi {
   private client: Supadata
@@ -24,8 +24,12 @@ export class SupadataApi {
         return null
       }
 
+      const transcriptText = typeof result.content === 'string'
+        ? result.content
+        : result.content.map((chunk: any) => chunk.text).join(' ');
       return {
-        text: result.content,
+        text: transcriptText,
+        available: transcriptText.trim().length > 0,
         source: TranscriptSource.SUPADATA
       }
     } catch (error) {

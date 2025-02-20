@@ -1,13 +1,19 @@
 // packages/server/worker/src/processors/transcript.ts
 import { z } from 'zod'
-import { TranscriptSource, TranscriptResult, TranscriptError } from '@wavenotes/shared'
+import { TranscriptSource, TranscriptResult, TranscriptError } from '@wavenotes-new/shared'
 import { youtubeApiClient } from '../platforms/youtube/api-client'
 import { youtubeTranscriptApi } from '../platforms/youtube/transcript-api'
 import { supadataApi } from '../platforms/youtube/supadata'
 
+// Add the following declaration at the top of the file (after the imports):
+declare var AggregateError: {
+  new(errors: Iterable<any>, message?: string): Error;
+  };
+
 // Validation schemas
 const TranscriptResultSchema = z.object({
   text: z.string(),
+  available: z.boolean(),
   source: z.enum([
     TranscriptSource.SUPADATA,
     TranscriptSource.YOUTUBE_TRANSCRIPT,
@@ -56,7 +62,8 @@ export class TranscriptProcessor {
          // Validate the result
          const result = TranscriptResultSchema.parse({
            ...rawResult,
-           source // Ensure source is included
+           available: rawResult.text.trim().length > 0,
+           source
          })
          
          console.info(`Successfully fetched transcript via ${source}`, { 

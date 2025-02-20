@@ -1,14 +1,14 @@
 import { WorkerService } from './services/worker-service'
-import { env } from './config/environment'
+import { config } from './config/environment'
 import { YouTubeApiClient } from './platforms/youtube/api-client'
 
 const startWorker = async () => {
   try {
     // Initialize YouTube client
     const youtube = new YouTubeApiClient(
-      env.YOUTUBE_OAUTH_CLIENT_ID,
-      env.YOUTUBE_OAUTH_CLIENT_SECRET,
-      env.YOUTUBE_OAUTH_REFRESH_TOKEN
+      config.YOUTUBE_OAUTH_CLIENT_ID,
+      config.YOUTUBE_OAUTH_CLIENT_SECRET,
+      config.YOUTUBE_OAUTH_REFRESH_TOKEN
     )
     await youtube.initialize()
     
@@ -21,7 +21,7 @@ const startWorker = async () => {
       process.exit(0)
     })
 
-    console.log(`Worker started in ${env.NODE_ENV} mode`)
+    console.log(`Worker started in ${config.NODE_ENV} mode`)
   } catch (error) {
     console.error('Failed to start worker:', error)
     process.exit(1)

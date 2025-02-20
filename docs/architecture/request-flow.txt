@@ -1,10 +1,10 @@
 # Request Flow Documentation
 
 ## Overview
-This document describes the complete flow of a podcast summary request, from initial URL submission to final summary delivery.
+This document describes the complete flow of a podcast summary request, updated to incorporate a modular approach to streaming summary results.
 
 ## High-Level Flow Diagram
-[Note: The following represents a sequence diagram. Consider visualizing with Mermaid or similar tool]
+[Note: The following represents a sequence diagram. Consider visualizing with Mermaid or a similar tool]
 
 Client -> API: Submit URL (POST /api/podcasts)
 API -> External Services: Fetch metadata
@@ -17,9 +17,8 @@ Worker -> Redis Queue: Dequeue job
 Worker -> Supabase: Update status (FETCHING_TRANSCRIPT)
 Worker -> External Services: Fetch transcript
 Worker -> Supabase: Update status (GENERATING_SUMMARY)
-Worker -> External Services: Generate summary (streaming)
-Worker -> Supabase: Update content (chunks)
-Worker -> Supabase: Update status (COMPLETED)
+Worker -> External Services: Generate summary in chunks
+Worker -> Supabase: Append summary chunks incrementally & Update status (COMPLETED)
 
 [Note: Real-time updates happen via Supabase subscriptions throughout the process]
 
@@ -50,6 +49,43 @@ Worker -> Supabase: Update status (COMPLETED)
    - Handles transcript acquisition
    - Manages summary generation
    - Updates record statuses
+
+3. Content Processor Service (ContentProcessorService) [New]
+   - **Phase 1: DB-Backed Streaming**
+     - Processes the job by fetching the transcript and generating the summary in chunks using a streaming API (e.g., Anthropic via Claude).
+     - As each summary chunk is generated, it is immediately appended to the summary record in the database.
+     - The summary status is updated step-by-step: IN_QUEUE → FETCHING_TRANSCRIPT → GENERATING_SUMMARY → COMPLETED (or FAILED on error).
+     - The UI subscribes to the summary record via Supabase realtime subscriptions so that chunks appear incrementally with minimal latency (roughly 300–500 ms per chunk).
+   
+   - **Phase 2: Direct Streaming via SSE (Future Enhancement)**
+     - Instead of (or in parallel with) writing chunks to the database, a dedicated SSE (or WebSocket) endpoint would be used to push chunks directly to the client.
+     - A delivery abstraction (e.g., a StreamDeliveryService interface) would allow swapping the DB-backed model with direct streaming with minimal changes to the core processing logic.
+     - This approach would minimize latency but requires robust connection management and client-side logic for reconnection.
+
+## Transition and Modularity Plan
+
+1. **Phase 1: Implement DB-Backed Streaming**
+   - Implement ContentProcessorService that wraps existing podcast processing (TranscriptProcessor, SummaryGeneratorService, etc.).
+   - On job processing, summary chunks are appended to the DB immediately, and the UI receives incremental updates via Supabase realtime subscriptions.
+
+2. **Phase 2: Adding Direct Streaming (SSE)**
+   - Abstract the summary delivery mechanism by defining a StreamDeliveryService interface.
+   - Implement an SSE-based service that pushes summary chunks directly to the client.
+   - Allow toggling or hybrid mode to compare performance and UX.
+
+## Environment and Configuration
+
+- **API Service Environment Variables:**
+  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, REDIS_URL, YOUTUBE_API_KEY, SPOTIFY_ACCESS_TOKEN
+
+- **Worker Service Environment Variables:**
+  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, REDIS_URL, YOUTUBE_OAUTH_CLIENT_ID, YOUTUBE_OAUTH_CLIENT_SECRET, YOUTUBE_OAUTH_REFRESH_TOKEN, ANTHROPIC_API_KEY
+
+- Redis connection is configured via Railway environment variables (REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, etc.).
+
+## Summary
+
+The new design aims to provide near real-time summary streaming via a modular approach. The initial implementation uses DB-backed streaming to deliver incremental updates to the UI, significantly reducing the perceived latency from the previous 10–30 seconds down to a few hundred milliseconds per chunk. Down the line, the delivery mechanism can be swapped for direct SSE-based streaming to push updates immediately over a persistent connection.
 
 ## Status Flow
 IN_QUEUE -> FETCHING_TRANSCRIPT -> GENERATING_SUMMARY -> COMPLETED

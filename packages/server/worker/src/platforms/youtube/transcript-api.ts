@@ -1,6 +1,6 @@
 // packages/server/worker/src/platforms/youtube/transcript-api.ts
 import { YoutubeTranscript } from 'youtube-transcript'
-import { TranscriptSource, TranscriptResult } from '@wavenotes/shared'
+import { TranscriptSource, TranscriptResult } from '@wavenotes-new/shared'
 
 export class YoutubeTranscriptApi {
  async getTranscript(videoId: string): Promise<TranscriptResult | null> {
@@ -20,8 +20,8 @@ export class YoutubeTranscriptApi {
 
      return {
        text,
-       source: TranscriptSource.YOUTUBE_TRANSCRIPT,
-       metadata: { segments }
+       available: text.trim().length > 0,
+       source: TranscriptSource.YOUTUBE_TRANSCRIPT
      }
    } catch (error) {
      console.error('youtube-transcript fetch failed:', {

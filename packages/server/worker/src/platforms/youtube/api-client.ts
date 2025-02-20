@@ -1,6 +1,6 @@
 // packages/server/worker/src/platforms/youtube/api-client.ts
 import { google } from 'googleapis'
-import { TranscriptSource, TranscriptResult } from '@wavenotes/shared'
+import { TranscriptSource, TranscriptResult } from '@wavenotes-new/shared'
 
 export class YouTubeApiClient {
   private oauth2Client: any = null
@@ -78,6 +78,7 @@ export class YouTubeApiClient {
 
       return {
         text,
+        available: text.trim().length > 0,
         source: TranscriptSource.YOUTUBE_API
       }
     } catch (error) {
@@ -103,4 +104,8 @@ export class YouTubeApiClient {
   }
 }
 
-export const youtubeApiClient = new YouTubeApiClient()
+export const youtubeApiClient = new YouTubeApiClient(
+  process.env.YOUTUBE_OAUTH_CLIENT_ID!,
+  process.env.YOUTUBE_OAUTH_CLIENT_SECRET!,
+  process.env.YOUTUBE_OAUTH_REFRESH_TOKEN!
+);

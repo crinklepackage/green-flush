@@ -17,7 +17,11 @@ export { Database, SummaryRecord, VideoMetadata, RPCPodcastResponse } from './se
 
 // Re-export DatabaseError from errors folder using its index
 export { DatabaseError } from './server/errors';
+export { ValidationError } from './server/errors/errors';
 
 export * as types from './server/types';
 export * as schemas from './server/schemas';
 export * as errors from './server/errors';
+
+// Re-export transcript types
+export * from './server/types/transcript';
