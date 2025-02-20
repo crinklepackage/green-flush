@@ -1,0 +1,103 @@
+Here's my mindset for organizing shared types in a monorepo:
+
+Core Principles
+
+Browser code should NEVER have runtime dependencies
+Node code can have validation/runtime checks
+Anything truly shared must be pure TypeScript
+Organize by purpose, not by file type
+
+
+Decision Tree for Every Type/Interface
+CopyIs it used in browser?
+├── Yes: Does it need runtime validation?
+│   ├── Yes: Split into browser/types and node/schemas
+│   └── No: Put in common/
+└── No: Does it have node-specific dependencies?
+    ├── Yes: Put in node/types
+    └── No: Consider if it belongs in common/
+
+Directory Organization Mindset
+
+Group by domain first (entities, jobs, requests)
+Then by environment (browser vs node)
+Then by purpose (types vs schemas)
+Create subdirectories when a concept has multiple related files
+Keep parallel structure between browser/node when possible
+
+
+Common Patterns to Watch For
+
+Database types usually belong in node/
+Platform API types belong in node/
+UI state types belong in browser/
+Pure type utilities can go in common/
+Status enums often need both browser/node versions
+
+
+Red Flags
+
+Duplicate type definitions
+Types mixing runtime and compile-time concerns
+Large files that could be split by domain
+Browser code importing from node/
+Circular dependencies between directories
+
+Mirroring:
+The one-to-one mirroring applies only where functionality overlaps, but there's no need to force a match if the logic doesn’t exist in both environments.
+
+Key Principles:
+If a concept exists in both browser and server, mirror the structure so it's easy to find corresponding logic.
+If something is environment-specific, don't create an empty or unnecessary counterpart just for symmetry.
+
+
+Example: 
+Let's organize these properly:
+
+Platform Metadata (metadata.ts):
+
+plaintextCopy/shared/src/node/types/platforms/metadata.ts
+Should contain:
+
+VideoMetadata
+Platform-specific interfaces
+
+
+Database Types (database.ts):
+
+plaintextCopy/shared/src/node/types/database/index.ts
+Should split into:
+plaintextCopy/shared/src/node/types/database/
+├── index.ts          # Exports everything
+├── records.ts        # PodcastRecord, SummaryRecord
+├── rpc.ts           # RPCPodcastResponse, RPC types
+└── supabase.ts      # Database interface, Json type
+Reasoning:
+
+Platform Metadata
+
+Goes in node/types/platforms because it's:
+
+Used by platform services
+Server-side only
+Related to external APIs
+
+
+
+
+Database Types
+
+Goes in node/types/database because it's:
+
+Supabase specific
+Server-side only
+Complex enough to warrant its own directory
+
+
+
+
+Current Duplication
+
+Json type is defined twice
+PodcastRecord is in both files
+Database interface contains everything

@@ -1,30 +1,52 @@
 import { Queue } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
-// import { ProcessingStatus, PodcastJob } from '@wavenotes/shared'
-import { YouTubeApiClient } from '../platforms/youtube/api-client'
-import { SpotifyApiClient } from '../platforms/spotify/api-client'
-import { env } from '../config/environment'
-import { DatabaseService } from '../services/database'
+import { ProcessingStatus } from '@wavenotes-new/shared'
+import { PodcastJob } from '@wavenotes-new/shared';
+import { YouTubeService } from '../platforms/youtube/service'
+import { SpotifyService } from '../platforms/spotify/service'
+import { config } from '../config/environment'
+import { DatabaseService } from '../lib/database'
 import { QueueService } from '../services/queue'
+import express from 'express'
+
+interface PlatformMetadata {
+  title: string
+  show?: string  // Optional for YouTube
+  channel?: string  // Optional for Spotify
+  thumbnailUrl: string | null
+  duration: number | null
+}
+
+interface SpotifyMetadata extends PlatformMetadata {
+  show: string  // Required for Spotify
+}
+
+interface VideoMetadata extends PlatformMetadata {
+  // Additional properties for YouTube
+}
 
 export class ApiService {
   private readonly supabase
-  private readonly youtube: YouTubeApiClient
-  private readonly spotify: SpotifyApiClient
+  private readonly youtube: YouTubeService
+  private readonly spotify: SpotifyService
   private readonly podcastQueue: Queue
+  private server: any
 
   constructor(
     private db: DatabaseService,
     private queue: QueueService
   ) {
     // Initialize clients
-    this.supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY)
-    this.youtube = new YouTubeApiClient(env.YOUTUBE_API_KEY)
-    this.spotify = new SpotifyApiClient(env.SPOTIFY_ACCESS_TOKEN)
+    this.supabase = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY)
+    this.youtube = new YouTubeService(config.YOUTUBE_API_KEY)
+    this.spotify = new SpotifyService({
+      clientId: config.SPOTIFY_CLIENT_ID,
+      clientSecret: config.SPOTIFY_CLIENT_SECRET
+    })
     
     // Initialize queue
     this.podcastQueue = new Queue('podcast', {
-      connection: { url: env.REDIS_URL }
+      connection: { url: config.REDIS_URL }
     })
   }
 
@@ -53,7 +75,7 @@ export class ApiService {
           platform: type,
           youtube_url: type === 'youtube' ? url : null,
           title: metadata.title,
-          show_name: metadata.show || metadata.channel,
+          show_name: this.getShowName(metadata),
           created_by: userId,
           has_transcript: false,
           transcript: null,
@@ -105,11 +127,29 @@ export class ApiService {
     await this.podcastQueue.close()
   }
 
-  async start(port: number) {
-    // Initialize Express app and start server
+  async start(port: number, router: express.Router) {
+    const app = express()
+    app.use(router)
+    this.server = app.listen(port, () => {
+      console.log(`API listening on port ${port}`)
+    })
   }
 
   async shutdown() {
-    // Cleanup and close server
+    if (this.server) {
+      await new Promise((resolve, reject) => {
+        this.server.close((err: any) => (err ? reject(err) : resolve(true)))
+      })
+    }
+  }
+
+  private getShowName(metadata: PlatformMetadata): string {
+    if ('show' in metadata && metadata.show) {
+      return metadata.show
+    }
+    if (metadata.channel) {
+      return metadata.channel
+    }
+    return 'Unknown Show'  // Fallback value
   }
 }

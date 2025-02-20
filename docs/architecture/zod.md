@@ -79,7 +79,7 @@ import { z } from 'zod'
 export const envSchema = z.object({
   PORT: z.number().default(3001),
   SUPABASE_URL: z.string().url(),
-  SUPABASE_SERVICE_KEY: z.string(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string(),
   REDIS_URL: z.string().url()
 })
 
@@ -98,7 +98,7 @@ export const envSchema = z.object({
   REDIS_URL: z.string().url(),
   CLAUDE_API_KEY: z.string(),
   SUPABASE_URL: z.string().url(),
-  SUPABASE_SERVICE_KEY: z.string(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string(),
   NODE_ENV: z.enum(['development', 'production']).default('development')
 })
 

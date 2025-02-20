@@ -28,7 +28,7 @@ typescript
 const envSchema = z.object({
 // Shared
 SUPABASE_URL: z.string().url(),
-SUPABASE_SERVICE_KEY: z.string(),
+SUPABASE_SERVICE_ROLE_KEY: z.string(),
 REDIS_URL: z.string().url(),
 NODE_ENV: z.enum(['development', 'production']).default('development'),
 // Service-specific vars...

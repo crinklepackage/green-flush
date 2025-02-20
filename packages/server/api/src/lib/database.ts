@@ -3,16 +3,50 @@ import { SupabaseClient } from '@supabase/supabase-js'
 import { 
   Database,
   PodcastRecord, 
-  SummaryRecord, 
-  DatabaseError,
+  SummaryRecord as Summary, 
   VideoMetadata,
-  RPCPodcastResponse
-} from '@wavenotes/shared'
+  RPCPodcastResponse,
+  ProcessingStatus,
+  SummaryRecord,
+} from '@wavenotes-new/shared'
+import { DatabaseError } from '@wavenotes-new/shared'
 import { supabase } from './supabase'
+
+export interface DatabaseService {
+  getSummary(id: string): Promise<Summary>
+  updateStatus(id: string, status: ProcessingStatus): Promise<void>
+  createPodcast(data: {
+    url: string
+    platform: 'youtube' | 'spotify'
+    status: ProcessingStatus
+  }): Promise<PodcastRecord>
+  createPodcastWithSummary(
+    podcast: VideoMetadata & { 
+      url: string
+      platform: 'youtube' | 'spotify'
+      youtube_url?: string 
+    },
+    summaryId: string,
+    userId: string
+  ): Promise<RPCPodcastResponse>
+  getSummaryWithPodcast(summaryId: string): Promise<{
+    summary: SummaryRecord
+    podcast: PodcastRecord
+  }>
+  updateSummaryStatus(
+    summaryId: string,
+    status: string,
+    error?: string
+  ): Promise<void>
+  createSummary(data: {
+    podcastId: string
+    status: ProcessingStatus
+  }): Promise<SummaryRecord>
+}
 
 export class DatabaseService {
     constructor(
-      private supabase: SupabaseClient<Database> = supabase
+      private supabase: SupabaseClient<Database>
     ) {}
 
     async createPodcastWithSummary(
@@ -112,6 +146,55 @@ export class DatabaseService {
           { summaryId, status, error }
         )
       }
+    }
+
+    async createPodcast(data: {
+      url: string
+      platform: 'youtube' | 'spotify'
+      status: ProcessingStatus
+    }): Promise<PodcastRecord> {
+      const { data: podcast, error } = await this.supabase
+        .from('podcasts')
+        .insert(data)
+        .select()
+        .single()
+
+      if (error) {
+        throw new DatabaseError(
+          'Failed to create podcast',
+          error.code,
+          'createPodcast',
+          { data }
+        )
+      }
+
+      return podcast
+    }
+
+    async createSummary(data: {
+      podcastId: string
+      status: ProcessingStatus
+    }): Promise<SummaryRecord> {
+      const { data: summary, error } = await this.supabase
+        .from('summaries')
+        .insert({
+          podcast_id: data.podcastId,
+          status: data.status,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (error) {
+        throw new DatabaseError(
+          'Failed to create summary',
+          error.code,
+          'createSummary',
+          { data }
+        )
+      }
+      return summary
     }
 }
 

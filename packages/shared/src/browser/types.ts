@@ -1,3 +1,4 @@
+// packages/shared/src/browser/types.ts
 // Re-export types for browser use
 export type Podcast = {
   id: string

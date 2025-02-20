@@ -15,7 +15,7 @@ export const envSchema = z.object({
   
   // Supabase
   SUPABASE_URL: z.string().url(),
-  SUPABASE_SERVICE_KEY: z.string(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string(),
   
   // Optional
   NODE_ENV: z.enum(['development', 'production']).default('development'),
@@ -24,4 +24,14 @@ export const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string()
 })
 
-export const env = envSchema.parse(process.env)
+export const config = {
+  REDIS_URL: process.env.REDIS_URL!,
+  YOUTUBE_OAUTH_CLIENT_ID: process.env.YOUTUBE_OAUTH_CLIENT_ID!,
+  YOUTUBE_OAUTH_CLIENT_SECRET: process.env.YOUTUBE_OAUTH_CLIENT_SECRET!,
+  YOUTUBE_OAUTH_REFRESH_TOKEN: process.env.YOUTUBE_OAUTH_REFRESH_TOKEN!,
+  CLAUDE_API_KEY: process.env.CLAUDE_API_KEY!,
+  SUPABASE_URL: process.env.SUPABASE_URL!,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  NODE_ENV: process.env.NODE_ENV as 'development' | 'production',
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY!
+}

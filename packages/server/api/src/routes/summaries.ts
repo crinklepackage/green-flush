@@ -1,6 +1,9 @@
 // packages/server/api/src/routes/summaries.ts
-import { Router } from 'express'
+import { Router, Request, Response } from 'express'
 import { SummaryService } from '../services/summary'
+import { mapStatusToClient } from '@wavenotes-new/shared/browser/types/status'
+import { DatabaseService } from '../lib/database'
+import { config } from '../config/environment'
 
 const router = Router()
 
@@ -14,7 +17,8 @@ router.get('/:id/stream', async (req, res) => {
 
   try {
     // Get summary generator
-    const generator = await SummaryService.generateSummaryStream(id)
+    const summaryService = new SummaryService(config.ANTHROPIC_API_KEY)
+    const generator = await summaryService.generateSummaryStream(id)
 
     // Stream chunks to client
     for await (const chunk of generator) {
@@ -29,5 +33,21 @@ router.get('/:id/stream', async (req, res) => {
     res.end()
   }
 })
+
+// Inject db service
+export const createSummariesRouter = (db: DatabaseService) => {
+  const router = Router()
+
+  router.get('/summaries/:id', async (req: Request, res: Response) => {
+    const summary = await db.getSummary(req.params.id)
+    
+    res.json({
+      ...summary,
+      status: mapStatusToClient(summary.status)
+    })
+  })
+
+  return router
+}
 
 export default router

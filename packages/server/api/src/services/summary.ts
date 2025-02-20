@@ -1,20 +1,32 @@
 // packages/server/api/src/services/summary.ts
+import { Anthropic } from '@anthropic-ai/sdk'
+import { supabase } from '../lib/supabase'
+
 export class SummaryService {
-    static async *generateSummaryStream(summaryId: string) {
-      const claude = new Anthropic() // Your Claude client
+    private claude: Anthropic
+
+    constructor(private apiKey: string) {
+        this.claude = new Anthropic({ apiKey })
+    }
+
+    async *generateSummaryStream(summaryId: string) {
       let accumulatedText = ''
   
       try {
         // Start Claude streaming
-        const stream = await claude.messages.create({
+        const stream = await this.claude.messages.create({
+          model: 'claude-3-sonnet-20241022',
           max_tokens: 4096,
           messages: [{ role: 'user', content: 'Your podcast summary prompt' }],
-          stream: true
+          stream: true,
+          system: 'You are an expert podcast summarizer...'
         })
   
         // Stream and save chunks simultaneously
         for await (const chunk of stream) {
-          if (chunk.type === 'content_block_delta' && chunk.delta.text) {
+          if (chunk.type === 'content_block_delta' && 
+              chunk.delta.type === 'text_delta' && 
+              'text' in chunk.delta) {
             const newText = chunk.delta.text
             accumulatedText += newText
   
@@ -46,4 +58,4 @@ export class SummaryService {
         throw error
       }
     }
-  }
+}

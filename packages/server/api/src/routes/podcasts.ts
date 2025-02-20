@@ -10,9 +10,11 @@
 import express, { Router } from 'express';
 import { z } from 'zod';
 import { validateRequest } from '../middleware/validate';
-import { PodcastSchema, ProcessingStatus } from '@wavenotes-new/shared/node';
-import { DatabaseService } from '../services/database';
+import { PodcastSchema, ProcessingStatus } from '@wavenotes-new/shared';
+import { DatabaseService } from '../lib/database';
 import { QueueService } from '../services/queue';
+import { PodcastRecord } from '@wavenotes-new/shared/src/server/types/entities/podcast'
+import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 
@@ -22,12 +24,6 @@ const router = Router();
   - GET /summaries: Retrieve summaries for the dashboard.
   - GET /summary/:id: Retrieve single summary details.
 */
-
-// Request schema
-const createPodcastRequestSchema = z.object({
-  url: z.string().url(),
-  summaryId: z.string().uuid()
-});
 
 // POST /summary
 router.post('/summary', async (req, res) => {
@@ -55,23 +51,27 @@ router.get('/summary/:id', async (req, res) => {
 // POST /api/podcasts
 export function podcastRoutes(db: DatabaseService, queue: QueueService) {
   router.post('/podcasts',
-    validateRequest(createPodcastRequestSchema),
+    authMiddleware,
+    validateRequest(PodcastSchema),
     async (req, res, next) => {
       try {
         const { url, summaryId } = req.body;
         
         // 1. Create podcast record
-        const podcast = await db.createPodcast({
+        const rawPodcast = await db.createPodcast({
           url,
           platform: url.includes('youtube.com') ? 'youtube' : 'spotify',
           status: ProcessingStatus.IN_QUEUE
         });
+        const podcast = { ...rawPodcast, status: ProcessingStatus.IN_QUEUE } as PodcastRecord;
 
         // 2. Enqueue processing job
         await queue.add('PROCESS_PODCAST', {
           podcastId: podcast.id,
           summaryId,
-          url
+          url,
+          type: url.includes('youtube.com') ? 'youtube' : 'spotify',
+          userId: req.user.id
         });
         
         res.status(201).json({ 

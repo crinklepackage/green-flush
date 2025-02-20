@@ -9,6 +9,6 @@ export type YouTubeURLFormat =
 export interface VideoMetadata {
   title: string
   channel: string
-  thumbnailUrl: string
-  duration: number
+  thumbnailUrl: string | null
+  duration: number | null
 }

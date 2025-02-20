@@ -1,4 +1,4 @@
-import { WorkerService } from './services/worker.service'
+import { WorkerService } from './services/worker-service'
 import { env } from './config/environment'
 import { YouTubeApiClient } from './platforms/youtube/api-client'
 

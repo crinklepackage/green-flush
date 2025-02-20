@@ -13,9 +13,9 @@ packages/
 
 CORRECT:
 # From root directory (preferred method)
-yarn workspace @o3/api add @supabase/supabase-js
-yarn workspace @o3/client add react-query
-yarn workspace @o3/worker add bullmq
+yarn workspace @wavenotes-new/api add @supabase/supabase-js
+yarn workspace @wavenotes-new/client add react-query
+yarn workspace @wavenotes-new/worker add bullmq
 
 # Alternative: from package directory
 cd packages/server/api
@@ -50,7 +50,33 @@ INCORRECT:
 - react in worker (frontend-only)
 - shared types in individual packages
 
-4. Installation and Updates
+4. TypeScript Configuration Strategy
+
+We use a centralized TypeScript configuration approach:
+
+a) Root Configuration (tsconfig.json)
+- Contains shared compiler options
+- Sets project-wide standards
+- Includes common settings like:
+  - target: ES2020
+  - strict: true
+  - skipLibCheck: true
+  - etc.
+
+b) Service-Specific Configurations
+- Extend from root using "extends": "../../tsconfig.json"
+- Override only what's necessary
+- Add service-specific settings
+
+WHY THIS APPROACH:
+- Maintains consistency across packages
+- Reduces configuration duplication
+- Easier to make project-wide changes
+- Better for solo development
+- Simpler AI collaboration
+- More maintainable for single-product focus
+
+5. Installation and Updates
 
 Always run these commands from root:
 yarn install          # Install all dependencies
@@ -61,12 +87,12 @@ Never run in individual packages:
 ❌ cd packages/api && yarn install
 ❌ cd packages/worker && yarn upgrade
 
-5. Dependency Resolution
+6. Dependency Resolution
 - Yarn workspaces handles dependency hoisting
 - node_modules are primarily in root
 - Package-specific node_modules only contain unique deps
 
-6. Version Management
+7. Version Management
 - Lock files are managed at root level
 - Package versions are managed in individual package.json files
 - Shared dependencies should use same version across packages 

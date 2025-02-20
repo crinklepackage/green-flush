@@ -1,16 +1,20 @@
-import { validateEnv } from './config/environment'
+// packages/server/api/src/index.ts
+import { config } from './config/environment'
 import { ApiService } from './services/api-service'
-import { DatabaseService } from './services/database'
+import { DatabaseService } from './lib/database'
 import { QueueService } from './services/queue'
+import { podcastRoutes } from './routes/podcasts'
+import { supabase } from './lib/supabase';
+export const db = new DatabaseService(supabase)
+
 
 async function main() {
-  const env = validateEnv()
-  
-  const db = new DatabaseService(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY)
-  const queue = new QueueService(env.REDIS_URL)
+  const db = new DatabaseService(supabase)
+  const queue = new QueueService(config.REDIS_URL)
   const api = new ApiService(db, queue)
+  const router = podcastRoutes(db, queue)
 
-  await api.start(Number(env.PORT))
+  await api.start(Number(config.PORT), router)
 
   process.on('SIGTERM', async () => {
     await api.shutdown()
