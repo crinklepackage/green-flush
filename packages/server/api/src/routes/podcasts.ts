@@ -51,14 +51,18 @@ export function podcastRoutes(db: DatabaseService, queue: QueueService) {
         }
         // Determine platform type based on URL (simplistic check)
         const type = url.includes('youtube.com') ? 'youtube' : 'spotify';
-        // Use a dummy user id for now
-        const userId = 'test-user';
+        // Use the provided dummy user id for testing
+        const userId = '5193a17f-5c16-4f87-af94-932ce9b47c03';
 
         // Create podcast record in the database
         const podcast = await db.createPodcast({
           url,
           platform: type,
-          status: ProcessingStatus.IN_QUEUE
+          title: 'Dummy Title', // Ideally, metadata fetched later
+          show_name: 'Dummy Show',
+          thumbnail_url: null,
+          duration: null,
+          created_by: userId
         });
 
         // Create summary record in the database

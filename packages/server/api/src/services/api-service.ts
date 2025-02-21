@@ -74,14 +74,14 @@ export class ApiService {
         .insert({
           url,
           platform: type,
-          youtube_url: type === 'youtube' ? url : null,
           title: metadata.title,
           show_name: this.getShowName(metadata),
+          thumbnail_url: metadata.thumbnailUrl,
+          duration: metadata.duration,
           created_by: userId,
           has_transcript: false,
           transcript: null,
-          thumbnail_url: metadata.thumbnailUrl,
-          duration: metadata.duration
+          youtube_url: type === 'youtube' ? url : null
         })
         .select()
         .single()
@@ -95,8 +95,7 @@ export class ApiService {
         .from('summaries')
         .insert({
           podcast_id: podcast.data.id,
-          status: ProcessingStatus.IN_QUEUE,
-          created_by: userId
+          status: ProcessingStatus.IN_QUEUE
         })
         .select()
         .single()
@@ -133,6 +132,13 @@ export class ApiService {
     app.use(cors())
     app.use(express.json())
     app.use(router)
+
+    // Global error handler to return JSON error responses
+    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+      console.error('API error:', err)
+      res.status(500).json({ message: err.message || 'Internal Server Error' })
+    })
+
     this.server = app.listen(port, () => {
       console.log(`API listening on port ${port}`)
     })

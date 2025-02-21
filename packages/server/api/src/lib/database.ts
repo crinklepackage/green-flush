@@ -18,7 +18,14 @@ export interface DatabaseService {
   createPodcast(data: {
     url: string
     platform: 'youtube' | 'spotify'
-    status: ProcessingStatus
+    title: string
+    show_name: string
+    thumbnail_url: string | null
+    duration: number | null
+    created_by: string
+    has_transcript?: boolean
+    transcript?: string | null
+    youtube_url?: string | null
   }): Promise<PodcastRecord>
   createPodcastWithSummary(
     podcast: VideoMetadata & { 
@@ -149,26 +156,39 @@ export class DatabaseService {
     }
 
     async createPodcast(data: {
-      url: string
-      platform: 'youtube' | 'spotify'
-      status: ProcessingStatus
+      url: string,
+      platform: 'youtube' | 'spotify',
+      title: string,
+      show_name: string,
+      thumbnail_url: string | null,
+      duration: number | null,
+      created_by: string,
+      has_transcript?: boolean,
+      transcript?: string | null,
+      youtube_url?: string | null
     }): Promise<PodcastRecord> {
+      const insertData = {
+        ...data,
+        has_transcript: data.has_transcript ?? false,
+        transcript: data.transcript ?? null
+      };
       const { data: podcast, error } = await this.supabase
         .from('podcasts')
-        .insert(data)
+        .insert(insertData)
         .select()
-        .single()
+        .single();
 
       if (error) {
+        console.error('Supabase error in createPodcast:', error);
         throw new DatabaseError(
           'Failed to create podcast',
           error.code,
           'createPodcast',
-          { data }
-        )
+          { data: insertData }
+        );
       }
 
-      return podcast
+      return podcast;
     }
 
     async createSummary(data: {
