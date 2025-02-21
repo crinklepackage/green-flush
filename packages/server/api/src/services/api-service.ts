@@ -8,6 +8,7 @@ import { config } from '../config/environment'
 import { DatabaseService } from '../lib/database'
 import { QueueService } from '../services/queue'
 import express from 'express'
+import cors from 'cors'
 
 interface PlatformMetadata {
   title: string
@@ -129,6 +130,8 @@ export class ApiService {
 
   async start(port: number, router: express.Router) {
     const app = express()
+    app.use(cors())
+    app.use(express.json())
     app.use(router)
     this.server = app.listen(port, () => {
       console.log(`API listening on port ${port}`)

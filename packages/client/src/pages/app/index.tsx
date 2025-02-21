@@ -10,15 +10,51 @@
 
 
 import { useState } from 'react'
-//import { ProcessingStatus } from '@wavenotes/shared'
+import { useRouter } from 'next/router'
+import { ProcessingStatus } from '@wavenotes-new/shared'
 
 export default function AppDashboard() {
   const [url, setUrl] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   // URL submission handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: API call to submit URL
+    setError(null)
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/podcasts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // TODO: Get auth token from Supabase session
+          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
+        },
+        body: JSON.stringify({ url })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to submit podcast')
+      }
+
+      const data = await response.json()
+      console.log('Podcast submitted successfully:', data)
+      
+      // Clear the form
+      setUrl('')
+
+      // Navigate to the summary details page using the returned dummy ID
+      router.push(`/summary/${data.id}`)
+    } catch (err) {
+      console.error('Failed to submit podcast:', err)
+      setError(err instanceof Error ? err.message : 'Failed to submit podcast')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -49,14 +85,19 @@ export default function AppDashboard() {
                 onChange={(e) => setUrl(e.target.value)}
                 className="flex-1 block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 placeholder="Paste a Spotify or YouTube URL"
+                disabled={isSubmitting}
               />
               <button
                 type="submit"
-                className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+                disabled={isSubmitting || !url}
               >
-                Summarize
+                {isSubmitting ? 'Submitting...' : 'Summarize'}
               </button>
             </div>
+            {error && (
+              <p className="mt-2 text-sm text-red-600">{error}</p>
+            )}
           </div>
         </form>
 

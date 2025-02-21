@@ -825,6 +825,16 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
+    ["@types/cors", [\
+      ["npm:2.8.17", {\
+        "packageLocation": "../../.yarn/berry/cache/@types-cors-npm-2.8.17-2556d16051-10c0.zip/node_modules/@types/cors/",\
+        "packageDependencies": [\
+          ["@types/cors", "npm:2.8.17"],\
+          ["@types/node", "npm:22.13.2"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
     ["@types/emscripten", [\
       ["npm:1.40.0", {\
         "packageLocation": "../../.yarn/berry/cache/@types-emscripten-npm-1.40.0-8fced77d84-10c0.zip/node_modules/@types/emscripten/",\
@@ -1115,12 +1125,14 @@ const RAW_RUNTIME_STATE =
           ["@wavenotes-new/api", "workspace:packages/server/api"],\
           ["@anthropic-ai/sdk", "npm:0.36.3"],\
           ["@supabase/supabase-js", "npm:2.48.1"],\
+          ["@types/cors", "npm:2.8.17"],\
           ["@types/express", "npm:4.17.21"],\
           ["@types/node", "npm:22.13.4"],\
           ["@types/spotify-web-api-node", "npm:5.0.11"],\
           ["@wavenotes-new/shared", "workspace:packages/shared"],\
           ["axios", "npm:1.7.9"],\
           ["bullmq", "npm:5.40.4"],\
+          ["cors", "npm:2.8.5"],\
           ["dotenv", "npm:16.4.7"],\
           ["express", "npm:4.21.2"],\
           ["googleapis", "npm:144.0.0"],\
@@ -1174,6 +1186,8 @@ const RAW_RUNTIME_STATE =
           ["@types/winston", "npm:2.4.4"],\
           ["@wavenotes-new/shared", "workspace:packages/shared"],\
           ["bull", "npm:4.16.5"],\
+          ["bullmq", "npm:5.41.3"],\
+          ["dotenv", "npm:16.4.7"],\
           ["googleapis", "npm:131.0.0"],\
           ["ts-node-dev", "virtual:53efac00ea51c17eb44891c2f0291d73dcfceee9cdcd9833b1cdcd6ae3d1a469fc704a0c4ab9f82929294a1fb108fcf4bc4cae82cb359d5eb0232870ad35365a#npm:2.0.0"],\
           ["typescript", "patch:typescript@npm%3A5.7.3#optional!builtin<compat/typescript>::version=5.7.3&hash=5786d5"],\
@@ -1622,6 +1636,20 @@ const RAW_RUNTIME_STATE =
           ["uuid", "npm:9.0.1"]\
         ],\
         "linkType": "HARD"\
+      }],\
+      ["npm:5.41.3", {\
+        "packageLocation": "../../.yarn/berry/cache/bullmq-npm-5.41.3-ea99bc8fe7-10c0.zip/node_modules/bullmq/",\
+        "packageDependencies": [\
+          ["bullmq", "npm:5.41.3"],\
+          ["cron-parser", "npm:4.9.0"],\
+          ["ioredis", "npm:5.5.0"],\
+          ["msgpackr", "npm:1.11.2"],\
+          ["node-abort-controller", "npm:3.1.1"],\
+          ["semver", "npm:7.7.1"],\
+          ["tslib", "npm:2.8.1"],\
+          ["uuid", "npm:9.0.1"]\
+        ],\
+        "linkType": "HARD"\
       }]\
     ]],\
     ["busboy", [\
@@ -1977,6 +2005,17 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "../../.yarn/berry/cache/cookiejar-npm-2.1.4-e418c49b9e-10c0.zip/node_modules/cookiejar/",\
         "packageDependencies": [\
           ["cookiejar", "npm:2.1.4"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["cors", [\
+      ["npm:2.8.5", {\
+        "packageLocation": "../../.yarn/berry/cache/cors-npm-2.8.5-c9935a2d12-10c0.zip/node_modules/cors/",\
+        "packageDependencies": [\
+          ["cors", "npm:2.8.5"],\
+          ["object-assign", "npm:4.1.1"],\
+          ["vary", "npm:1.1.2"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -3821,6 +3860,15 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "../../.yarn/berry/cache/normalize-url-npm-6.1.0-b95bc12ece-10c0.zip/node_modules/normalize-url/",\
         "packageDependencies": [\
           ["normalize-url", "npm:6.1.0"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["object-assign", [\
+      ["npm:4.1.1", {\
+        "packageLocation": "../../.yarn/berry/cache/object-assign-npm-4.1.1-1004ad6dec-10c0.zip/node_modules/object-assign/",\
+        "packageDependencies": [\
+          ["object-assign", "npm:4.1.1"]\
         ],\
         "linkType": "HARD"\
       }]\

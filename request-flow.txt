@@ -1,0 +1,37 @@
+/*
+Podcast Streaming Request Flow
+==============================
+
+Overview:
+The podcast processing implementation will follow a modular approach with a two-phase plan.
+
+Phase 1: DB-Backed Streaming
+-----------------------------
+1. The API POST /podcasts endpoint extracts the podcast URL and determines the platform type.
+2. A podcast record is created in the database with status IN_QUEUE.
+3. A corresponding summary record is created with status IN_QUEUE.
+4. A job is enqueued using BullMQ, passing the podcast and summary IDs along with the URL and type.
+5. The worker processes the job, generating summary chunks.
+6. Each summary chunk is appended to the summary record in the database.
+7. The client receives real-time updates via Supabase subscriptions, displaying streaming chunks as they arrive.
+
+Phase 2: Direct Streaming via SSE
+-----------------------------------
+1. Implement an SSE endpoint in the API to stream summary chunks directly to the client.
+2. Core processing logic remains unchanged; only the delivery mechanism is abstracted.
+3. After validating Phase 1, allow switching between DB-backed streaming and SSE.
+4. The SSE endpoint will offer lower latency direct streaming while ensuring data integrity.
+
+Transition and Future Improvements:
+-------------------------------------
+- Start with Phase 1 for its reliability, persistence, and ease of debugging in local development.
+- Transition to Phase 2 (SSE) to improve performance and user experience as needed.
+- Develop a ContentProcessorService that wraps the existing processing logic and abstracts the delivery mechanism, enabling a smooth switch between DB and SSE streaming.
+
+Required Environment Variables:
+----------------------------------
+- REDIS_HOST, REDIS_PORT, etc., for Redis connection in job queue processing.
+- Ensure all necessary Supabase-related variables are set for database real-time subscriptions.
+
+This plan aligns with our modular and scalable architecture principles, ensuring clear separation of concerns and flexible, incremental improvements.
+*/ 

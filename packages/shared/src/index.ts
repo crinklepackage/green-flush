@@ -25,3 +25,5 @@ export * as errors from './server/errors';
 
 // Re-export transcript types
 export * from './server/types/transcript';
+
+export * from './types/jobs';
