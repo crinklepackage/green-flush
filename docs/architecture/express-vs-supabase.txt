@@ -1,0 +1,5 @@
+# updated 23-02-2025
+
+
+
+• There are differences; for example, the old code uses Express routes and a dedicated streaming endpoint while our new version leverages Next.js and Supabase realtime channels.

@@ -4,7 +4,7 @@ import { validateRequest } from '../middleware/validate';
 import { PodcastSchema, ProcessingStatus, PodcastJob } from '@wavenotes-new/shared';
 import { DatabaseService } from '../lib/database';
 import { QueueService } from '../services/queue';
-// import { authMiddleware } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
 
 /*
   Purpose:
@@ -33,16 +33,19 @@ export function podcastRoutes(db: DatabaseService, queue: QueueService) {
   });
 
   // GET /summary/:id
-  router.get('/summary/:id', async (req, res) => {
-    // Retrieve a single summary's details
-    // (Insert your logic here)
-    res.send({ message: `Summary details for id: ${req.params.id}` });
+  router.get('/summary/:id', async (req, res, next) => {
+    try {
+      const result = await db.getSummaryWithPodcast(req.params.id);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
   });
 
   // POST /podcasts
   router.post('/podcasts',
-    // authMiddleware,  // Temporarily disabled for testing without auth
-    // validateRequest(PodcastSchema),  // Temporarily disabled validation for testing
+    authMiddleware,
+    // validateRequest(PodcastSchema),
     async (req, res, next) => {
       try {
         const { url } = req.body;
@@ -51,8 +54,8 @@ export function podcastRoutes(db: DatabaseService, queue: QueueService) {
         }
         // Determine platform type based on URL (simplistic check)
         const type = url.includes('youtube.com') ? 'youtube' : 'spotify';
-        // Use the provided dummy user id for testing
-        const userId = '5193a17f-5c16-4f87-af94-932ce9b47c03';
+        // Use authenticated user id from req.user
+        const userId = req.user.id;
 
         // Create podcast record in the database
         const podcast = await db.createPodcast({

@@ -1,7 +1,7 @@
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Summary } from '@wavenotes/shared'  // using shared types
+import type { SummaryRecord } from '@wavenotes-new/shared'  // using shared types
 
 const loadingMessages: Record<string, string> = {
   IN_QUEUE: 'Preparing to process your podcast...',
@@ -13,10 +13,13 @@ const loadingMessages: Record<string, string> = {
 export default function SummaryPage() {
   const router = useRouter()
   const { id } = router.query
-  const [summary, setSummary] = useState<Summary | null>(null)
+  const [summary, setSummary] = useState<SummaryRecord | null>(null)
 
   useEffect(() => {
     if (!id) return
+
+    // Normalize id parameter
+    const idString = typeof id === 'string' ? id : Array.isArray(id) ? id[0] : ''
 
     // Wrap async logic inside an async function
     const fetchSummary = async () => {
@@ -32,7 +35,7 @@ export default function SummaryPage() {
             thumbnail_url
           )
         `)
-        .eq('id', id)
+        .eq('id', idString)
         .single()
 
       if (error) {
@@ -46,27 +49,27 @@ export default function SummaryPage() {
     fetchSummary()
 
     const subscription = supabase
-      .channel(`summary:${id}`)
+      .channel(`summary:${idString}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'summaries',
-          filter: `id=eq.${id}`
+          filter: `id=eq.${idString}`
         },
         (payload) => {
           console.log('Received real-time update:', payload)
-          setSummary((current) => ({
-            ...current,
-            ...payload.new
-          }))
+          setSummary((current: SummaryRecord | null) => {
+            const newSummary = payload.new as SummaryRecord;
+            return current ? { ...current, ...newSummary } : newSummary;
+          })
         }
       )
       .subscribe()
 
     return () => {
-      subscription.unsubscribe()
+      subscription.unsubscribe().catch(err => console.error('Unsubscribe error:', err));
     }
   }, [id])
 

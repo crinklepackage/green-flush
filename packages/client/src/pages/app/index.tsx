@@ -9,15 +9,31 @@
 
 
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { ProcessingStatus } from '@wavenotes-new/shared'
+import { getSession, getUser } from '../../lib/supabase'
 
 export default function AppDashboard() {
   const [url, setUrl] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [user, setUser] = useState<any>(null)
+  const [accessToken, setAccessToken] = useState<string>('')
   const router = useRouter()
+
+  // Load user session on component mount
+  useEffect(() => {
+    const loadUser = async () => {
+      const session = await getSession()
+      if (session) {
+        setAccessToken(session.access_token)
+        const currentUser = await getUser()
+        setUser(currentUser)
+      }
+    }
+    loadUser()
+  }, [])
 
   // URL submission handler
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,15 +46,15 @@ export default function AppDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // TODO: Get auth token from Supabase session
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
+          // Use accessToken from Supabase session
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({ url })
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to submit podcast')
+        const errorResp = await response.json()
+        throw new Error(errorResp.message || 'Failed to submit podcast')
       }
 
       const data = await response.json()
@@ -48,7 +64,7 @@ export default function AppDashboard() {
       setUrl('')
 
       // Navigate to the summary details page using the returned dummy ID
-      router.push(`/summary/${data.id}`)
+      router.push(`/app/${data.id}`)
     } catch (err) {
       console.error('Failed to submit podcast:', err)
       setError(err instanceof Error ? err.message : 'Failed to submit podcast')
@@ -64,7 +80,10 @@ export default function AppDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <h1 className="text-xl font-bold text-gray-900">WaveNotes</h1>
-            {/* Auth section will go here */}
+            {/* Display welcome message if user is available */}
+            {user && (
+              <span className="text-sm text-gray-700">Welcome, {user.email}</span>
+            )}
           </div>
         </div>
       </header>
