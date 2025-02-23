@@ -1,8 +1,8 @@
 // packages/server/api/src/platforms/matcher.ts
-import { SpotifyMetadata, VideoMetadata } from '@wavenotes/shared'
+import { VideoMetadata } from '@wavenotes-new/shared'
 import { logger } from '../lib/logger'
 import { SpotifyService } from './spotify'
-//import { YouTubeService } from '../../worker/src/platforms/youtube'
+import { YouTubeService } from '../youtube/service'
 
 export class PlatformMatcher {
   static async findYouTubeMatch(spotifyUrl: string): Promise<string | null> {
@@ -43,32 +43,31 @@ export class PlatformMatcher {
   }
 
   private static async searchForPodcastEpisode(
-    spotifyMetadata: SpotifyMetadata
+    spotifyMetadata: VideoMetadata
   ): Promise<string | null> {
     const searchQuery = this.buildSearchQuery(spotifyMetadata)
-    const results = await YouTubeService.search(searchQuery)
+    const results: VideoMetadata[] = await YouTubeService.search(searchQuery)
 
     // Filter and score results
-    const scoredResults = results.map(video => ({
+    const scoredResults = results.map((video: VideoMetadata) => ({
       video,
       score: this.calculateMatchScore(video, spotifyMetadata)
     }))
 
     // Sort by score and get best match
-    const bestMatch = scoredResults
-      .sort((a, b) => b.score - a.score)
-      .find(result => result.score > 0.8)
+    const sortedResults = scoredResults.sort((a: { score: number }, b: { score: number }) => b.score - a.score)
+    const bestMatch = sortedResults.find((result: { score: number; video: { id: string } }) => result.score > 0.8)
 
     return bestMatch ? YouTubeService.buildUrl(bestMatch.video.id) : null
   }
 
-  private static buildSearchQuery(metadata: SpotifyMetadata): string {
+  private static buildSearchQuery(metadata: VideoMetadata): string {
     return `${metadata.title} ${metadata.showName} podcast`
   }
 
   private static calculateMatchScore(
     video: VideoMetadata, 
-    spotify: SpotifyMetadata
+    spotify: VideoMetadata
   ): number {
     let score = 0
 

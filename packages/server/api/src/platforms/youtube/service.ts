@@ -48,10 +48,13 @@ export class YouTubeService {
         }
 
         return {
+          id: videoId,
           title: video.snippet?.title || 'Unknown Title',
           channel: video.snippet?.channelTitle || 'Unknown Channel',
-          thumbnailUrl: video.snippet?.thumbnails?.high?.url || '',
-          duration: this.parseDuration(video.contentDetails?.duration || '')
+          showName: video.snippet?.channelTitle || 'Unknown Channel',
+          thumbnailUrl: video.snippet?.thumbnails?.high?.url || null,
+          duration: this.parseDuration(video.contentDetails?.duration || ''),
+          platform: 'youtube'
         }
       } catch (error) {
         if (error instanceof PlatformError) throw error
@@ -80,5 +83,18 @@ export class YouTubeService {
       const s = seconds ? parseInt(seconds) : 0
 
       return (h * 3600) + (m * 60) + s
+    }
+
+    // Static method to search for videos based on a query.
+    // This is a stub and should be implemented properly in the future.
+    static async search(query: string): Promise<(VideoMetadata & { id: string })[]> {
+      console.info(`YouTubeService.search called with query: ${query}`);
+      // Stub: return empty array or simulate a search result if needed.
+      return [];
+    }
+
+    // Static method to build a YouTube video URL from a video ID.
+    static buildUrl(videoId: string): string {
+      return `https://www.youtube.com/watch?v=${videoId}`;
     }
 }

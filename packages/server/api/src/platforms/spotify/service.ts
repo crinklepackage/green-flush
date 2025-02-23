@@ -1,4 +1,5 @@
 import SpotifyWebApi from 'spotify-web-api-node'
+import { VideoMetadata } from '@wavenotes-new/shared/src/server/types/metadata'
 
 interface SpotifyMetadata {
   title: string
@@ -42,5 +43,28 @@ export class SpotifyService {
       duration: Math.round(response.body.duration_ms / 1000),
       thumbnailUrl: response.body.images[0]?.url || null
     }
+  }
+
+  async getEpisodeInfo(url: string): Promise<VideoMetadata> {
+    const episodeId = this.getEpisodeId(url);
+    if (!episodeId) {
+      throw new Error('Invalid Spotify episode URL');
+    }
+
+    // Assume we fetch episode information from Spotify API
+    const episode = await this.getPodcastInfo(episodeId);
+    if (!episode) {
+      throw new Error(`Episode not found for id: ${episodeId}`);
+    }
+
+    return {
+      id: episodeId,
+      title: episode.title || 'Unknown Title',
+      channel: episode.show || 'Unknown Channel',
+      showName: episode.show || 'Unknown Show',
+      thumbnailUrl: episode.thumbnailUrl || null,
+      duration: episode.duration || null,
+      platform: 'spotify'
+    };
   }
 }

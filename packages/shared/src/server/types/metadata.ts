@@ -2,8 +2,10 @@ import { ProcessingStatus } from './status'
 import { PodcastRecord } from './entities/podcast'
 
 export interface VideoMetadata {
+  id: string
   title: string
   channel: string
+  showName: string
   thumbnailUrl: string | null
   duration: number | null
   platform: 'youtube' | 'spotify'
