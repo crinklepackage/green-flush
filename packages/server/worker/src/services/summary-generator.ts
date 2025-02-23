@@ -1,4 +1,4 @@
-import { Anthropic } from '@anthropic-ai/sdk';
+import Anthropic from '@anthropic-ai/sdk';
 
 // Simple logger for local development
 const logger = console;
@@ -8,62 +8,32 @@ export class SummaryGeneratorService {
     try {
       logger.info('Generating summary from transcript', { transcriptLength: transcript.length });
       
-      // Define messages array for the Messages API
+      // Merge system instruction and transcript into a single user message
+      const combinedMessage = `You are an expert podcast summarizer. Your task is to analyze and summarize the following podcast transcript in a clear, structured format. Please provide your response in markdown format with detailed sections.\n\nTranscript:\n${transcript}`;
+      
+      // Define messages array using only allowed roles ('user')
       const messages = [
-        {
-          role: 'system',
-          content: "You are an expert podcast summarizer. Your task is to analyze and summarize the following podcast transcript in a clear, structured format. Please provide your response in markdown format with detailed sections."
-        },
-        { role: 'user', content: transcript }
+        { role: 'user' as const, content: combinedMessage }
       ];
       
-      // Use fetch to call Anthropic's chat completions endpoint
-      const response = await fetch('https://api.anthropic.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY || ''
-        },
-        body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          messages: messages,
-          stream: true,
-          max_tokens_to_sample: 800
-        })
+      // Use Anthropic SDK's streaming method
+      const client = new Anthropic();
+      const stream = await client.messages.stream({
+        model: 'claude-3-5-sonnet-20241022',
+        messages: messages,
+        max_tokens: 1024
       });
-      
-      if (!response.body) {
-        throw new Error('No response body');
-      }
-      
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let done = false;
-      while (!done) {
-        const { value, done: doneReading } = await reader.read();
-        done = doneReading;
-        if (value) {
-          const rawChunk = decoder.decode(value);
-          logger.debug('Raw chunk received:', { rawChunk });
 
-          const lines = rawChunk.split(/\r?\n/).filter(line => line.trim() !== '');
-          for (const line of lines) {
-            try {
-              const parsed = JSON.parse(line);
-              logger.debug('Parsed chunk JSON:', { parsed });
-              const textChunk = parsed.message?.content || parsed.completion || '';
-              if (textChunk.trim() === '') {
-                logger.warn('Empty textChunk encountered', { line, parsed });
-              } else {
-                logger.info('Received streaming chunk from Anthropic Messages API', { chunk: textChunk });
-              }
-              await onChunk(textChunk);
-            } catch (e) {
-              logger.error('Error parsing chunk', { line, error: e });
-            }
-          }
-        }
-      }
+      stream.on('text', async (text: string) => {
+        logger.info('Received streaming chunk from Anthropic SDK', { chunk: text });
+        await onChunk(text);
+      });
+
+      // Wait for the stream to end using a promise
+      await new Promise<void>((resolve, reject) => {
+        stream.on('end', () => resolve());
+        stream.on('error', (err) => reject(err));
+      });
       
       logger.info('Summary generation complete');
     } catch (error) {
