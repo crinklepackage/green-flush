@@ -50,6 +50,9 @@ export interface DatabaseService {
     podcastId: string
     status: ProcessingStatus
   }): Promise<SummaryRecord>
+  findPodcastByUrl(url: string): Promise<PodcastRecord | null>
+  createUserSummary(data: { user_id: string, summary_id: string }): Promise<any>
+  getSummaryForPodcast(podcastId: string): Promise<SummaryRecord | null>
 }
 
 export class DatabaseService {
@@ -172,8 +175,11 @@ export class DatabaseService {
       transcript?: string | null,
       youtube_url?: string | null
     }): Promise<PodcastRecord> {
+      // Normalize URL
+      const normalizedUrl = data.url.trim().toLowerCase();
       const insertData = {
         ...data,
+        url: normalizedUrl,
         has_transcript: data.has_transcript ?? false,
         transcript: data.transcript ?? null
       };
@@ -248,6 +254,78 @@ export class DatabaseService {
       } else {
         console.info(`appendSummary: Updated summary ${summaryId} with new text chunk. New status: ${dataObj.status}`);
       }
+    }
+
+    async findPodcastByUrl(url: string): Promise<PodcastRecord | null> {
+      const normalizedUrl = url.trim().toLowerCase();
+      const { data: podcast, error } = await this.supabase
+        .from('podcasts')
+        .select('*')
+        .eq('url', normalizedUrl)
+        .maybeSingle();
+
+      if (error) {
+        throw new DatabaseError(
+          'Failed to find podcast',
+          error.code,
+          'findPodcastByUrl',
+          { url, error }
+        );
+      }
+
+      return podcast;
+    }
+
+    async createUserSummary(data: { user_id: string, summary_id: string }): Promise<any> {
+      // First, check if the association already exists
+      const { data: existingAssociation, error: queryError } = await this.supabase
+        .from('user_summaries')
+        .select('*')
+        .eq('user_id', data.user_id)
+        .eq('summary_id', data.summary_id)
+        .maybeSingle();
+
+      if (queryError) {
+        console.error('Error querying user_summaries:', queryError);
+      }
+
+      if (existingAssociation) {
+        // Association already exists, return it
+        return existingAssociation;
+      }
+
+      // Otherwise, insert the new association record
+      const { data: userSummary, error } = await this.supabase
+        .from('user_summaries')
+        .insert(data)
+        .select()
+        .single();
+
+      if (error || !userSummary) {
+        throw new DatabaseError(
+          'Failed to create user summary association',
+          error?.code || 'NO_ROWS',
+          'createUserSummary',
+          { data }
+        );
+      }
+
+      return userSummary;
+    }
+
+    async getSummaryForPodcast(podcastId: string): Promise<SummaryRecord | null> {
+      const { data: summary, error } = await this.supabase
+        .from('summaries')
+        .select('*')
+        .eq('podcast_id', podcastId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Failed to fetch summary for podcast', error);
+        return null;
+      }
+
+      return summary;
     }
 }
 

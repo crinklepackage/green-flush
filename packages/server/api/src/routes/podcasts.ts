@@ -5,6 +5,9 @@ import { PodcastSchema, ProcessingStatus, PodcastJob } from '@wavenotes-new/shar
 import { DatabaseService } from '../lib/database';
 import { QueueService } from '../services/queue';
 import { authMiddleware } from '../middleware/auth';
+import { YouTubeService } from '../platforms/youtube/service';
+import { SpotifyService } from '../platforms/spotify/service';
+import { PodcastService } from '../services/podcast';
 
 /*
   Purpose:
@@ -45,47 +48,33 @@ export function podcastRoutes(db: DatabaseService, queue: QueueService) {
   // POST /podcasts
   router.post('/podcasts',
     authMiddleware,
-    // validateRequest(PodcastSchema),
     async (req, res, next) => {
       try {
         const { url } = req.body;
         if (!url) {
           return res.status(400).json({ message: 'URL is required' });
         }
-        // Determine platform type based on URL (simplistic check)
-        const type = url.includes('youtube.com') ? 'youtube' : 'spotify';
         // Use authenticated user id from req.user
         const userId = req.user.id;
 
-        // Create podcast record in the database
-        const podcast = await db.createPodcast({
-          url,
-          platform: type,
-          title: 'Dummy Title', // Ideally, metadata fetched later
-          show_name: 'Dummy Show',
-          platform_specific_id: '', // Added dummy value to satisfy the type
-          thumbnail_url: null,
-          duration: null,
-          created_by: userId
+        // Import config from environment
+        const { config } = require('../config/environment');
+
+        // Instantiate platform services
+        const ytService = new YouTubeService(config.YOUTUBE_API_KEY);
+        const spotifyService = new SpotifyService({
+          clientId: config.SPOTIFY_CLIENT_ID,
+          clientSecret: config.SPOTIFY_CLIENT_SECRET
         });
 
-        // Create summary record in the database
-        const summary = await db.createSummary({
-          podcastId: podcast.id,
-          status: ProcessingStatus.IN_QUEUE
-        });
+        // Instantiate PodcastService with dependencies
+        const podcastService = new PodcastService(db, ytService, spotifyService, queue);
 
-        // Enqueue processing job
-        await queue.add('PROCESS_PODCAST', {
-          podcastId: podcast.id,
-          summaryId: summary.id,
-          url,
-          type,
-          userId
-        } as PodcastJob);
+        // Create podcast request using hybrid logic
+        const summaryId = await podcastService.createPodcastRequest(url, userId);
 
-        // Return the created summary record's id and status
-        res.status(201).json({ id: summary.id, status: summary.status });
+        // Return the created summary record's id
+        res.status(201).json({ id: summaryId });
       } catch (error) {
         next(error);
       }
