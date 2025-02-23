@@ -15,7 +15,7 @@ export class SummaryService {
       try {
         // Start Claude streaming
         const stream = await this.claude.messages.create({
-          model: 'claude-3-sonnet-20241022',
+          model: 'claude-3-5-sonnet-20241022',
           max_tokens: 4096,
           messages: [{ role: 'user', content: 'Your podcast summary prompt' }],
           stream: true,

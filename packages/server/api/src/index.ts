@@ -5,8 +5,9 @@ import { DatabaseService } from './lib/database'
 import { QueueService } from './services/queue'
 import { podcastRoutes } from './routes/podcasts'
 import { supabase } from './lib/supabase';
-export const db = new DatabaseService(supabase)
 
+export const db = new DatabaseService(supabase)
+export { DatabaseService }
 
 async function main() {
   const db = new DatabaseService(supabase)

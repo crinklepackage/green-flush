@@ -20,7 +20,7 @@ const startWorker = async () => {
 
     // Create BullMQ worker
     const podcastWorker = new Worker(
-      'podcast_processing',
+      'podcast',
       async (job: Job<PodcastJob>) => {
         console.log('Processing job:', job.id, job.data);
         const processor = new ContentProcessorService();

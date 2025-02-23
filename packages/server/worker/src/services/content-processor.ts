@@ -1,6 +1,16 @@
 // packages/server/worker/src/services/content-processor.service.ts
 
+import { createClient } from '@supabase/supabase-js';
+import { config } from '../config/environment';
+import { DatabaseService } from '@wavenotes-new/api';
+import { ProcessingStatus } from '@wavenotes-new/shared';
+import { TranscriptProcessor } from '../processors/transcript';
 import { SummaryGeneratorService } from './summary-generator';
+
+// Initialize Supabase client for worker using environment variables
+const supabaseClient = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
+// Create an instance of DatabaseService
+const db = new DatabaseService(supabaseClient);
 
 export class ContentProcessorService {
   async processPodcast(jobData: any): Promise<void> {
@@ -8,47 +18,43 @@ export class ContentProcessorService {
     const { podcastId, summaryId, url } = jobData;
     console.log(`Processing podcast. PodcastID: ${podcastId}, SummaryID: ${summaryId}, URL: ${url}`);
     
-    // 1. Update status to FETCHING_TRANSCRIPT.
-    await this.updateStatus(summaryId, 'FETCHING_TRANSCRIPT');
+    try {
+      // 1. Update status to FETCHING_TRANSCRIPT using real DB update
+      await db.updateStatus(summaryId, ProcessingStatus.FETCHING_TRANSCRIPT);
 
-    // 2. Fetch transcript (simulate for now).
-    const transcript = await this.getTranscript(url);
-    if (!transcript) {
-      await this.updateStatus(summaryId, 'FAILED');
-      return;
+      // 2. Fetch transcript using TranscriptProcessor
+      const transcript = await TranscriptProcessor.getTranscript(url);
+      if (!transcript) {
+        await db.updateStatus(summaryId, ProcessingStatus.FAILED, 'Transcript not available');
+        return;
+      }
+      
+      // 3. Update status to GENERATING_SUMMARY
+      await db.updateStatus(summaryId, ProcessingStatus.GENERATING_SUMMARY);
+
+      // 4. Generate summary in streaming mode using SummaryGeneratorService
+      let accumulatedSummary = '';
+      await SummaryGeneratorService.generateSummary(transcript.text, async (chunk: string) => {
+        accumulatedSummary += chunk;
+        // Append the summary chunk to the summary record
+        await db.appendSummary(summaryId, {
+          text: accumulatedSummary,
+          status: ProcessingStatus.GENERATING_SUMMARY
+        });
+      });
+      
+      // 5. Update status to COMPLETED
+      await db.updateStatus(summaryId, ProcessingStatus.COMPLETED);
+      
+      console.log('Podcast processed successfully.');
+    } catch (error) {
+      await db.updateStatus(
+        summaryId,
+        ProcessingStatus.FAILED,
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+      console.error('Error processing podcast:', error);
+      throw error;
     }
-    
-    // 3. Update status to GENERATING_SUMMARY.
-    await this.updateStatus(summaryId, 'GENERATING_SUMMARY');
-
-    // 4. Generate summary in streaming mode using SummaryGeneratorService.
-    let accumulatedSummary = '';
-    await SummaryGeneratorService.generateSummary(transcript, async (chunk: string) => {
-      accumulatedSummary += chunk;
-      // Simulate appending the chunk to the DB.
-      await this.appendSummary(summaryId, accumulatedSummary);
-    });
-    
-    // 5. Update status to COMPLETED.
-    await this.updateStatus(summaryId, 'COMPLETED');
-    
-    console.log('Podcast processed successfully.');
-  }
-  
-  // Simulated DB update methods:
-  private async updateStatus(summaryId: string, status: string): Promise<void> {
-    console.log(`Updating summary ${summaryId} status to ${status}`);
-    return new Promise(resolve => setTimeout(resolve, 100));
-  }
-  
-  private async appendSummary(summaryId: string, content: string): Promise<void> {
-    console.log(`Appending summary for ${summaryId}: ${content.substring(0, 30)}...`);
-    return new Promise(resolve => setTimeout(resolve, 50));
-  }
-  
-  private async getTranscript(url: string): Promise<string | null> {
-    console.log(`Fetching transcript for ${url}...`);
-    // Simulate fetching a transcript.
-    return new Promise(resolve => setTimeout(() => resolve('This is a fake transcript for testing.'), 200));
   }
 }

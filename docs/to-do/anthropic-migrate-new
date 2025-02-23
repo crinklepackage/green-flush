@@ -1,0 +1,9 @@
+Our current worker code uses the Anthropic SDK’s completions.create call—which maps to the legacy Text Completions endpoint 1. That’s why the prompt is required to start with "\n\nHuman:".
+The new API (the Messages endpoint as documented here) uses a different format (usually messages as an array of roles and contents). Migrating to that would mean reworking how we format our prompt, likely by constructing a series of messages (e.g., one from the Human and one from the Assistant) instead of a single prompt string.
+So, to answer your question:
+Yes, our current implementation is using the legacy endpoint, which is why the prompt formatting fix (prepending "\n\nHuman:" if necessary) is correct.
+If we decide in the future to adopt the new messages API, we’d need to rewrite our prompt-building logic to conform to the new schema (and call the corresponding method on the SDK).
+For now, given our codebase and the worker logs, the change is appropriate. If you want to eventually migrate to the new endpoint, we can plan that migration as a separate phase.
+References:
+Anthropic Legacy Completions Documentation
+Anthropic Messages API Documentation

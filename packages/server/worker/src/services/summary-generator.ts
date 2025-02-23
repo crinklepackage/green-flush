@@ -7,32 +7,58 @@ export class SummaryGeneratorService {
   static async generateSummary(transcript: string, onChunk: (chunk: string) => Promise<void>): Promise<void> {
     try {
       logger.info('Generating summary from transcript', { transcriptLength: transcript.length });
-
-      const prompt = `You are an expert podcast summarizer. Your task is to analyze and summarize the following podcast transcript in a clear, structured format.
-
-Please provide your response in markdown format with detailed sections.
-
-Here's the transcript:\n${transcript}\n
-Remember to be concise and accurate.`;
-
-      // Instantiate the Anthropic client (Claude)
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
       
-      // Create the completion with streaming enabled
-      const stream = await anthropic.completions.create({
-        model: 'claude-v1', // adjust to your specific Claude model version if needed
-        prompt,
-        stream: true,
-        max_tokens_to_sample: 800,
+      // Define messages array for the Messages API
+      const messages = [
+        {
+          role: 'system',
+          content: "You are an expert podcast summarizer. Your task is to analyze and summarize the following podcast transcript in a clear, structured format. Please provide your response in markdown format with detailed sections."
+        },
+        { role: 'user', content: transcript }
+      ];
+      
+      // Use fetch to call Anthropic's chat completions endpoint
+      const response = await fetch('https://api.anthropic.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY || ''
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',
+          messages: messages,
+          stream: true,
+          max_tokens_to_sample: 800
+        })
       });
-
-      // Stream the output, calling onChunk for each chunk
-      for await (const chunk of stream) {
-        const textChunk = chunk.completion;
-        logger.info('Received streaming chunk from Claude', { chunk: textChunk });
-        await onChunk(textChunk);
+      
+      if (!response.body) {
+        throw new Error('No response body');
       }
-
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let done = false;
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          const chunkText = decoder.decode(value);
+          // Process the chunk by splitting it into lines (assuming newline-delimited JSON chunks)
+          const lines = chunkText.split(/\r?\n/).filter(line => line.trim() !== '');
+          for (const line of lines) {
+            try {
+              const parsed = JSON.parse(line);
+              const textChunk = parsed.message?.content || '';
+              logger.info('Received streaming chunk from Anthropic Messages API', { chunk: textChunk });
+              await onChunk(textChunk);
+            } catch (e) {
+              logger.error('Error parsing chunk', { line, error: e });
+            }
+          }
+        }
+      }
+      
       logger.info('Summary generation complete');
     } catch (error) {
       logger.error('Error generating summary', { error });

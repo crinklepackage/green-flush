@@ -136,7 +136,7 @@ export class DatabaseService {
       status: string, 
       error?: string
     ): Promise<void> {
-      const { error: updateError } = await this.supabase
+      const { data, error: updateError } = await this.supabase
         .from('summaries')
         .update({ 
           status,
@@ -144,14 +144,17 @@ export class DatabaseService {
           updated_at: new Date().toISOString()
         })
         .eq('id', summaryId)
+        .select();
 
-      if (updateError) {
+      if (updateError || !data || data.length === 0) {
         throw new DatabaseError(
           'Failed to update summary status',
-          updateError.code,
+          updateError?.code || 'NO_ROWS_UPDATED',
           'updateSummaryStatus',
-          { summaryId, status, error }
-        )
+          { summaryId, status, error, data }
+        );
+      } else {
+        console.info(`updateSummaryStatus: Updated summary ${summaryId} to status ${status}.`);
       }
     }
 
@@ -215,6 +218,34 @@ export class DatabaseService {
         )
       }
       return summary
+    }
+
+    async updateStatus(summaryId: string, status: ProcessingStatus, errorMessage?: string): Promise<void> {
+      // Wrapper for updateSummaryStatus
+      await this.updateSummaryStatus(summaryId, status, errorMessage);
+    }
+
+    async appendSummary(summaryId: string, dataObj: { text: string, status: string }): Promise<void> {
+      const { data, error } = await this.supabase
+        .from('summaries')
+        .update({ 
+          summary_text: dataObj.text,
+          status: dataObj.status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', summaryId)
+        .select();
+
+      if (error || !data || data.length === 0) {
+        throw new DatabaseError(
+          'Failed to append summary text',
+          error?.code || 'NO_ROWS_UPDATED',
+          'appendSummary',
+          { summaryId, data: dataObj, returnedData: data }
+        );
+      } else {
+        console.info(`appendSummary: Updated summary ${summaryId} with new text chunk. New status: ${dataObj.status}`);
+      }
     }
 }
 
