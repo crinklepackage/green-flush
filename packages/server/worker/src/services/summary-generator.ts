@@ -24,14 +24,21 @@ export class SummaryGeneratorService {
         max_tokens: 1024
       });
 
-      stream.on('text', async (text: string) => {
+      let finished = false;
+      const textHandler = async (text: string) => {
+        if (finished) return;
         logger.info('Received streaming chunk from Anthropic SDK', { chunk: text });
         await onChunk(text);
-      });
+      };
 
-      // Wait for the stream to end using a promise
+      stream.on('text', textHandler);
+
+      // Wait for the stream to end using a promise; use once to ensure we only resolve one time
       await new Promise<void>((resolve, reject) => {
-        stream.on('end', () => resolve());
+        stream.once('end', () => {
+          finished = true;
+          resolve();
+        });
         stream.on('error', (err) => reject(err));
       });
       
