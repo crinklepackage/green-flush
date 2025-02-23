@@ -3,6 +3,16 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { SummaryRecord } from '@wavenotes-new/shared'  // using shared types
 
+interface SummaryWithPodcast extends SummaryRecord {
+  podcast?: {
+    title: string;
+    show_name: string;
+    url?: string;
+    youtube_url?: string;
+    thumbnail_url?: string | null;
+  };
+}
+
 const loadingMessages: Record<string, string> = {
   IN_QUEUE: 'Preparing to process your podcast...',
   // ... other statuses
@@ -13,7 +23,7 @@ const loadingMessages: Record<string, string> = {
 export default function SummaryPage() {
   const router = useRouter()
   const { id } = router.query
-  const [summary, setSummary] = useState<SummaryRecord | null>(null)
+  const [summary, setSummary] = useState<SummaryWithPodcast | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -27,7 +37,7 @@ export default function SummaryPage() {
         .from('summaries')
         .select(`
           *,
-          podcasts (
+          podcast: podcasts (
             title,
             show_name,
             url,
@@ -42,7 +52,7 @@ export default function SummaryPage() {
         console.error('Error fetching summary:', error)
       } else if (data) {
         console.log('Fetched summary data:', data)
-        setSummary(data)
+        setSummary(data as SummaryWithPodcast)
       }
     }
 
@@ -60,8 +70,8 @@ export default function SummaryPage() {
         },
         (payload) => {
           console.log('Received real-time update:', payload)
-          setSummary((current: SummaryRecord | null) => {
-            const newSummary = payload.new as SummaryRecord;
+          setSummary((current: SummaryWithPodcast | null) => {
+            const newSummary = payload.new as SummaryWithPodcast;
             return current ? { ...current, ...newSummary } : newSummary;
           })
         }
@@ -79,10 +89,13 @@ export default function SummaryPage() {
 
   return (
     <div className="container">
-      <h2>Summary Details</h2>
-      <p>Status: {loadingMessages[summary.status] || summary.status}</p>
+      <div className="video-details">
+        <h1>{summary?.podcast ? summary.podcast.title : 'Loading title...'}</h1>
+        <h3>{summary?.podcast ? summary.podcast.show_name : 'Loading channel...'}</h3>
+      </div>
+      <p>Status: {loadingMessages[summary?.status || ''] || summary?.status}</p>
       <div className="summary-content">
-        {summary.summary_text || 'Your summary will appear here as it is generated.'}
+        {summary?.summary_text || 'Your summary will appear here as it is generated.'}
       </div>
     </div>
   )
