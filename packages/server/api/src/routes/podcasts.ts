@@ -63,6 +63,7 @@ export function podcastRoutes(db: DatabaseService, queue: QueueService) {
           platform: type,
           title: 'Dummy Title', // Ideally, metadata fetched later
           show_name: 'Dummy Show',
+          platform_specific_id: '', // Added dummy value to satisfy the type
           thumbnail_url: null,
           duration: null,
           created_by: userId

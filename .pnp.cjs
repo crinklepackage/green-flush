@@ -1184,6 +1184,7 @@ const RAW_RUNTIME_STATE =
           ["@types/bull", "npm:4.10.4"],\
           ["@types/node", "npm:22.13.4"],\
           ["@types/winston", "npm:2.4.4"],\
+          ["@wavenotes-new/api", "workspace:packages/server/api"],\
           ["@wavenotes-new/shared", "workspace:packages/shared"],\
           ["bull", "npm:4.16.5"],\
           ["bullmq", "npm:5.41.3"],\

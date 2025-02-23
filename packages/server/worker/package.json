@@ -11,6 +11,7 @@
     "@anthropic-ai/sdk": "^0.36.3",
     "@supabase/supabase-js": "^2.48.1",
     "@supadata/js": "^1.0.0",
+    "@wavenotes-new/api": "workspace:^",
     "@wavenotes-new/shared": "workspace:*",
     "bull": "^4.12.0",
     "bullmq": "^5.41.3",
@@ -18,8 +19,7 @@
     "googleapis": "^131.0.0",
     "winston": "^3.11.0",
     "youtube-transcript": "^1.0.6",
-    "zod": "^3.24.2",
-    "@wavenotes-new/api": "workspace:*"
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/bull": "^4.10.0",

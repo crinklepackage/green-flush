@@ -20,6 +20,7 @@ export interface DatabaseService {
     platform: 'youtube' | 'spotify'
     title: string
     show_name: string
+    platform_specific_id: string
     thumbnail_url: string | null
     duration: number | null
     created_by: string
@@ -163,6 +164,7 @@ export class DatabaseService {
       platform: 'youtube' | 'spotify',
       title: string,
       show_name: string,
+      platform_specific_id: string,
       thumbnail_url: string | null,
       duration: number | null,
       created_by: string,

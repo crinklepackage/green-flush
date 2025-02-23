@@ -7,6 +7,7 @@ export interface PodcastRecord {
   status: ProcessingStatus
   title: string
   show_name: string
+  platform_specific_id: string
   thumbnail_url: string | null
   duration: number | null
   created_at: string

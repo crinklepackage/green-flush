@@ -1,15 +1,15 @@
 // packages/server/api/src/platforms/matcher.ts
-import { VideoMetadata } from '@wavenotes-new/shared'
-import { logger } from '../lib/logger'
-import { SpotifyService } from './spotify'
 import { YouTubeService } from '../youtube/service'
+import { SpotifyService } from '../spotify/service'
+
+const logger = console
 
 export class PlatformMatcher {
   static async findYouTubeMatch(spotifyUrl: string): Promise<string | null> {
     try {
       // 1. Get Spotify metadata
-      const spotifyId = SpotifyService.extractEpisodeId(spotifyUrl)
-      const spotifyMetadata = await SpotifyService.getEpisodeInfo(spotifyId)
+      const spotifyId = SpotifyService.prototype.getEpisodeId(spotifyUrl)
+      const spotifyMetadata = await SpotifyService.prototype.getEpisodeInfo(spotifyUrl)
       
       if (!spotifyMetadata) {
         logger.error('Could not fetch Spotify metadata', { spotifyUrl })
@@ -43,31 +43,31 @@ export class PlatformMatcher {
   }
 
   private static async searchForPodcastEpisode(
-    spotifyMetadata: VideoMetadata
+    spotifyMetadata: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata
   ): Promise<string | null> {
     const searchQuery = this.buildSearchQuery(spotifyMetadata)
-    const results: VideoMetadata[] = await YouTubeService.search(searchQuery)
+    const results: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata[] = await YouTubeService.search(searchQuery)
 
     // Filter and score results
-    const scoredResults = results.map((video: VideoMetadata) => ({
+    const scoredResults = results.map((video) => ({
       video,
       score: this.calculateMatchScore(video, spotifyMetadata)
     }))
 
     // Sort by score and get best match
-    const sortedResults = scoredResults.sort((a: { score: number }, b: { score: number }) => b.score - a.score)
-    const bestMatch = sortedResults.find((result: { score: number; video: { id: string } }) => result.score > 0.8)
+    const sortedResults = scoredResults.sort((a, b) => b.score - a.score)
+    const bestMatch = sortedResults.find((result) => result.score > 0.8)
 
     return bestMatch ? YouTubeService.buildUrl(bestMatch.video.id) : null
   }
 
-  private static buildSearchQuery(metadata: VideoMetadata): string {
+  private static buildSearchQuery(metadata: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata): string {
     return `${metadata.title} ${metadata.showName} podcast`
   }
 
   private static calculateMatchScore(
-    video: VideoMetadata, 
-    spotify: VideoMetadata
+    video: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata, 
+    spotify: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata
   ): number {
     let score = 0
 
@@ -79,8 +79,10 @@ export class PlatformMatcher {
     score += titleSimilarity * 0.6 // Title is most important
 
     // Duration match (within 5% is good)
-    const durationDiff = Math.abs(video.duration - spotify.duration)
-    const durationScore = durationDiff < (spotify.duration * 0.05) ? 0.3 : 0
+    const videoDuration = video.duration || 0
+    const spotifyDuration = spotify.duration || 0
+    const durationDiff = Math.abs(videoDuration - spotifyDuration)
+    const durationScore = spotifyDuration > 0 && durationDiff < (spotifyDuration * 0.05) ? 0.3 : 0
     score += durationScore
 
     // Channel name matches podcast name
@@ -94,8 +96,7 @@ export class PlatformMatcher {
   }
 
   private static calculateStringSimilarity(str1: string, str2: string): number {
-    // Your existing string similarity implementation
-    // Could be Levenshtein distance or another algorithm
-    return 0 // Replace with actual implementation
+    // Placeholder for actual similarity logic; returning 0 to indicate no similarity
+    return 0
   }
 }

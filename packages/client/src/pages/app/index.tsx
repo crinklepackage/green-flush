@@ -26,6 +26,7 @@ export default function AppDashboard() {
   useEffect(() => {
     const loadUser = async () => {
       const session = await getSession()
+      console.log("Session object:", session);
       if (session) {
         setAccessToken(session.access_token)
         const currentUser = await getUser()
@@ -40,6 +41,9 @@ export default function AppDashboard() {
     e.preventDefault()
     setError(null)
     setIsSubmitting(true)
+
+    console.log("Access token:", accessToken);
+    console.log("Request headers:", { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` });
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/podcasts`, {

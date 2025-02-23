@@ -1,0 +1,81 @@
+Below is a detailed code trace (execution plan) for the refactored Podcast service flow that uses the new platform services:
+─────────────────────────────
+API Flow (Podcast Submission)
+• The user submits a podcast URL (via POST /podcasts).
+• The authMiddleware runs to verify the user’s token and attach user information to the request.
+• The podcasts route handler extracts the URL and determines the platform type (e.g., by checking if the URL includes "youtube.com" for YouTube; otherwise, it’s assumed to be Spotify).
+─────────────────────────────
+2. Metadata Retrieval
+• If the URL is recognized as YouTube:
+ – The handler calls YouTubeService.getVideoInfo(url).
+  – Inside getVideoInfo, the service extracts the video ID (using a regex) and then calls the YouTube API.
+  – The API response is parsed to create a VideoMetadata object that includes:
+   • id: the extracted video ID
+   • title: video title
+   • channel: channel title
+   • showName: defaults to the channel title (unless a distinct show name exists)
+   • thumbnailUrl: the high-quality thumbnail (or null)
+   • duration: parsed from the video's ISO duration
+   • platform: set to "youtube"
+• If the URL is recognized as Spotify:
+ – The handler calls SpotifyService.getEpisodeInfo(url).
+  – Inside getEpisodeInfo, the service uses a regex to extract the episode id from the URL.
+  – It then calls SpotifyService.getPodcastInfo(episodeId) to retrieve metadata from Spotify’s API.
+  – The returned VideoMetadata object includes:
+   • id: the Spotify episode id
+   • title: episode title
+   • channel: derived from the Spotify metadata (if not available, defaults to "Unknown Channel")
+   • showName: taken from the Spotify metadata’s “show” property
+   • thumbnailUrl: the episode’s thumbnail
+   • duration: duration in seconds
+   • platform: set to "spotify"
+─────────────────────────────
+Database Operations
+• With the metadata acquired, the route handler calls DatabaseService.createPodcast.
+ – The podcast record is inserted with the following fields (for both platforms):
+   – url
+   – platform ("youtube" or "spotify")
+   – For YouTube, the url may be stored in a “youtube_url” field; for Spotify, that field will be null.
+   – title, show_name (using videoInfo.showName), created_by (user id), etc.
+   – Critically, a field like “platform_specific_id” is set to videoInfo.id (the video ID or Spotify episode id).
+   – Other fields: thumbnail_url, duration, has_transcript (initially false), transcript (initially null).
+• In parallel or immediately afterward, a summary record is created (via DatabaseService.createSummary) with an initial status of IN_QUEUE.
+─────────────────────────────
+Job Enqueueing
+• Using QueueService.add, a job of type 'PROCESS_PODCAST' is enqueued with a payload containing:
+ – podcastId, summaryId, url, platform type, and userId.
+ – This job payload will then be consumed by a worker process.
+─────────────────────────────
+Worker Processing
+• The BullMQ worker picks up the job and calls ContentProcessorService.processPodcast(jobData).
+ – The service first updates the summary record’s status to FETCHING_TRANSCRIPT.
+ – It calls TranscriptProcessor.getTranscript(url) to fetch the podcast transcript.
+   – If the transcript isn’t available, it updates the summary record to FAILED and stops processing.
+ – On successful transcript retrieval, the status is updated to GENERATING_SUMMARY.
+ – The service then calls SummaryGeneratorService.generateSummary(transcriptText, onChunkCallback).
+   – The onChunk callback is triggered for each chunk of summary text. In this callback, the accumulated summary text is appended to the summary record by calling DatabaseService.appendSummary.
+ – Once streaming (chunk generation) completes, the worker updates the summary record’s status to COMPLETED.
+ – If any error occurs at any point, the worker updates the summary record to FAILED, logs the error, and the error is propagated.
+─────────────────────────────
+Client Updates
+• On the client (frontend), real-time subscriptions (via Supabase) listen for changes to the summary record.
+• As new summary chunks are appended (and status updates occur), the client UI updates incrementally, providing near-real-time feedback to the user.
+─────────────────────────────
+Additional Considerations for Other Modules
+• Platform Matcher Service:
+ – While not directly part of the submission flow, the matcher service (used to match Spotify to YouTube videos) must now use the updated VideoMetadata types. Adjustments like ensuring that properties like id and showName are present will be similarly enforced.
+ – Error/warning logging in this service has been simplified by using “const logger = console;” if no dedicated logger module is available.
+• Imports/Types:
+ – Ensure that all imports reference VideoMetadata from the shared package (i.e. '@wavenotes-new/shared/src/server/types/metadata') so that the type is consistent across all services.
+• Podcast Service (the orchestration layer):
+ – The legacy methods (getYouTubeMetadata, getSpotifyMetadata, createPodcastRecord, etc.) are to be removed. The new flow directly uses platform services, DatabaseService, and QueueService as described.
+─────────────────────────────
+Summary
+This trace ensures that:
+– Metadata is fetched via dedicated platform services.
+– The resultant VideoMetadata object carries consistent properties (id, title, channel, showName, thumbnailUrl, duration, platform).
+– The DatabaseService correctly stores the podcast record (including the platform-specific id).
+– The job is enqueued to trigger processing in the worker, which updates statuses in the database as it fetches transcripts and generates summary chunks.
+– The client receives near-real-time updates via Supabase subscriptions.
+This modular architecture provides a cleaner separation of concerns and minimizes duplicated logic while being more maintainable and testable.
+Please review the above execution plan and confirm if it matches your vision before we proceed with the actual code changes.

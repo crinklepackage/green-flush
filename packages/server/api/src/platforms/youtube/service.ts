@@ -1,7 +1,7 @@
 import { google, youtube_v3 } from 'googleapis'
 import { errors } from '@wavenotes-new/shared';
 const { PlatformError } = errors;
-import type { VideoMetadata } from './types'
+import type { VideoMetadata } from '@wavenotes-new/shared/src/server/types/metadata'
 
 export class YouTubeService {
     private youtube: youtube_v3.Youtube
@@ -87,7 +87,7 @@ export class YouTubeService {
 
     // Static method to search for videos based on a query.
     // This is a stub and should be implemented properly in the future.
-    static async search(query: string): Promise<(VideoMetadata & { id: string })[]> {
+    static async search(query: string): Promise<VideoMetadata[]> {
       console.info(`YouTubeService.search called with query: ${query}`);
       // Stub: return empty array or simulate a search result if needed.
       return [];

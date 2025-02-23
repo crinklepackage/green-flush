@@ -43,14 +43,20 @@ export class SummaryGeneratorService {
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
         if (value) {
-          const chunkText = decoder.decode(value);
-          // Process the chunk by splitting it into lines (assuming newline-delimited JSON chunks)
-          const lines = chunkText.split(/\r?\n/).filter(line => line.trim() !== '');
+          const rawChunk = decoder.decode(value);
+          logger.debug('Raw chunk received:', { rawChunk });
+
+          const lines = rawChunk.split(/\r?\n/).filter(line => line.trim() !== '');
           for (const line of lines) {
             try {
               const parsed = JSON.parse(line);
-              const textChunk = parsed.message?.content || '';
-              logger.info('Received streaming chunk from Anthropic Messages API', { chunk: textChunk });
+              logger.debug('Parsed chunk JSON:', { parsed });
+              const textChunk = parsed.message?.content || parsed.completion || '';
+              if (textChunk.trim() === '') {
+                logger.warn('Empty textChunk encountered', { line, parsed });
+              } else {
+                logger.info('Received streaming chunk from Anthropic Messages API', { chunk: textChunk });
+              }
               await onChunk(textChunk);
             } catch (e) {
               logger.error('Error parsing chunk', { line, error: e });
