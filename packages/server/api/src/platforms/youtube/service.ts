@@ -33,7 +33,7 @@ export class YouTubeService {
   
       try {
         const response = await this.youtube.videos.list({
-          part: ['snippet', 'contentDetails'],
+          part: ['snippet', 'contentDetails', 'statistics'],
           id: [videoId]
         })
   
@@ -54,7 +54,8 @@ export class YouTubeService {
           showName: video.snippet?.channelTitle || 'Unknown Channel',
           thumbnailUrl: video.snippet?.thumbnails?.high?.url || null,
           duration: this.parseDuration(video.contentDetails?.duration || ''),
-          platform: 'youtube'
+          platform: 'youtube',
+          viewCount: video.statistics && video.statistics.viewCount ? parseInt(video.statistics.viewCount) : undefined
         }
       } catch (error) {
         if (error instanceof PlatformError) throw error
@@ -86,11 +87,40 @@ export class YouTubeService {
     }
 
     // Static method to search for videos based on a query.
-    // This is a stub and should be implemented properly in the future.
     static async search(query: string): Promise<VideoMetadata[]> {
       console.info(`YouTubeService.search called with query: ${query}`);
-      // Stub: return empty array or simulate a search result if needed.
-      return [];
+      // Import config from environment
+      const { config } = require('../../config/environment');
+      // Create a YouTube client using the API key
+      const youtube = require('googleapis').google.youtube({ version: 'v3', auth: config.YOUTUBE_API_KEY });
+
+      try {
+        const response = await youtube.search.list({
+          part: ['snippet'],
+          q: query,
+          type: ['video'],
+          maxResults: 5,
+          videoType: 'any',
+          safeSearch: 'none',
+          order: 'relevance'
+        });
+        if (!response.data.items) return [];
+
+        // Map the results to VideoMetadata with minimal info; later enriched by getVideoInfo
+        const results: VideoMetadata[] = response.data.items.map((item: any) => ({
+          id: item.id?.videoId || '',
+          title: item.snippet?.title || '',
+          channel: item.snippet?.channelTitle || '',
+          showName: item.snippet?.channelTitle || '',
+          thumbnailUrl: item.snippet?.thumbnails?.default?.url || null,
+          duration: null,
+          platform: 'youtube'
+        }));
+        return results;
+      } catch (error) {
+        console.error('Error during YouTube search:', { query, error });
+        return [];
+      }
     }
 
     // Static method to build a YouTube video URL from a video ID.

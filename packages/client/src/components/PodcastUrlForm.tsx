@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
-import { ProcessingStatus } from '@wavenotes/shared'
+import { ProcessingStatus } from '@wavenotes-new/shared'
 
 export function PodcastUrlForm() {
   const [url, setUrl] = useState('')

@@ -13,7 +13,7 @@ export * from './server/types/entities/podcast';
 export type { PodcastJob } from './server/types/jobs/podcast';
 
 // Re-export additional types from metadata
-export { Database, SummaryRecord, VideoMetadata, RPCPodcastResponse } from './server/types/metadata';
+export type { Database, SummaryRecord, VideoMetadata, RPCPodcastResponse } from './server/types/metadata';
 
 // Re-export DatabaseError from errors folder using its index
 export { DatabaseError } from './server/errors';

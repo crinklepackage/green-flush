@@ -13,6 +13,7 @@ export class SpotifyService {
   private tokenExpiryTime = 0
 
   constructor(config: { clientId: string; clientSecret: string }) {
+    console.log('Initializing SpotifyService with clientId:', config.clientId);
     this.client = new SpotifyWebApi({
       clientId: config.clientId,
       clientSecret: config.clientSecret
@@ -22,6 +23,7 @@ export class SpotifyService {
   private async ensureValidToken() {
     if (Date.now() >= this.tokenExpiryTime - 5 * 60 * 1000) { // 5 min buffer
       const data = await this.client.clientCredentialsGrant()
+      console.log('Spotify clientCredentialsGrant response:', data)
       this.client.setAccessToken(data.body.access_token)
       this.tokenExpiryTime = Date.now() + data.body.expires_in * 1000
     }
@@ -35,13 +37,27 @@ export class SpotifyService {
 
   async getPodcastInfo(episodeId: string): Promise<SpotifyMetadata> {
     await this.ensureValidToken()
-    const response = await this.client.getEpisode(episodeId)
-    
-    return {
-      title: response.body.name,
-      show: response.body.show.name,
-      duration: Math.round(response.body.duration_ms / 1000),
-      thumbnailUrl: response.body.images[0]?.url || null
+    console.log('Spotify client in getPodcastInfo:', this.client)
+    const token = this.client.getAccessToken()
+    console.log('Access token being used:', token)
+    if (typeof this.client.getEpisode !== 'function') {
+      console.error('Spotify client does not have getEpisode method.')
+    }
+    try {
+      const response = await this.client.getEpisode(episodeId)
+      return {
+        title: response.body.name,
+        show: response.body.show.name,
+        duration: Math.round(response.body.duration_ms / 1000),
+        thumbnailUrl: response.body.images[0]?.url || null
+      }
+    } catch (error) {
+      const err = error as any;
+      console.error('Error fetching episode from Spotify:', err);
+      if (err?.body?.error === 'invalid_client') {
+        throw new Error(`Failed to fetch episode: Invalid client. ${err?.body?.error_description || ''} Please check your SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET environment variables.`);
+      }
+      throw error;
     }
   }
 

@@ -9,6 +9,7 @@ export interface VideoMetadata {
   thumbnailUrl: string | null
   duration: number | null
   platform: 'youtube' | 'spotify'
+  viewCount?: number
 }
 
 export interface RPCPodcastResponse {

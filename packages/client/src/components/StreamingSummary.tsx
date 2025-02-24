@@ -1,4 +1,11 @@
 // packages/client/src/components/StreamingSummary.tsx
+import React, { useState, useEffect } from 'react';
+
+interface StreamingSummaryProps {
+  summaryId: string;
+  isGenerating: boolean;
+}
+
 export function StreamingSummary({ summaryId, isGenerating }: StreamingSummaryProps) {
     const [content, setContent] = useState('')
   

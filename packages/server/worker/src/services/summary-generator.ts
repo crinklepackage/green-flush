@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 const logger = console;
 
 export class SummaryGeneratorService {
-  static async generateSummary(transcript: string, onChunk: (chunk: string) => Promise<void>): Promise<void> {
+  static async generateSummary(transcript: string, onChunk: (chunk: string) => Promise<void>): Promise<{ inputTokens: number, outputTokens: number }> {
     try {
       logger.info('Generating summary from transcript', { transcriptLength: transcript.length });
       
@@ -16,7 +16,7 @@ export class SummaryGeneratorService {
         { role: 'user' as const, content: combinedMessage }
       ];
       
-      // Use Anthropic SDK's streaming method
+      // Use Anthropic SDK's streaming method with a configurable max_tokens value
       const client = new Anthropic();
       const stream = await client.messages.stream({
         model: 'claude-3-5-sonnet-20241022',
@@ -25,15 +25,16 @@ export class SummaryGeneratorService {
       });
 
       let finished = false;
-      const textHandler = async (text: string) => {
-        if (finished) return;
+      let accumulatedSummary = '';
+
+      // Capture each chunk and pass it to onChunk
+      stream.on('text', async (text: string) => {
+        accumulatedSummary += text; // Accumulate chunks for token counting
         logger.info('Received streaming chunk from Anthropic SDK', { chunk: text });
         await onChunk(text);
-      };
+      });
 
-      stream.on('text', textHandler);
-
-      // Wait for the stream to end using a promise; use once to ensure we only resolve one time
+      // Wait for the stream to end
       await new Promise<void>((resolve, reject) => {
         stream.once('end', () => {
           finished = true;
@@ -43,8 +44,41 @@ export class SummaryGeneratorService {
       });
       
       logger.info('Summary generation complete');
+      
+      // Count tokens for input message
+      const inputTokens = await SummaryGeneratorService.countMessageTokens([
+        { role: 'user', content: combinedMessage }
+      ]);
+      
+      // Count tokens for the generated output message
+      const outputTokens = await SummaryGeneratorService.countMessageTokens([
+        { role: 'assistant', content: accumulatedSummary }
+      ]);
+      
+      logger.info('Token counts', { inputTokens, outputTokens });
+      
+      return { inputTokens, outputTokens };
     } catch (error) {
       logger.error('Error generating summary', { error });
+      throw error;
+    }
+  }
+
+  static async countMessageTokens(messages: object[]): Promise<number> {
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages/count_tokens', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'x-api-key': process.env.ANTHROPIC_API_KEY || ''
+        },
+        body: JSON.stringify({ messages })
+      });
+      const data = await response.json() as { input_tokens: number };
+      return data.input_tokens;
+    } catch (error) {
+      logger.error('Error counting message tokens', { error });
       throw error;
     }
   }

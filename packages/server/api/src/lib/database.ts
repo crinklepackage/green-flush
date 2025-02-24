@@ -53,6 +53,18 @@ export interface DatabaseService {
   findPodcastByUrl(url: string): Promise<PodcastRecord | null>
   createUserSummary(data: { user_id: string, summary_id: string }): Promise<any>
   getSummaryForPodcast(podcastId: string): Promise<SummaryRecord | null>
+  updatePodcastInfo(podcastId: string, youtubeUrl: string): Promise<void>
+  logFailedYouTubeSearch(dataObj: {
+    search_query: string;
+    spotify_show_name: string;
+    spotify_title: string;
+    spotify_url: string;
+    resolved_youtube_url: string | null;
+    resolved: boolean;
+    created_at: string;
+  }): Promise<void>
+  appendSummary(summaryId: string, dataObj: { text: string, status: string }): Promise<void>
+  updateSummaryTokens(summaryId: string, inputTokens: number, outputTokens: number): Promise<void>
 }
 
 export class DatabaseService {
@@ -256,6 +268,29 @@ export class DatabaseService {
       }
     }
 
+    async updateSummaryTokens(summaryId: string, inputTokens: number, outputTokens: number): Promise<void> {
+      const { data, error } = await this.supabase
+        .from('summaries')
+        .update({ 
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', summaryId)
+        .select();
+
+      if (error || !data || data.length === 0) {
+        throw new DatabaseError(
+          'Failed to update summary tokens',
+          error?.code || 'NO_ROWS_UPDATED',
+          'updateSummaryTokens',
+          { summaryId, inputTokens, outputTokens, data }
+        );
+      } else {
+        console.info(`updateSummaryTokens: Updated summary ${summaryId} with input_tokens: ${inputTokens} and output_tokens: ${outputTokens}`);
+      }
+    }
+
     async findPodcastByUrl(url: string): Promise<PodcastRecord | null> {
       const normalizedUrl = url.trim().toLowerCase();
       const { data: podcast, error } = await this.supabase
@@ -326,6 +361,52 @@ export class DatabaseService {
       }
 
       return summary;
+    }
+
+    async updatePodcastInfo(podcastId: string, youtubeUrl: string): Promise<void> {
+      const { data, error } = await this.supabase
+        .from('podcasts')
+        .update({ youtube_url: youtubeUrl })
+        .eq('id', podcastId)
+        .select();
+
+      if (error || !data || data.length === 0) {
+        throw new DatabaseError(
+          'Failed to update podcast youtube_url',
+          error?.code || 'NO_ROWS_UPDATED',
+          'updatePodcastInfo',
+          { podcastId, youtubeUrl, data }
+        );
+      } else {
+        console.info(`updatePodcastInfo: Updated podcast ${podcastId} with youtube_url ${youtubeUrl}`);
+      }
+    }
+
+    // New method to log failed YouTube searches for Spotify links
+    async logFailedYouTubeSearch(dataObj: {
+      search_query: string;
+      spotify_show_name: string;
+      spotify_title: string;
+      spotify_url: string;
+      resolved_youtube_url: string | null;
+      resolved: boolean;
+      created_at: string;
+    }): Promise<void> {
+      const { data, error } = await this.supabase
+        .from('failed_youtube_searches')
+        .insert(dataObj)
+        .select();
+
+      if (error || !data || data.length === 0) {
+        throw new DatabaseError(
+          'Failed to log failed YouTube search',
+          error?.code || 'NO_ROWS_INSERTED',
+          'logFailedYouTubeSearch',
+          { dataObj, data }
+        );
+      } else {
+        console.info('Logged failed YouTube search successfully');
+      }
     }
 }
 

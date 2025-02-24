@@ -94,7 +94,9 @@ export default function SummaryPage() {
         <h1>{summary?.podcast ? summary.podcast.title : 'Loading title...'}</h1>
         <h3>{summary?.podcast ? summary.podcast.show_name : 'Loading channel...'}</h3>
       </div>
-      <p>Status: {loadingMessages[summary?.status || ''] || summary?.status}</p>
+      <p>
+        Status: {summary?.error_message ? `Error: ${summary.error_message}` : (loadingMessages[summary?.status || ''] || summary?.status)}
+      </p>
       <div className="summary-content">
         {summary?.summary_text ? (
           <ReactMarkdown>{summary.summary_text}</ReactMarkdown>

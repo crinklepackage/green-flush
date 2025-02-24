@@ -17,6 +17,10 @@ const envSchema = z.object({
   YOUTUBE_OAUTH_CLIENT_SECRET: z.string(),
   YOUTUBE_OAUTH_REFRESH_TOKEN: z.string(),
   
+  // Spotify API
+  SPOTIFY_CLIENT_ID: z.string(),
+  SPOTIFY_CLIENT_SECRET: z.string(),
+  
   // Anthropic
   ANTHROPIC_API_KEY: z.string(),
   

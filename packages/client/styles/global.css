@@ -1,0 +1,67 @@
+/* Import Tailwind's base, components, and utilities */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Define custom fonts for Untitled Sans */
+@font-face {
+font-family: 'Untitled Sans';
+src: url('/fonts/UntitledSans-Regular.woff2') format('woff2'),
+url('/fonts/UntitledSans-Regular.woff') format('woff');
+font-weight: 400;
+font-style: normal;
+}
+@font-face {
+font-family: 'Untitled Sans';
+src: url('/fonts/UntitledSans-Bold.woff2') format('woff2'),
+url('/fonts/UntitledSans-Bold.woff') format('woff');
+font-weight: 700;
+font-style: normal;
+}
+@font-face {
+font-family: 'Untitled Sans';
+src: url('/fonts/UntitledSans-Italic.woff2') format('woff2'),
+url('/fonts/UntitledSans-Italic.woff') format('woff');
+font-weight: 400;
+font-style: italic;
+}
+@font-face {
+font-family: 'Untitled Sans';
+src: url('/fonts/UntitledSans-BoldItalic.woff2') format('woff2'),
+url('/fonts/UntitledSans-BoldItalic.woff') format('woff');
+font-weight: 700;
+font-style: italic;
+}
+/* Define custom fonts for Soehne */
+@font-face {
+font-family: 'Soehne';
+src: url('/fonts/Soehne-Regular.woff2') format('woff2'),
+url('/fonts/Soehne-Regular.woff') format('woff');
+font-weight: 400;
+font-style: normal;
+}
+@font-face {
+font-family: 'Soehne';
+src: url('/fonts/Soehne-Bold.woff2') format('woff2'),
+url('/fonts/Soehne-Bold.woff') format('woff');
+font-weight: 700;
+font-style: normal;
+}
+@font-face {
+font-family: 'Soehne';
+src: url('/fonts/Soehne-Italic.woff2') format('woff2'),
+url('/fonts/Soehne-Italic.woff') format('woff');
+font-weight: 400;
+font-style: italic;
+}
+@font-face {
+font-family: 'Soehne';
+src: url('/fonts/Soehne-BoldItalic.woff2') format('woff2'),
+url('/fonts/Soehne-BoldItalic.woff') format('woff');
+font-weight: 700;
+font-style: italic;
+}
+/* Apply the custom font stack using Tailwind's @apply directive */
+body {
+@apply font-sans;
+}

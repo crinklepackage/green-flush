@@ -4,6 +4,7 @@ import { TranscriptSource, TranscriptResult, TranscriptError } from '@wavenotes-
 import { youtubeApiClient } from '../platforms/youtube/api-client'
 import { youtubeTranscriptApi } from '../platforms/youtube/transcript-api'
 import { supadataApi } from '../platforms/youtube/supadata'
+import { spotifyApiClient } from '../platforms/spotify/api-client'
 
 // Add the following declaration at the top of the file (after the imports):
 declare var AggregateError: {
@@ -40,6 +41,35 @@ export class TranscriptProcessor {
  }
 
  static async getTranscript(youtubeUrl: string): Promise<TranscriptResult> {
+   const urlObj = new URL(youtubeUrl);
+   if (urlObj.hostname.includes('spotify.com')) {
+     const episodeId = this.extractSpotifyEpisodeId(youtubeUrl);
+     if (!episodeId) {
+       throw new TranscriptError('Invalid Spotify URL', 'INVALID_URL', youtubeUrl);
+     }
+     try {
+       console.info(`Attempting to fetch transcript for Spotify episode with ID: ${episodeId}`);
+       const rawResult = await spotifyApiClient.getTranscript(episodeId);
+       if (rawResult?.text) {
+         const result = TranscriptResultSchema.parse({
+           ...rawResult,
+           available: rawResult.text.trim().length > 0,
+           source: 'SPOTIFY'
+         });
+         console.info(`Successfully fetched transcript via Spotify`, { episodeId, textLength: result.text.length });
+         return result;
+       } else {
+         throw new TranscriptError('No transcript data from Spotify', 'NO_TRANSCRIPT', youtubeUrl);
+       }
+     } catch (error) {
+       console.error(`Failed to fetch transcript from Spotify`, {
+         episodeId,
+         error: error instanceof Error ? error.message : String(error)
+       });
+       throw error;
+     }
+   }
+
    const videoId = this.extractVideoId(youtubeUrl)
    if (!videoId) {
      throw new TranscriptError(
@@ -150,6 +180,21 @@ export class TranscriptProcessor {
      return null
    } catch {
      return null
+   }
+ }
+
+ private static extractSpotifyEpisodeId(url: string): string | null {
+   try {
+     const urlObj = new URL(url);
+     const parts = urlObj.pathname.split('/');
+     // Expecting a URL path like '/episode/{episodeId}'
+     const episodeIndex = parts.indexOf('episode');
+     if (episodeIndex !== -1 && parts.length > episodeIndex + 1) {
+       return parts[episodeIndex + 1];
+     }
+     return null;
+   } catch {
+     return null;
    }
  }
 }

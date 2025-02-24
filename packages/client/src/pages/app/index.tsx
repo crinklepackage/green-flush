@@ -6,39 +6,42 @@
 // Each of these can be added incrementally as we build out the functionality. Which would you like to tackle first?
 // Also, I notice the old code uses React Router, but since we're using Next.js now, we'll use its built-in routing. Should I show you how to adapt the routing parts?
 
+
+
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { ProcessingStatus } from '@wavenotes-new/shared'
 import { getSession, getUser, supabase } from '../../lib/supabase'
 
-// Existing type for summary details from [id].tsx, extended with podcast info
+// Define type for summary with podcast details
 interface SummaryWithPodcast {
   id: string;
   status: string;
-  summary_text?: string | null;
   error_message?: string | null;
-  // Additional fields, e.g., created_at, updated_at, etc., from SummaryRecord can be added if needed
+  created_at: string;
+  updated_at: string;
   podcast?: {
     title: string;
     show_name: string;
-    url?: string;
-    youtube_url?: string;
     thumbnail_url?: string | null;
+    url?: string;
   };
 }
 
-// New type for user summary records from the join between user_summaries, summaries, and podcasts
-interface UserSummaryRecord {
-  id: string; // id from the user_summaries table
-  summary: SummaryWithPodcast;
-}
-
-const loadingMessages: Record<string, string> = {
-  IN_QUEUE: 'Preparing to process your podcast...',
-  FETCHING_TRANSCRIPT: 'Fetching transcript...',
-  GENERATING_SUMMARY: 'Generating summary...',
-  COMPLETED: 'Complete!',
-  FAILED: 'Failed to process podcast'
+// SummaryCard Component
+function SummaryCard({ summary }: { summary: SummaryWithPodcast }) {
+  return (
+    <div className="border p-4 rounded-lg shadow hover:shadow-md transition duration-200">
+      {summary.podcast && summary.podcast.thumbnail_url && (
+        <img src={summary.podcast.thumbnail_url} alt="Podcast thumbnail" className="w-16 h-16 rounded mb-2" />
+      )}
+      <h3 className="text-lg font-semibold">{summary.podcast?.title || 'Unknown Podcast'}</h3>
+      <p className="text-sm text-gray-600">{summary.podcast?.show_name || 'Unknown Show'}</p>
+      <p className="mt-1 text-sm">Status: {summary.status}</p>
+      <a href={`/app/${summary.id}`} className="mt-2 inline-block text-indigo-600 hover:underline">View Summary</a>
+    </div>
+  );
 }
 
 export default function AppDashboard() {
@@ -47,14 +50,15 @@ export default function AppDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
   const [accessToken, setAccessToken] = useState<string>('')
-  const [userSummaries, setUserSummaries] = useState<UserSummaryRecord[]>([])
+  const [summaries, setSummaries] = useState<SummaryWithPodcast[]>([]);
+  const [loadingSummaries, setLoadingSummaries] = useState<boolean>(false);
   const router = useRouter()
 
   // Load user session on component mount
   useEffect(() => {
     const loadUser = async () => {
       const session = await getSession()
-      console.log("Session object:", session);
+      console.log('Session object:', session);
       if (session) {
         setAccessToken(session.access_token)
         const currentUser = await getUser()
@@ -64,40 +68,30 @@ export default function AppDashboard() {
     loadUser()
   }, [])
 
-  // Fetch user summaries once user is loaded
-  const fetchUserSummaries = async () => {
-    if (!user) return;
-    const { data, error } = await supabase
-      .from('user_summaries')
-      .select(`
-        *,
-        summary: summaries (
-          id,
-          status,
-          summary_text,
-          podcast: podcasts (
-            title,
-            show_name,
-            url,
-            youtube_url,
-            thumbnail_url
-          )
-        )
-      `)
-      .eq('user_id', user.id)
-    if (error) {
-      console.error("Error fetching user summaries:", error)
-    } else if (data) {
-      console.log("Fetched user summaries:", data)
-      setUserSummaries(data as UserSummaryRecord[])
-    }
-  }
-
+  // Fetch summaries from Supabase
   useEffect(() => {
+    const fetchSummaries = async () => {
+      setLoadingSummaries(true);
+      try {
+        const { data, error } = await supabase
+          .from('summaries')
+          .select(`*, podcast:podcasts(title, show_name, thumbnail_url, url)`) 
+          .order('created_at', { ascending: false });
+        if (error) {
+          console.error('Error fetching summaries:', error);
+        } else {
+          setSummaries(data || []);
+        }
+      } catch (err) {
+        console.error('Error fetching summaries:', err);
+      }
+      setLoadingSummaries(false);
+    };
+    // Fetch only if user is set
     if (user) {
-      fetchUserSummaries()
+      fetchSummaries();
     }
-  }, [user])
+  }, [user]);
 
   // URL submission handler
   const handleSubmit = async (e: React.FormEvent) => {
@@ -105,8 +99,8 @@ export default function AppDashboard() {
     setError(null)
     setIsSubmitting(true)
 
-    console.log("Access token:", accessToken);
-    console.log("Request headers:", { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` });
+    console.log('Access token:', accessToken);
+    console.log('Request headers:', { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` });
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/podcasts`, {
@@ -140,12 +134,9 @@ export default function AppDashboard() {
     }
   }
 
-  // Filtering summaries into groups based on status
-  const inProgressStatuses = ['in_queue', 'fetching_transcript', 'generating_summary']
-  const completedStatuses = ['completed', 'failed']
-
-  const inProgressSummaries = userSummaries.filter(us => inProgressStatuses.includes(us.summary.status))
-  const completedSummaries = userSummaries.filter(us => completedStatuses.includes(us.summary.status))
+  // Filter summaries based on status
+  const inProgressSummaries = summaries.filter(s => s.status !== ProcessingStatus.COMPLETED && s.status !== ProcessingStatus.FAILED);
+  const completedSummaries = summaries.filter(s => s.status === ProcessingStatus.COMPLETED);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -199,48 +190,28 @@ export default function AppDashboard() {
           {/* In Progress Section */}
           <section className="bg-white shadow rounded-lg p-6">
             <h2 className="text-lg font-medium text-gray-900">In Progress</h2>
-            {inProgressSummaries.length === 0 ? (
-              <p className="text-sm text-gray-500">No summaries in progress.</p>
-            ) : (
-              inProgressSummaries.map((record) => (
-                <div key={record.summary.id} className="p-4 border rounded mb-2 flex justify-between items-center">
-                  <div>
-                    <h3 className="font-bold">{record.summary.podcast?.title || 'No title'}</h3>
-                    <p className="text-sm">{record.summary.podcast?.show_name || 'No channel'}</p>
-                    <p className="text-xs text-gray-500">Status: {record.summary.status}</p>
-                  </div>
-                  <button
-                    onClick={() => router.push(`/app/${record.summary.id}`)}
-                    className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
-                  >
-                    View Details
-                  </button>
+            {loadingSummaries ? <p>Loading summaries...</p> : (
+              inProgressSummaries.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  {inProgressSummaries.map(summary => (
+                    <SummaryCard key={summary.id} summary={summary} />
+                  ))}
                 </div>
-              ))
+              ) : <p>No summaries in progress.</p>
             )}
           </section>
 
           {/* Completed Section */}
           <section className="bg-white shadow rounded-lg p-6">
             <h2 className="text-lg font-medium text-gray-900">Completed</h2>
-            {completedSummaries.length === 0 ? (
-              <p className="text-sm text-gray-500">No completed summaries.</p>
-            ) : (
-              completedSummaries.map((record) => (
-                <div key={record.summary.id} className="p-4 border rounded mb-2 flex justify-between items-center">
-                  <div>
-                    <h3 className="font-bold">{record.summary.podcast?.title || 'No title'}</h3>
-                    <p className="text-sm">{record.summary.podcast?.show_name || 'No channel'}</p>
-                    <p className="text-xs text-gray-500">Status: {record.summary.status}</p>
-                  </div>
-                  <button
-                    onClick={() => router.push(`/app/${record.summary.id}`)}
-                    className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
-                  >
-                    View Details
-                  </button>
+            {loadingSummaries ? <p>Loading summaries...</p> : (
+              completedSummaries.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  {completedSummaries.map(summary => (
+                    <SummaryCard key={summary.id} summary={summary} />
+                  ))}
                 </div>
-              ))
+              ) : <p>No completed summaries.</p>
             )}
           </section>
         </div>
