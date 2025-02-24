@@ -6,13 +6,40 @@
 // Each of these can be added incrementally as we build out the functionality. Which would you like to tackle first?
 // Also, I notice the old code uses React Router, but since we're using Next.js now, we'll use its built-in routing. Should I show you how to adapt the routing parts?
 
-
-
-
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { ProcessingStatus } from '@wavenotes-new/shared'
-import { getSession, getUser } from '../../lib/supabase'
+import { getSession, getUser, supabase } from '../../lib/supabase'
+
+// Existing type for summary details from [id].tsx, extended with podcast info
+interface SummaryWithPodcast {
+  id: string;
+  status: string;
+  summary_text?: string | null;
+  error_message?: string | null;
+  // Additional fields, e.g., created_at, updated_at, etc., from SummaryRecord can be added if needed
+  podcast?: {
+    title: string;
+    show_name: string;
+    url?: string;
+    youtube_url?: string;
+    thumbnail_url?: string | null;
+  };
+}
+
+// New type for user summary records from the join between user_summaries, summaries, and podcasts
+interface UserSummaryRecord {
+  id: string; // id from the user_summaries table
+  summary: SummaryWithPodcast;
+}
+
+const loadingMessages: Record<string, string> = {
+  IN_QUEUE: 'Preparing to process your podcast...',
+  FETCHING_TRANSCRIPT: 'Fetching transcript...',
+  GENERATING_SUMMARY: 'Generating summary...',
+  COMPLETED: 'Complete!',
+  FAILED: 'Failed to process podcast'
+}
 
 export default function AppDashboard() {
   const [url, setUrl] = useState('')
@@ -20,6 +47,7 @@ export default function AppDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
   const [accessToken, setAccessToken] = useState<string>('')
+  const [userSummaries, setUserSummaries] = useState<UserSummaryRecord[]>([])
   const router = useRouter()
 
   // Load user session on component mount
@@ -35,6 +63,41 @@ export default function AppDashboard() {
     }
     loadUser()
   }, [])
+
+  // Fetch user summaries once user is loaded
+  const fetchUserSummaries = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('user_summaries')
+      .select(`
+        *,
+        summary: summaries (
+          id,
+          status,
+          summary_text,
+          podcast: podcasts (
+            title,
+            show_name,
+            url,
+            youtube_url,
+            thumbnail_url
+          )
+        )
+      `)
+      .eq('user_id', user.id)
+    if (error) {
+      console.error("Error fetching user summaries:", error)
+    } else if (data) {
+      console.log("Fetched user summaries:", data)
+      setUserSummaries(data as UserSummaryRecord[])
+    }
+  }
+
+  useEffect(() => {
+    if (user) {
+      fetchUserSummaries()
+    }
+  }, [user])
 
   // URL submission handler
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,7 +130,7 @@ export default function AppDashboard() {
       // Clear the form
       setUrl('')
 
-      // Navigate to the summary details page using the returned dummy ID
+      // Navigate to the summary details page using the returned summary ID
       router.push(`/app/${data.id}`)
     } catch (err) {
       console.error('Failed to submit podcast:', err)
@@ -76,6 +139,13 @@ export default function AppDashboard() {
       setIsSubmitting(false)
     }
   }
+
+  // Filtering summaries into groups based on status
+  const inProgressStatuses = ['in_queue', 'fetching_transcript', 'generating_summary']
+  const completedStatuses = ['completed', 'failed']
+
+  const inProgressSummaries = userSummaries.filter(us => inProgressStatuses.includes(us.summary.status))
+  const completedSummaries = userSummaries.filter(us => completedStatuses.includes(us.summary.status))
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -129,13 +199,49 @@ export default function AppDashboard() {
           {/* In Progress Section */}
           <section className="bg-white shadow rounded-lg p-6">
             <h2 className="text-lg font-medium text-gray-900">In Progress</h2>
-            {/* Summary cards will go here */}
+            {inProgressSummaries.length === 0 ? (
+              <p className="text-sm text-gray-500">No summaries in progress.</p>
+            ) : (
+              inProgressSummaries.map((record) => (
+                <div key={record.summary.id} className="p-4 border rounded mb-2 flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold">{record.summary.podcast?.title || 'No title'}</h3>
+                    <p className="text-sm">{record.summary.podcast?.show_name || 'No channel'}</p>
+                    <p className="text-xs text-gray-500">Status: {record.summary.status}</p>
+                  </div>
+                  <button
+                    onClick={() => router.push(`/app/${record.summary.id}`)}
+                    className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
+                  >
+                    View Details
+                  </button>
+                </div>
+              ))
+            )}
           </section>
 
           {/* Completed Section */}
           <section className="bg-white shadow rounded-lg p-6">
             <h2 className="text-lg font-medium text-gray-900">Completed</h2>
-            {/* Summary cards will go here */}
+            {completedSummaries.length === 0 ? (
+              <p className="text-sm text-gray-500">No completed summaries.</p>
+            ) : (
+              completedSummaries.map((record) => (
+                <div key={record.summary.id} className="p-4 border rounded mb-2 flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold">{record.summary.podcast?.title || 'No title'}</h3>
+                    <p className="text-sm">{record.summary.podcast?.show_name || 'No channel'}</p>
+                    <p className="text-xs text-gray-500">Status: {record.summary.status}</p>
+                  </div>
+                  <button
+                    onClick={() => router.push(`/app/${record.summary.id}`)}
+                    className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
+                  >
+                    View Details
+                  </button>
+                </div>
+              ))
+            )}
           </section>
         </div>
       </main>

@@ -2,6 +2,7 @@ import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { SummaryRecord } from '@wavenotes-new/shared'  // using shared types
+import ReactMarkdown from 'react-markdown'
 
 interface SummaryWithPodcast extends SummaryRecord {
   podcast?: {
@@ -95,7 +96,11 @@ export default function SummaryPage() {
       </div>
       <p>Status: {loadingMessages[summary?.status || ''] || summary?.status}</p>
       <div className="summary-content">
-        {summary?.summary_text || 'Your summary will appear here as it is generated.'}
+        {summary?.summary_text ? (
+          <ReactMarkdown>{summary.summary_text}</ReactMarkdown>
+        ) : (
+          'Your summary will appear here as it is generated.'
+        )}
       </div>
     </div>
   )
