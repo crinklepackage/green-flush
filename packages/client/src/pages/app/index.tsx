@@ -144,6 +144,20 @@ export default function AppDashboard() {
   useEffect(() => {
     if (!user || !user.id) return;
     
+    // Add debounce mechanism for fetching
+    let debounceTimer: NodeJS.Timeout | null = null;
+    
+    const debouncedFetch = () => {
+      // Clear any existing timer
+      if (debounceTimer) clearTimeout(debounceTimer);
+      
+      // Set a new timer
+      debounceTimer = setTimeout(() => {
+        console.log('Debounced fetch triggered');
+        fetchSummaries();
+      }, 1000); // 1 second debounce
+    };
+    
     // Set up subscriptions to listen for changes
     const subscription = supabase
       .channel('table-db-changes')
@@ -157,16 +171,15 @@ export default function AppDashboard() {
         (payload) => {
           console.log('Real-time update received:', payload);
           
-          // When a summary is updated, refresh the list to show latest status
-          if (user && user.id) {
-            fetchSummaries();
-          }
+          // Use debounced fetch instead of immediate fetch
+          debouncedFetch();
         }
       )
       .subscribe();
     
-    // Cleanup subscription on unmount
+    // Cleanup subscription and timer on unmount
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(subscription);
     };
   }, [user]);
@@ -276,7 +289,15 @@ export default function AppDashboard() {
               thumbnail_url: podcastMap[summary.podcast_id].thumbnail_url,
               url: podcastMap[summary.podcast_id].url
             }
-          : undefined;
+          : {
+              // For in-progress summaries with missing podcast data, provide default values
+              // This ensures cards still appear in the "In Progress" section
+              title: summary.status === ProcessingStatus.IN_QUEUE || 
+                     summary.status === ProcessingStatus.FETCHING_TRANSCRIPT || 
+                     summary.status === ProcessingStatus.GENERATING_SUMMARY 
+                     ? 'Processing Podcast' : 'Unknown Podcast',
+              show_name: 'Please wait...',
+            };
             
         return {
           id: summary.id,
@@ -311,7 +332,6 @@ export default function AppDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Use accessToken from Supabase session
           'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({ url })
@@ -327,9 +347,21 @@ export default function AppDashboard() {
       
       // Clear the form
       setUrl('')
-
-      // Refresh summaries list
-      fetchSummaries();
+      
+      // Add an optimistic summary entry to the UI
+      // This ensures a card appears immediately
+      const optimisticSummary: SummaryWithPodcast = {
+        id: data.id,
+        status: ProcessingStatus.IN_QUEUE,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        podcast: {
+          title: 'Processing Podcast',
+          show_name: 'Please wait...',
+        }
+      };
+      
+      setSummaries(prev => [optimisticSummary, ...prev]);
 
       // Navigate to the summary details page using the returned summary ID
       router.push(`/app/${data.id}`)
