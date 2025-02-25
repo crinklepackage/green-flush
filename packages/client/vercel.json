@@ -1,4 +1,4 @@
 {
-  "installCommand": "yarn install --focus",
-  "buildCommand": "yarn build"
+  "installCommand": "yarn install",
+  "buildCommand": "yarn vercel-build"
 }
