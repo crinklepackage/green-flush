@@ -1,0 +1,20 @@
+[phases.setup]
+aptPkgs = ["git"]
+
+[phases.install]
+cmds = [
+  "echo 'Skipping default install phase'"
+]
+
+[phases.build]
+cmds = [
+  "yarn install --no-immutable",
+  "yarn workspace @wavenotes-new/shared build",
+  "yarn workspace @wavenotes-new/api build"
+]
+
+[start]
+cmd = "node dist/index.js"
+
+[variables]
+NODE_ENV = "production" 
