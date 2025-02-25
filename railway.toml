@@ -1,0 +1,14 @@
+[build]
+builder = "nixpacks"
+buildCommand = "yarn install"
+
+[deploy]
+startCommand = "yarn workspace @wavenotes-new/api start"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 10
+
+[crons.check-timeouts]
+schedule = "*/30 * * * *"
+command = "yarn workspace @wavenotes-new/api check-timeouts" 

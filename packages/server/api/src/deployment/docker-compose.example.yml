@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # Main API service
+  api:
+    build:
+      context: ../../../..
+      dockerfile: packages/server/api/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - REDIS_URL=${REDIS_URL}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    restart: always
+    volumes:
+      - api_logs:/var/log/wavenotes
+    networks:
+      - wavenotes_network
+
+  # Scheduled job service for running timeouts check
+  cron:
+    build:
+      context: ../../../..
+      dockerfile: packages/server/api/Dockerfile
+    command: >
+      /bin/sh -c "
+        echo '*/30 * * * * cd /app && yarn workspace @wavenotes-new/api check-timeouts >> /var/log/wavenotes/timeouts.log 2>&1' > /etc/cron.d/wavenotes-cron && 
+        echo '0 3 * * * cd /app && yarn workspace @wavenotes-new/api fix-summaries >> /var/log/wavenotes/fix-summaries.log 2>&1' >> /etc/cron.d/wavenotes-cron && 
+        chmod 0644 /etc/cron.d/wavenotes-cron && 
+        crontab /etc/cron.d/wavenotes-cron && 
+        mkdir -p /var/log/wavenotes && 
+        cron -f
+      "
+    environment:
+      - NODE_ENV=production
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - REDIS_URL=${REDIS_URL}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - api_logs:/var/log/wavenotes
+    depends_on:
+      - api
+    networks:
+      - wavenotes_network
+    restart: always
+
+networks:
+  wavenotes_network:
+    driver: bridge
+
+volumes:
+  api_logs: 

@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { checkStalledSummaries } from '../services/timeout-service'
+import { checkStalledSummaries, getTimeoutStatistics } from '../services/timeout-service'
 import { authMiddleware } from '../middleware/auth'
 
 const router = Router()
@@ -17,6 +17,28 @@ router.post('/check-timeouts', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error in timeout check:', error)
     res.status(500).json({ error: 'Failed to process timeout check' })
+  }
+})
+
+/**
+ * GET /admin/status
+ * Returns system status information including summary processing statistics
+ */
+router.get('/status', authMiddleware, async (req, res) => {
+  try {
+    const timeoutStats = await getTimeoutStatistics()
+    
+    // Add any other system status information here
+    
+    res.json({
+      success: true,
+      timeoutStats,
+      systemStatus: 'healthy',
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('Error fetching status:', error)
+    res.status(500).json({ error: 'Failed to fetch system status' })
   }
 })
 

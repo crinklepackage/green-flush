@@ -1,0 +1,18 @@
+# Wavenotes Production Crontab Example
+# Copy this to your server's crontab using: crontab -e
+
+# Environment variables (adjust as needed)
+WAVENOTES_ROOT=/path/to/wavenotes-new
+LOG_DIR=/var/log/wavenotes
+
+# Create log directory if it doesn't exist
+# mkdir -p $LOG_DIR
+
+# Check for stalled summaries every 30 minutes
+*/30 * * * * cd $WAVENOTES_ROOT && yarn workspace @wavenotes-new/api check-timeouts >> $LOG_DIR/timeouts.log 2>&1
+
+# Run a more thorough check and fix legacy statuses once a day at 3 AM
+0 3 * * * cd $WAVENOTES_ROOT && yarn workspace @wavenotes-new/api fix-summaries >> $LOG_DIR/fix-summaries.log 2>&1
+
+# Rotate logs weekly to prevent them from growing too large
+0 0 * * 0 find $LOG_DIR -type f -name "*.log" -mtime +7 -exec gzip {} \; 

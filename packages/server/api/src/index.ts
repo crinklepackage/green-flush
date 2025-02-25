@@ -8,6 +8,8 @@ import { podcastRoutes } from './routes/podcasts'
 import { createSummariesRouter } from './routes/summaries'
 import { supabase } from './lib/supabase';
 import adminRouter from './routes/admin';
+import { validateStatusMiddleware } from './middleware/validate-status';
+import { checkStalledSummaries } from './services/timeout-service';
 
 export const db = new DatabaseService(supabase)
 export { DatabaseService }
@@ -23,12 +25,36 @@ async function main() {
   
   // Create a root router and mount the other routers with path prefixes
   const rootRouter = Router();
+  
+  // Apply the status validation middleware to all routes
+  rootRouter.use(validateStatusMiddleware);
+  
   rootRouter.use('/podcasts', podcastRouter);
   rootRouter.use('/summaries', summariesRouter);
   rootRouter.use('/admin', adminRouter);
   
   // Start API with the root router
   await api.start(Number(config.PORT), rootRouter)
+
+  // Check for stalled summaries on startup
+  try {
+    console.log('Checking for stalled summaries on server startup...');
+    const updatedCount = await checkStalledSummaries();
+    console.log(`Startup timeout check complete: ${updatedCount} summaries updated`);
+  } catch (error) {
+    console.error('Error checking for stalled summaries on startup:', error);
+  }
+
+  // Setup interval to check for stalled summaries every hour
+  const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+  setInterval(async () => {
+    try {
+      console.log('Running scheduled stalled summary check...');
+      await checkStalledSummaries();
+    } catch (error) {
+      console.error('Error in scheduled stalled summary check:', error);
+    }
+  }, CHECK_INTERVAL_MS);
 
   process.on('SIGTERM', async () => {
     await api.shutdown()

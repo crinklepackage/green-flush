@@ -31,5 +31,14 @@ export * from './types/jobs';
 // Export status transforms
 export { formatStatusForDisplay, getStatusColor } from './transforms/status';
 
+// Export status manager utilities
+export { 
+  createStatusUpdatePayload, 
+  createStatusHistoryEntry, 
+  isValidStatus, 
+  getTimestampFieldForStatus, 
+  type StatusHistoryEntry 
+} from './utils/status-manager';
+
 // Export Claude prompts
 export { CLAUDE_PROMPTS } from './common/prompts/claude-prompts';
