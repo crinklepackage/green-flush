@@ -4,8 +4,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "vercel-build": "cd ../.. && yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/client build"
+    "start": "next start"
   },
   "dependencies": {
     "@radix-ui/react-icons": "^1.3.2",
