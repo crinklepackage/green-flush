@@ -52,6 +52,7 @@ function SummaryCard({ summary, onDelete }: {
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const router = useRouter();
   
   // Debug logging
   useEffect(() => {
@@ -78,50 +79,62 @@ function SummaryCard({ summary, onDelete }: {
     }
   };
   
+  const handleCardClick = () => {
+    router.push(`/app/${summary.id}`);
+  };
+  
   const showDeleteButton = 
     summary.status === 'failed' || 
     summary.status === 'in_queue';
   
   return (
-    <Card className="overflow-hidden hover:shadow-md transition duration-200">
+    <Card 
+      className="overflow-hidden hover:shadow-md transition duration-200 cursor-pointer"
+      onClick={handleCardClick}
+    >
       <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          {summary.podcast && summary.podcast.thumbnail_url && !imgError && (
-            <img 
-              src={summary.podcast.thumbnail_url} 
-              alt="Podcast thumbnail" 
-              className="w-16 h-16 rounded" 
-              onError={(e) => {
-                console.error('Error loading thumbnail:', summary.podcast?.thumbnail_url);
-                setImgError(true);
-              }}
-            />
-          )}
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold">{summary.podcast?.title || 'Unknown Podcast'}</h3>
-            <p className="text-sm text-muted-foreground">{summary.podcast?.show_name || 'Unknown Show'}</p>
-            <div className="mt-1">
-              <StatusBadge status={summary.status as ProcessingStatus} />
-            </div>
-            <div className="mt-2 flex gap-2 items-center">
-              <a href={`/app/${summary.id}`} className="text-primary hover:underline text-sm">
-                View Summary
-              </a>
-              
-              {showDeleteButton && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-red-600 hover:text-red-800 hover:bg-red-50 p-0 h-auto" 
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? 'Removing...' : 'Remove'}
-                </Button>
+        <div className="flex justify-between items-start">
+          <div className="flex items-start gap-3 max-w-[calc(100%-90px)]">
+            <div className="w-16 h-16 flex-shrink-0">
+              {summary.podcast && summary.podcast.thumbnail_url && !imgError ? (
+                <img 
+                  src={summary.podcast.thumbnail_url} 
+                  alt="Podcast thumbnail" 
+                  className="h-16 w-16 rounded object-cover" 
+                  onError={(e) => {
+                    console.error('Error loading thumbnail:', summary.podcast?.thumbnail_url);
+                    setImgError(true);
+                  }}
+                />
+              ) : (
+                <div className="h-16 w-16 bg-gray-200 rounded flex items-center justify-center">
+                  <span className="text-gray-400 text-xs">No image</span>
+                </div>
               )}
             </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-semibold line-clamp-2">{summary.podcast?.title || 'Unknown Podcast'}</h3>
+              <p className="text-sm text-muted-foreground">{summary.podcast?.show_name || 'Unknown Show'}</p>
+            </div>
+          </div>
+          <div className="flex-shrink-0 ml-2 w-[80px] text-right">
+            <StatusBadge status={summary.status as ProcessingStatus} />
           </div>
         </div>
+        
+        {showDeleteButton && (
+          <div className="mt-3">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-red-600 hover:text-red-800 hover:bg-red-50 p-0 h-auto" 
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Removing...' : 'Remove'}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -535,7 +548,7 @@ export default withAuth(function AppDashboard() {
             <CardContent>
               {loadingSummaries ? <p>Loading summaries...</p> : (
                 inProgressSummaries.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     {inProgressSummaries.map(summary => (
                       <SummaryCard key={summary.id} summary={summary} onDelete={handleDeleteSummary} />
                     ))}
@@ -553,7 +566,7 @@ export default withAuth(function AppDashboard() {
             <CardContent>
               {loadingSummaries ? <p>Loading summaries...</p> : (
                 completedSummaries.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     {completedSummaries.map(summary => (
                       <SummaryCard key={summary.id} summary={summary} onDelete={handleDeleteSummary} />
                     ))}
