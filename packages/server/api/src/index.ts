@@ -7,6 +7,7 @@ import { QueueService } from './services/queue'
 import { podcastRoutes } from './routes/podcasts'
 import { createSummariesRouter } from './routes/summaries'
 import { supabase } from './lib/supabase';
+import adminRouter from './routes/admin';
 
 export const db = new DatabaseService(supabase)
 export { DatabaseService }
@@ -24,6 +25,7 @@ async function main() {
   const rootRouter = Router();
   rootRouter.use('/podcasts', podcastRouter);
   rootRouter.use('/summaries', summariesRouter);
+  rootRouter.use('/admin', adminRouter);
   
   // Start API with the root router
   await api.start(Number(config.PORT), rootRouter)

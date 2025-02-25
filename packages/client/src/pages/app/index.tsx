@@ -34,6 +34,16 @@ interface SummaryWithPodcast {
   };
 }
 
+// Add this interface at the top of the file with other interfaces
+interface SummaryRecord {
+  id: string;
+  status: string;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+  podcast_id?: string;
+}
+
 // SummaryCard Component
 function SummaryCard({ summary, onDelete }: { 
   summary: SummaryWithPodcast;
@@ -144,7 +154,7 @@ export default function AppDashboard() {
   useEffect(() => {
     if (!user || !user.id) return;
     
-    // Add debounce mechanism for fetching
+    // Keep the debounced fetch for situations where we need a full refresh
     let debounceTimer: NodeJS.Timeout | null = null;
     
     const debouncedFetch = () => {
@@ -168,11 +178,60 @@ export default function AppDashboard() {
           schema: 'public',
           table: 'summaries'
         },
-        (payload) => {
+        async (payload: any) => {
           console.log('Real-time update received:', payload);
           
-          // Use debounced fetch instead of immediate fetch
-          debouncedFetch();
+          // Extract the updated summary data from the payload with proper typing
+          const updatedSummary = payload.new as SummaryRecord;
+          
+          // Only handle updates - not inserts or deletes (those are handled elsewhere)
+          if (payload.eventType === 'UPDATE' && updatedSummary?.id) {
+            // Update just this specific summary in state rather than refetching everything
+            setSummaries(prevSummaries => {
+              // Find if this summary exists in our current state
+              const existingIndex = prevSummaries.findIndex(s => s.id === updatedSummary.id);
+              
+              // If it doesn't exist in our state, don't do anything
+              if (existingIndex === -1) return prevSummaries;
+              
+              // Clone the previous summaries array
+              const updatedSummaries = [...prevSummaries];
+              
+              // Get the existing summary to preserve its podcast data
+              const existingSummary = updatedSummaries[existingIndex];
+              
+              // Update just the changed fields, preserving the podcast data
+              updatedSummaries[existingIndex] = {
+                ...existingSummary,
+                status: updatedSummary.status,
+                error_message: updatedSummary.error_message,
+                updated_at: updatedSummary.updated_at
+              };
+              
+              console.log(`Summary ${updatedSummary.id} status changed from ${existingSummary.status} to ${updatedSummary.status}`);
+              
+              return updatedSummaries;
+            });
+          } else if (payload.eventType === 'INSERT') {
+            // For new summaries, we may need to fetch the podcast data
+            // But we can skip this if it was our optimistic update
+            const newSummary = payload.new as SummaryRecord;
+            if (newSummary?.id && summaries.some(s => s.id === newSummary.id)) {
+              console.log('Ignoring INSERT for summary we already have:', newSummary.id);
+              return;
+            }
+            
+            // For truly new summaries, we can do a targeted fetch
+            debouncedFetch();
+          } else if (payload.eventType === 'DELETE') {
+            // Remove the summary from state
+            const oldSummary = payload.old as SummaryRecord;
+            if (oldSummary?.id) {
+              setSummaries(prevSummaries => 
+                prevSummaries.filter(s => s.id !== oldSummary.id)
+              );
+            }
+          }
         }
       )
       .subscribe();

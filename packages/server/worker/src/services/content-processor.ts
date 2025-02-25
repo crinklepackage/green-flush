@@ -22,6 +22,29 @@ const spotifyService = new SpotifyService({
   clientSecret: config.SPOTIFY_CLIENT_SECRET
 });
 
+// Simple timeout helper function
+const withTimeout = async <T>(
+  promise: Promise<T>, 
+  timeoutMs: number, 
+  errorMessage: string
+): Promise<T> => {
+  let timeoutId: NodeJS.Timeout;
+  
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(errorMessage));
+    }, timeoutMs);
+  });
+  
+  try {
+    // Race the original promise against the timeout
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    // Clean up timeout to prevent memory leaks
+    clearTimeout(timeoutId!);
+  }
+};
+
 export class ContentProcessorService {
   async processPodcast(jobData: any): Promise<void> {
     // jobData should include podcastId, summaryId, url, and type.
@@ -37,8 +60,14 @@ export class ContentProcessorService {
         const existingYoutubeUrl = podcastRecord ? (podcastRecord as any).youtube_url : null;
         if (podcastRecord && !existingYoutubeUrl) {
           console.info('No YouTube URL found. Triggering matching logic for Spotify link.');
-          // Use PlatformMatcher to attempt to find a matching YouTube video
-          const matchUrl = await PlatformMatcher.findYouTubeMatch(url, spotifyService);
+          // Use PlatformMatcher to attempt to find a matching YouTube video with timeout
+          const matchUrlPromise = PlatformMatcher.findYouTubeMatch(url, spotifyService);
+          const matchUrl = await withTimeout(
+            matchUrlPromise,
+            3 * 60 * 1000, // 3 minutes timeout for matching
+            'YouTube matching timed out after 3 minutes'
+          );
+          
           if (matchUrl) {
             // Update the podcast record with the found YouTube URL
             await db.updatePodcastInfo(podcastId, matchUrl);
@@ -72,8 +101,14 @@ export class ContentProcessorService {
       // 1. Update status to FETCHING_TRANSCRIPT
       await db.updateSummaryStatus(summaryId, ProcessingStatus.FETCHING_TRANSCRIPT);
       
-      // 2. Fetch transcript using TranscriptProcessor (expects a valid YouTube URL)
-      const transcript = await TranscriptProcessor.getTranscript(url);
+      // 2. Fetch transcript using TranscriptProcessor with timeout (5 minutes)
+      const transcriptPromise = TranscriptProcessor.getTranscript(url);
+      const transcript = await withTimeout(
+        transcriptPromise,
+        5 * 60 * 1000, // 5 minutes
+        'Transcript fetch timed out after 5 minutes'
+      );
+      
       if (!transcript) {
         await db.updateSummaryStatus(summaryId, ProcessingStatus.FAILED, 'Transcript not available');
         return;
@@ -82,16 +117,28 @@ export class ContentProcessorService {
       // 3. Update status to GENERATING_SUMMARY
       await db.updateSummaryStatus(summaryId, ProcessingStatus.GENERATING_SUMMARY);
       
-      // 4. Generate summary in streaming mode and capture token counts
+      // 4. Generate summary with timeout tracking
       let accumulatedSummary = '';
-      const { inputTokens, outputTokens } = await SummaryGeneratorService.generateSummary(transcript.text, async (chunk: string) => {
-        accumulatedSummary += chunk;
-        // Append the summary chunk to the summary record
-        await db.appendSummary(summaryId, {
-          text: accumulatedSummary,
-          status: ProcessingStatus.GENERATING_SUMMARY
+      const startTime = Date.now();
+      const MAX_GENERATION_TIME = 10 * 60 * 1000; // 10 minutes
+      
+      const generateWithTimeout = async () => {
+        return await SummaryGeneratorService.generateSummary(transcript.text, async (chunk: string) => {
+          // Check if we've gone over time
+          if (Date.now() - startTime > MAX_GENERATION_TIME) {
+            throw new Error('Summary generation timed out after 10 minutes');
+          }
+          
+          accumulatedSummary += chunk;
+          // Append the summary chunk to the summary record
+          await db.appendSummary(summaryId, {
+            text: accumulatedSummary,
+            status: ProcessingStatus.GENERATING_SUMMARY
+          });
         });
-      });
+      };
+      
+      const { inputTokens, outputTokens } = await generateWithTimeout();
       
       // Update the token counts in the database
       await db.updateSummaryTokens(summaryId, inputTokens, outputTokens);
