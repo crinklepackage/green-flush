@@ -20,7 +20,7 @@ export class SummaryGeneratorService {
         messages: [
           { role: 'user' as const, content: userContent }
         ],
-        max_tokens: 1024
+        max_tokens: CLAUDE_PROMPTS.TOKEN_LIMITS.SUMMARY_GENERATOR
       });
 
       let finished = false;

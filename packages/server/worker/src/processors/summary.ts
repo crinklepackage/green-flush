@@ -1,6 +1,6 @@
 // packages/server/worker/src/processors/summary.ts
 import { Anthropic } from '@anthropic-ai/sdk'
-import { ProcessingStatus } from '@wavenotes-new/shared'
+import { ProcessingStatus, CLAUDE_PROMPTS } from '@wavenotes-new/shared'
 
 export class SummaryProcessor {
   private static readonly SYSTEM_PROMPT = `You are an expert podcast summarizer...`
@@ -11,7 +11,7 @@ export class SummaryProcessor {
   async *generateSummary(transcript: string) {
     const stream = await this.claude.messages.create({
       model: 'claude-3-sonnet-20240229',
-      max_tokens: 4000,
+      max_tokens: CLAUDE_PROMPTS.TOKEN_LIMITS.SUMMARY_GENERATION,
       messages: [{ role: 'user', content: transcript }],
       system: SummaryProcessor.SYSTEM_PROMPT,
       stream: true

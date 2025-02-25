@@ -1,6 +1,7 @@
 // packages/server/api/src/services/summary.ts
 import { Anthropic } from '@anthropic-ai/sdk'
 import { supabase } from '../lib/supabase'
+import { CLAUDE_PROMPTS } from '@wavenotes-new/shared'
 
 export class SummaryService {
     private claude: Anthropic
@@ -16,7 +17,7 @@ export class SummaryService {
         // Start Claude streaming
         const stream = await this.claude.messages.create({
           model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 4096,
+          max_tokens: CLAUDE_PROMPTS.TOKEN_LIMITS.SUMMARY_STREAMING,
           messages: [{ role: 'user', content: 'Your podcast summary prompt' }],
           stream: true,
           system: 'You are an expert podcast summarizer...'

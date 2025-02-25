@@ -2,10 +2,10 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/api build"
+    "buildCommand": "cd ../.. && yarn install && yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/api build"
   },
   "deploy": {
-    "startCommand": "yarn workspace @wavenotes-new/api start",
+    "startCommand": "cd ../.. && yarn workspace @wavenotes-new/api start",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE",
@@ -14,7 +14,7 @@
   "crons": [
     {
       "schedule": "*/30 * * * *",
-      "command": "yarn workspace @wavenotes-new/api check-timeouts"
+      "command": "cd ../.. && yarn workspace @wavenotes-new/api check-timeouts"
     }
   ]
 } 

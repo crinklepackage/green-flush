@@ -19,6 +19,17 @@ export const CLAUDE_PROMPTS = {
   },
 
   /**
+   * Token limits for different operations
+   * Centralizing these values ensures consistency across API and worker
+   */
+  TOKEN_LIMITS: {
+    SUMMARY_GENERATION: 4000,       // Used in worker for generating full summaries
+    SUMMARY_STREAMING: 4096,        // Used in API for streaming summaries
+    SUMMARY_GENERATOR: 1024,        // Used in the summary generator service
+    DEFAULT: 4000,                  // Default token limit
+  },
+
+  /**
    * Podcast summary generation prompts
    * Used by the worker service when processing transcripts
    */
