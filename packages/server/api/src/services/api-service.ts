@@ -132,6 +132,11 @@ export class ApiService {
     app.use(cors())
     app.use(express.json())
     
+    // Add health check endpoint
+    app.get('/health', (req, res) => {
+      res.status(200).json({ status: 'ok' });
+    });
+    
     // Handle either a single router or an array of routers
     if (Array.isArray(router)) {
       router.forEach(r => app.use(r));
