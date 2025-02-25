@@ -40,6 +40,17 @@ function SummaryCard({ summary, onDelete }: {
   onDelete: (id: string) => Promise<void>;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('SummaryCard received:', {
+      id: summary.id,
+      status: summary.status,
+      podcast: summary.podcast || 'No podcast data',
+      hasThumbnail: summary.podcast?.thumbnail_url ? true : false
+    });
+  }, [summary]);
   
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -64,8 +75,16 @@ function SummaryCard({ summary, onDelete }: {
     <Card className="overflow-hidden hover:shadow-md transition duration-200">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          {summary.podcast && summary.podcast.thumbnail_url && (
-            <img src={summary.podcast.thumbnail_url} alt="Podcast thumbnail" className="w-16 h-16 rounded" />
+          {summary.podcast && summary.podcast.thumbnail_url && !imgError && (
+            <img 
+              src={summary.podcast.thumbnail_url} 
+              alt="Podcast thumbnail" 
+              className="w-16 h-16 rounded" 
+              onError={(e) => {
+                console.error('Error loading thumbnail:', summary.podcast?.thumbnail_url);
+                setImgError(true);
+              }}
+            />
           )}
           <div className="flex-1">
             <h3 className="text-lg font-semibold">{summary.podcast?.title || 'Unknown Podcast'}</h3>
@@ -121,30 +140,162 @@ export default function AppDashboard() {
     loadUser()
   }, [])
 
-  // Fetch summaries from Supabase
+  // Set up real-time subscription to summaries
   useEffect(() => {
-    const fetchSummaries = async () => {
-      setLoadingSummaries(true);
-      try {
-        const { data, error } = await supabase
-          .from('summaries')
-          .select(`*, podcast:podcasts(title, show_name, thumbnail_url, url)`) 
-          .order('created_at', { ascending: false });
-        if (error) {
-          console.error('Error fetching summaries:', error);
-        } else {
-          setSummaries(data || []);
+    if (!user || !user.id) return;
+    
+    // Set up subscriptions to listen for changes
+    const subscription = supabase
+      .channel('table-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'summaries'
+        },
+        (payload) => {
+          console.log('Real-time update received:', payload);
+          
+          // When a summary is updated, refresh the list to show latest status
+          if (user && user.id) {
+            fetchSummaries();
+          }
         }
-      } catch (err) {
-        console.error('Error fetching summaries:', err);
-      }
-      setLoadingSummaries(false);
+      )
+      .subscribe();
+    
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(subscription);
     };
-    // Fetch only if user is set
-    if (user) {
+  }, [user]);
+
+  // Fetch summaries when user changes
+  useEffect(() => {
+    if (user && user.id) {
       fetchSummaries();
     }
   }, [user]);
+
+  // Extract fetchSummaries function to be reusable
+  const fetchSummaries = async () => {
+    if (!user || !user.id) return;
+    
+    setLoadingSummaries(true);
+    try {
+      // First get the summary IDs this user has access to
+      const { data: userSummaries, error: userSummariesError } = await supabase
+        .from('user_summaries')
+        .select('summary_id')
+        .eq('user_id', user.id);
+        
+      if (userSummariesError) {
+        console.error('Error fetching user summaries:', userSummariesError);
+        setLoadingSummaries(false);
+        return;
+      }
+      
+      // If no summaries found, set empty array and return
+      if (!userSummaries || userSummaries.length === 0) {
+        setSummaries([]);
+        setLoadingSummaries(false);
+        return;
+      }
+      
+      // Extract summary IDs
+      // @ts-ignore: Temporarily ignoring type checking here
+      const summaryIds = userSummaries.map(item => item.summary_id);
+      
+      // Simple direct query to get both summaries and podcasts
+      const { data: podcastData, error: podcastError } = await supabase
+        .from('podcasts')
+        .select('*');
+        
+      if (podcastError) {
+        console.error('Error fetching podcasts:', podcastError);
+      }
+      
+      // Create a map of podcasts by ID for easy lookup
+      type PodcastMap = {
+        [key: string]: {
+          id: string;
+          title: string;
+          show_name: string;
+          thumbnail_url?: string | null;
+          url?: string;
+        }
+      };
+      
+      const podcastMap: PodcastMap = {};
+      if (podcastData) {
+        podcastData.forEach(podcast => {
+          podcastMap[podcast.id] = podcast;
+        });
+      }
+      
+      console.log('Podcast map:', podcastMap);
+      
+      // Get summaries
+      const { data: summariesData, error: summariesError } = await supabase
+        .from('summaries')
+        .select('*')
+        .in('id', summaryIds)
+        .order('created_at', { ascending: false });
+        
+      if (summariesError) {
+        console.error('Error fetching summaries:', summariesError);
+        setSummaries([]);
+        setLoadingSummaries(false);
+        return;
+      }
+      
+      console.log('Raw summaries data:', summariesData);
+      
+      // Debug: Show podcast_id from each summary to verify relationship
+      if (summariesData && summariesData.length > 0) {
+        console.log('Summary to podcast relationships:');
+        summariesData.forEach(summary => {
+          console.log(`Summary ${summary.id} has podcast_id: ${summary.podcast_id}`);
+          if (summary.podcast_id && podcastMap[summary.podcast_id]) {
+            console.log(`  Found matching podcast: ${podcastMap[summary.podcast_id].title}`);
+          } else {
+            console.log(`  No matching podcast found in podcast map`);
+          }
+        });
+      }
+        
+      // Transform the data with the podcast map lookup
+      const transformedData = (summariesData || []).map(summary => {
+        // Get the podcast using the podcast_id if available
+        const podcastInfo = summary.podcast_id && podcastMap[summary.podcast_id] 
+          ? {
+              id: podcastMap[summary.podcast_id].id,
+              title: podcastMap[summary.podcast_id].title || 'Unknown Title',
+              show_name: podcastMap[summary.podcast_id].show_name || 'Unknown Show',
+              thumbnail_url: podcastMap[summary.podcast_id].thumbnail_url,
+              url: podcastMap[summary.podcast_id].url
+            }
+          : undefined;
+            
+        return {
+          id: summary.id,
+          status: summary.status,
+          error_message: summary.error_message,
+          created_at: summary.created_at,
+          updated_at: summary.updated_at,
+          podcast: podcastInfo
+        };
+      });
+      
+      console.log('Transformed summaries with podcasts:', transformedData);
+      setSummaries(transformedData);
+    } catch (err) {
+      console.error('Error in summaries fetch flow:', err);
+      setSummaries([]);
+    }
+    setLoadingSummaries(false);
+  };
 
   // URL submission handler
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,6 +328,9 @@ export default function AppDashboard() {
       // Clear the form
       setUrl('')
 
+      // Refresh summaries list
+      fetchSummaries();
+
       // Navigate to the summary details page using the returned summary ID
       router.push(`/app/${data.id}`)
     } catch (err) {
@@ -198,11 +352,27 @@ export default function AppDashboard() {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to delete summary');
+        // Try to extract detailed error information
+        let errorMessage = 'Failed to delete summary';
+        try {
+          const errorData = await response.json();
+          console.error('Delete summary error details:', errorData);
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          console.error('Could not parse error response:', parseError);
+        }
+        
+        throw new Error(errorMessage);
       }
       
-      // Remove the deleted summary from state
+      // Remove the deleted summary from state and refresh data
       setSummaries(prevSummaries => prevSummaries.filter(s => s.id !== id));
+      
+      // Refresh after a short delay to ensure server processing is complete
+      setTimeout(() => {
+        fetchSummaries();
+      }, 500);
+      
     } catch (error) {
       console.error('Error deleting summary:', error);
       throw error;

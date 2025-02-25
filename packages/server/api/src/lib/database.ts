@@ -65,6 +65,8 @@ export interface DatabaseService {
   }): Promise<void>
   appendSummary(summaryId: string, dataObj: { text: string, status: string }): Promise<void>
   updateSummaryTokens(summaryId: string, inputTokens: number, outputTokens: number): Promise<void>
+  deleteSummary(summaryId: string, userId: string): Promise<void>
+  userHasAccessToSummary(userId: string, summaryId: string): Promise<boolean>
 }
 
 export class DatabaseService {
@@ -406,6 +408,182 @@ export class DatabaseService {
         );
       } else {
         console.info('Logged failed YouTube search successfully');
+      }
+    }
+
+    async userHasAccessToSummary(userId: string, summaryId: string): Promise<boolean> {
+      console.log(`Checking access for user ${userId} to summary ${summaryId}`);
+      
+      const { data, error } = await this.supabase
+        .from('user_summaries')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('summary_id', summaryId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error checking user access to summary:', error);
+        throw new DatabaseError(
+          'Failed to check user access to summary',
+          error.code,
+          'userHasAccessToSummary',
+          { userId, summaryId }
+        );
+      }
+
+      const hasAccess = !!data;
+      console.log(`Access check result for user ${userId} to summary ${summaryId}: ${hasAccess}`, { data });
+      
+      return hasAccess;
+    }
+
+    async deleteSummary(summaryId: string, userId: string): Promise<void> {
+      try {
+        // Check if the summary exists and get its status
+        const { data: summary, error: summaryCheckError } = await this.supabase
+          .from('summaries')
+          .select('id, status, podcast_id')
+          .eq('id', summaryId)
+          .maybeSingle();
+
+        if (summaryCheckError) {
+          throw new DatabaseError(
+            'Failed to check if summary exists',
+            summaryCheckError.code,
+            'deleteSummary',
+            { summaryId }
+          );
+        }
+
+        if (!summary) {
+          throw new DatabaseError(
+            'Summary not found',
+            'NOT_FOUND',
+            'deleteSummary',
+            { summaryId }
+          );
+        }
+        
+        // Check if the status allows deletion (must be 'failed' or 'in_queue')
+        const allowedStatuses = ['failed', 'in_queue'];
+        if (!allowedStatuses.includes(summary.status)) {
+          throw new DatabaseError(
+            `Cannot delete summary with status '${summary.status}'. Only summaries with status 'failed' or 'in_queue' can be deleted.`,
+            'PERMISSION_DENIED',
+            'deleteSummary',
+            { summaryId, status: summary.status }
+          );
+        }
+
+        // Check if the user has access to this summary
+        const hasAccess = await this.userHasAccessToSummary(userId, summaryId);
+        if (!hasAccess) {
+          throw new DatabaseError(
+            'Access denied: User does not have access to this summary',
+            'PERMISSION_DENIED',
+            'deleteSummary',
+            { summaryId, userId }
+          );
+        }
+
+        // Delete the user-summary association first
+        const { error: deleteUserSummaryError } = await this.supabase
+          .from('user_summaries')
+          .delete()
+          .eq('user_id', userId)
+          .eq('summary_id', summaryId);
+
+        if (deleteUserSummaryError) {
+          throw new DatabaseError(
+            'Failed to delete user-summary association',
+            deleteUserSummaryError.code,
+            'deleteSummary',
+            { summaryId, userId }
+          );
+        }
+
+        // Check if any other users have access to this summary
+        const { count, error: countError } = await this.supabase
+          .from('user_summaries')
+          .select('*', { count: 'exact', head: true })
+          .eq('summary_id', summaryId);
+
+        if (countError) {
+          throw new DatabaseError(
+            'Failed to count remaining summary associations',
+            countError.code,
+            'deleteSummary',
+            { summaryId }
+          );
+        }
+
+        // If no other users have access, delete the summary
+        if (count === 0) {
+          const podcastId = summary.podcast_id;
+
+          // Delete the summary
+          const { error: deleteSummaryError } = await this.supabase
+            .from('summaries')
+            .delete()
+            .eq('id', summaryId);
+
+          if (deleteSummaryError) {
+            throw new DatabaseError(
+              'Failed to delete summary',
+              deleteSummaryError.code,
+              'deleteSummary',
+              { summaryId }
+            );
+          }
+
+          // Check if any other summaries reference this podcast
+          const { count: podcastCount, error: podcastCountError } = await this.supabase
+            .from('summaries')
+            .select('*', { count: 'exact', head: true })
+            .eq('podcast_id', podcastId);
+
+          if (podcastCountError) {
+            throw new DatabaseError(
+              'Failed to count remaining podcast references',
+              podcastCountError.code,
+              'deleteSummary',
+              { podcastId }
+            );
+          }
+
+          // If no other summaries reference this podcast, delete it too
+          if (podcastCount === 0) {
+            const { error: deletePodcastError } = await this.supabase
+              .from('podcasts')
+              .delete()
+              .eq('id', podcastId);
+
+            if (deletePodcastError) {
+              throw new DatabaseError(
+                'Failed to delete orphaned podcast',
+                deletePodcastError.code,
+                'deleteSummary',
+                { podcastId }
+              );
+            }
+            
+            console.info(`deleteSummary: Deleted podcast ${podcastId} as it no longer has associated summaries.`);
+          }
+          
+          console.info(`deleteSummary: Successfully deleted summary ${summaryId} for user ${userId}.`);
+        } else {
+          console.info(`deleteSummary: Removed user ${userId} access to summary ${summaryId}. Summary still has ${count} other users.`);
+        }
+      } catch (error) {
+        if (error instanceof DatabaseError) {
+          throw error;
+        }
+        throw new DatabaseError(
+          'Unexpected error while deleting summary',
+          'UNKNOWN',
+          'deleteSummary',
+          { summaryId, userId, error }
+        );
       }
     }
 }

@@ -30,3 +30,6 @@ export * from './types/jobs';
 
 // Export status transforms
 export { formatStatusForDisplay, getStatusColor } from './transforms/status';
+
+// Export Claude prompts
+export { CLAUDE_PROMPTS } from './common/prompts/claude-prompts';

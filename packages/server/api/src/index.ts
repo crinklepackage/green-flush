@@ -1,4 +1,5 @@
 // packages/server/api/src/index.ts
+import { Router } from 'express';
 import { config } from './config/environment'
 import { ApiService } from './services/api-service'
 import { DatabaseService } from './lib/database'
@@ -19,8 +20,13 @@ async function main() {
   const podcastRouter = podcastRoutes(db, queue)
   const summariesRouter = createSummariesRouter(db)
   
-  // Start API with both routers
-  await api.start(Number(config.PORT), [podcastRouter, summariesRouter])
+  // Create a root router and mount the other routers with path prefixes
+  const rootRouter = Router();
+  rootRouter.use('/podcasts', podcastRouter);
+  rootRouter.use('/summaries', summariesRouter);
+  
+  // Start API with the root router
+  await api.start(Number(config.PORT), rootRouter)
 
   process.on('SIGTERM', async () => {
     await api.shutdown()

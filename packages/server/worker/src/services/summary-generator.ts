@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { CLAUDE_PROMPTS } from '@wavenotes-new/shared';
 
 // Simple logger for local development
 const logger = console;
@@ -8,19 +9,17 @@ export class SummaryGeneratorService {
     try {
       logger.info('Generating summary from transcript', { transcriptLength: transcript.length });
       
-      // Merge system instruction and transcript into a single user message
-      const combinedMessage = `You are an expert podcast summarizer. Your task is to analyze and summarize the following podcast transcript in a clear, structured format. Please provide your response in markdown format with detailed sections.\n\nTranscript:\n${transcript}`;
+      // Prepare user message with transcript inserted
+      const userContent = CLAUDE_PROMPTS.PODCAST_SUMMARY.USER_TEMPLATE.replace('{transcript}', transcript);
       
-      // Define messages array using only allowed roles ('user')
-      const messages = [
-        { role: 'user' as const, content: combinedMessage }
-      ];
-      
-      // Use Anthropic SDK's streaming method with a configurable max_tokens value
+      // Use Anthropic SDK's streaming method with model from shared constants
       const client = new Anthropic();
       const stream = await client.messages.stream({
-        model: 'claude-3-5-sonnet-20241022',
-        messages: messages,
+        model: CLAUDE_PROMPTS.MODELS.DEFAULT,
+        system: CLAUDE_PROMPTS.PODCAST_SUMMARY.SYSTEM,
+        messages: [
+          { role: 'user' as const, content: userContent }
+        ],
         max_tokens: 1024
       });
 
@@ -45,10 +44,10 @@ export class SummaryGeneratorService {
       
       logger.info('Summary generation complete');
       
-      // Count tokens for input message
+      // Count tokens for input messages (including system)
       const inputTokens = await SummaryGeneratorService.countMessageTokens([
-        { role: 'user', content: combinedMessage }
-      ]);
+        { role: 'user', content: userContent }
+      ], CLAUDE_PROMPTS.PODCAST_SUMMARY.SYSTEM);
       
       // Count tokens for the generated output message
       const outputTokens = await SummaryGeneratorService.countMessageTokens([
@@ -64,8 +63,15 @@ export class SummaryGeneratorService {
     }
   }
 
-  static async countMessageTokens(messages: object[]): Promise<number> {
+  static async countMessageTokens(messages: object[], system?: string): Promise<number> {
     try {
+      const payload: any = { messages };
+      
+      // Add system parameter if provided
+      if (system) {
+        payload.system = system;
+      }
+      
       const response = await fetch('https://api.anthropic.com/v1/messages/count_tokens', {
         method: 'POST',
         headers: {
@@ -73,7 +79,7 @@ export class SummaryGeneratorService {
           'anthropic-version': '2023-06-01',
           'x-api-key': process.env.ANTHROPIC_API_KEY || ''
         },
-        body: JSON.stringify({ messages })
+        body: JSON.stringify(payload)
       });
       const data = await response.json() as { input_tokens: number };
       return data.input_tokens;
