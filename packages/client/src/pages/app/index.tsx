@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
+import { StatusBadge } from '../../components/StatusBadge'
 
 // Define type for summary with podcast details
 interface SummaryWithPodcast {
@@ -34,7 +35,31 @@ interface SummaryWithPodcast {
 }
 
 // SummaryCard Component
-function SummaryCard({ summary }: { summary: SummaryWithPodcast }) {
+function SummaryCard({ summary, onDelete }: { 
+  summary: SummaryWithPodcast;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (window.confirm('Are you sure you want to remove this summary?')) {
+      setIsDeleting(true);
+      try {
+        await onDelete(summary.id);
+      } catch (error) {
+        console.error('Failed to delete summary:', error);
+        setIsDeleting(false);
+      }
+    }
+  };
+  
+  const showDeleteButton = 
+    summary.status === 'failed' || 
+    summary.status === 'in_queue';
+  
   return (
     <Card className="overflow-hidden hover:shadow-md transition duration-200">
       <CardContent className="p-4">
@@ -45,8 +70,26 @@ function SummaryCard({ summary }: { summary: SummaryWithPodcast }) {
           <div className="flex-1">
             <h3 className="text-lg font-semibold">{summary.podcast?.title || 'Unknown Podcast'}</h3>
             <p className="text-sm text-muted-foreground">{summary.podcast?.show_name || 'Unknown Show'}</p>
-            <p className="mt-1 text-sm">Status: <span className="text-blue-600">{summary.status}</span></p>
-            <a href={`/app/${summary.id}`} className="mt-2 inline-block text-primary hover:underline">View Summary</a>
+            <div className="mt-1">
+              <StatusBadge status={summary.status as ProcessingStatus} />
+            </div>
+            <div className="mt-2 flex gap-2 items-center">
+              <a href={`/app/${summary.id}`} className="text-primary hover:underline text-sm">
+                View Summary
+              </a>
+              
+              {showDeleteButton && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-red-600 hover:text-red-800 hover:bg-red-50 p-0 h-auto" 
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Removing...' : 'Remove'}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
@@ -144,6 +187,28 @@ export default function AppDashboard() {
     }
   }
 
+  // Add handleDeleteSummary function
+  const handleDeleteSummary = async (id: string) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/summaries/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete summary');
+      }
+      
+      // Remove the deleted summary from state
+      setSummaries(prevSummaries => prevSummaries.filter(s => s.id !== id));
+    } catch (error) {
+      console.error('Error deleting summary:', error);
+      throw error;
+    }
+  };
+
   // Filter summaries based on status
   const inProgressSummaries = summaries.filter(s => s.status !== ProcessingStatus.COMPLETED && s.status !== ProcessingStatus.FAILED);
   const completedSummaries = summaries.filter(s => s.status === ProcessingStatus.COMPLETED);
@@ -210,7 +275,7 @@ export default function AppDashboard() {
                 inProgressSummaries.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {inProgressSummaries.map(summary => (
-                      <SummaryCard key={summary.id} summary={summary} />
+                      <SummaryCard key={summary.id} summary={summary} onDelete={handleDeleteSummary} />
                     ))}
                   </div>
                 ) : <p>No summaries in progress.</p>
@@ -228,7 +293,7 @@ export default function AppDashboard() {
                 completedSummaries.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {completedSummaries.map(summary => (
-                      <SummaryCard key={summary.id} summary={summary} />
+                      <SummaryCard key={summary.id} summary={summary} onDelete={handleDeleteSummary} />
                     ))}
                   </div>
                 ) : <p>No completed summaries.</p>

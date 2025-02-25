@@ -1,11 +1,12 @@
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
-import type { SummaryRecord } from '@wavenotes-new/shared'  // using shared types
+import { supabase, getSession } from '../../lib/supabase'
+import type { SummaryRecord, ProcessingStatus } from '@wavenotes-new/shared'  // using shared types
 import ReactMarkdown from 'react-markdown'
 import Link from 'next/link'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card'
+import { StatusBadge } from '../../components/StatusBadge'
 
 interface SummaryWithPodcast extends SummaryRecord {
   podcast?: {
@@ -28,6 +29,7 @@ export default function SummaryPage() {
   const router = useRouter()
   const { id } = router.query
   const [summary, setSummary] = useState<SummaryWithPodcast | null>(null)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -87,6 +89,17 @@ export default function SummaryPage() {
     }
   }, [id])
 
+  // Add useEffect to get the access token
+  useEffect(() => {
+    const loadSession = async () => {
+      const session = await getSession()
+      if (session) {
+        setAccessToken(session.access_token)
+      }
+    }
+    loadSession()
+  }, [])
+
   if (!summary) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -128,12 +141,10 @@ export default function SummaryPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-              Status: {summary?.error_message 
-                ? `Error: ${summary.error_message}` 
-                : (loadingMessages[summary?.status || ''] || summary?.status)
-              }
-            </div>
+            <StatusBadge status={summary?.status as ProcessingStatus} />
+            {summary?.error_message && (
+              <p className="mt-2 text-sm text-red-600">{summary.error_message}</p>
+            )}
           </CardContent>
           {summary?.podcast?.url && (
             <CardFooter>

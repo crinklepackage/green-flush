@@ -4,6 +4,7 @@ import { ApiService } from './services/api-service'
 import { DatabaseService } from './lib/database'
 import { QueueService } from './services/queue'
 import { podcastRoutes } from './routes/podcasts'
+import { createSummariesRouter } from './routes/summaries'
 import { supabase } from './lib/supabase';
 
 export const db = new DatabaseService(supabase)
@@ -13,9 +14,13 @@ async function main() {
   const db = new DatabaseService(supabase)
   const queue = new QueueService(config.REDIS_URL)
   const api = new ApiService(db, queue)
-  const router = podcastRoutes(db, queue)
-
-  await api.start(Number(config.PORT), router)
+  
+  // Create routers
+  const podcastRouter = podcastRoutes(db, queue)
+  const summariesRouter = createSummariesRouter(db)
+  
+  // Start API with both routers
+  await api.start(Number(config.PORT), [podcastRouter, summariesRouter])
 
   process.on('SIGTERM', async () => {
     await api.shutdown()

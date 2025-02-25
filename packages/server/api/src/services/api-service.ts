@@ -127,11 +127,17 @@ export class ApiService {
     await this.podcastQueue.close()
   }
 
-  async start(port: number, router: express.Router) {
+  async start(port: number, router: express.Router | express.Router[]) {
     const app = express()
     app.use(cors())
     app.use(express.json())
-    app.use(router)
+    
+    // Handle either a single router or an array of routers
+    if (Array.isArray(router)) {
+      router.forEach(r => app.use(r));
+    } else {
+      app.use(router);
+    }
 
     // Global error handler to return JSON error responses
     app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
