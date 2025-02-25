@@ -1,0 +1,4 @@
+{
+  "installCommand": "yarn install --focus",
+  "buildCommand": "yarn build"
+}
