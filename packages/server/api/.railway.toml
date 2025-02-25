@@ -1,0 +1,19 @@
+[build]
+builder = "nixpacks"
+buildCommand = "cd ../../.. && yarn install && yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/api build"
+
+[deploy]
+startCommand = "node dist/index.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 10
+
+# Explicitly disable Dockerfile usage
+[build.nixpacks]
+enable = true
+
+# Remove any Dockerfile config
+[build.dockerfile]
+enable = false
+path = "" 

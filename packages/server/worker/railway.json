@@ -1,14 +1,14 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
+    "builder": "nixpacks",
     "buildCommand": "cd ../../.. && yarn install && yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/worker build"
   },
   "deploy": {
     "startCommand": "node dist/index.js",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 100,
-    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyType": "on-failure",
     "restartPolicyMaxRetries": 10
   },
   "comment": "Forcing a redeployment to test Nixpacks mode"
