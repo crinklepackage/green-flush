@@ -10,5 +10,6 @@
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
-  }
+  },
+  "comment": "Forcing a redeployment to test Nixpacks mode"
 }

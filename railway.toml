@@ -6,7 +6,8 @@ buildCommand = "yarn install"
 startCommand = "yarn workspace @wavenotes-new/api start"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
-restartPolicy = "always"
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 10
 
 [crons.check-timeouts]
 schedule = "*/30 * * * *"

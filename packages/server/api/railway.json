@@ -16,5 +16,6 @@
       "schedule": "*/30 * * * *",
       "command": "cd ../../.. && yarn workspace @wavenotes-new/api check-timeouts"
     }
-  ]
+  ],
+  "comment": "Forcing a redeployment to test Nixpacks mode"
 } 
