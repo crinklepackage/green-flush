@@ -1,4 +1,4 @@
-import { ProcessingStatus } from '@wavenotes-new/shared/src/server/types/status'
+import { ProcessingStatus } from '../server/types/status'
 
 export const mapStatusToClient = (serverStatus: ProcessingStatus): string => {
   // Map server statuses to client statuses

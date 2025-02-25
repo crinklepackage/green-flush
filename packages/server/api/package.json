@@ -9,7 +9,10 @@
       "import": "./dist/index.js"
     },
     "./src/platforms/matcher/service": "./src/platforms/matcher/service.ts",
-    "./src/platforms/spotify/service": "./src/platforms/spotify/service.ts"
+    "./src/platforms/spotify/service": "./src/platforms/spotify/service.ts",
+    "./lib/database": "./dist/lib/database.js",
+    "./platforms/matcher/service": "./dist/platforms/matcher/service.js",
+    "./platforms/spotify/service": "./dist/platforms/spotify/service.js"
   },
   "scripts": {
     "dev": "ts-node-dev ./src/index.ts",

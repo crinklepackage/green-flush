@@ -2,12 +2,13 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config/environment';
-import { DatabaseService } from '@wavenotes-new/api';
+// Use paths defined in tsconfig.json
+import { DatabaseService } from '@wavenotes-new/api/lib/database';
 import { ProcessingStatus } from '@wavenotes-new/shared';
 import { TranscriptProcessor } from '../processors/transcript';
 import { SummaryGeneratorService } from './summary-generator';
-import { PlatformMatcher } from '@wavenotes-new/api/src/platforms/matcher/service';
-import { SpotifyService } from '@wavenotes-new/api/src/platforms/spotify/service';
+import { PlatformMatcher } from '@wavenotes-new/api/platforms/matcher/service';
+import { SpotifyService } from '@wavenotes-new/api/platforms/spotify/service';
 
 // Initialize Supabase client for worker using environment variables
 const supabaseClient = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
