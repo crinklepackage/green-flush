@@ -11,6 +11,7 @@ import { PodcastService } from '../services/podcast';
 
 /*
   Purpose:
+  - POST /: Submit a podcast URL for processing (mounted as /podcasts)
   - POST /summary: Create a podcast record, create a summary record, and enqueue a job.
   - GET /summaries: Retrieve summaries for the dashboard.
   - GET /summary/:id: Retrieve single summary details.
@@ -46,7 +47,7 @@ export function podcastRoutes(db: DatabaseService, queue: QueueService) {
   });
 
   // POST /podcasts
-  router.post('/podcasts',
+  router.post('/',
     authMiddleware,
     async (req, res, next) => {
       try {
