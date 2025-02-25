@@ -47,6 +47,7 @@ const RAW_RUNTIME_STATE =
       [null, {\
         "packageLocation": "./",\
         "packageDependencies": [\
+          ["@railway/cli", "npm:3.21.0"],\
           ["@types/node", "npm:22.13.5"],\
           ["@yarnpkg/pnpify", "npm:4.1.3"],\
           ["turbo", "npm:1.13.4"],\
@@ -467,6 +468,15 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
+    ["@napi-rs/triples", [\
+      ["npm:1.2.0", {\
+        "packageLocation": "../../.yarn/berry/cache/@napi-rs-triples-npm-1.2.0-2903f4117c-10c0.zip/node_modules/@napi-rs/triples/",\
+        "packageDependencies": [\
+          ["@napi-rs/triples", "npm:1.2.0"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
     ["@next/env", [\
       ["npm:15.1.7", {\
         "packageLocation": "../../.yarn/berry/cache/@next-env-npm-15.1.7-6c9ce48361-10c0.zip/node_modules/@next/env/",\
@@ -729,6 +739,18 @@ const RAW_RUNTIME_STATE =
         "packagePeers": [\
           "@types/react",\
           "react"\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["@railway/cli", [\
+      ["npm:3.21.0", {\
+        "packageLocation": "./.yarn/unplugged/@railway-cli-npm-3.21.0-71bfda7a69/node_modules/@railway/cli/",\
+        "packageDependencies": [\
+          ["@railway/cli", "npm:3.21.0"],\
+          ["@napi-rs/triples", "npm:1.2.0"],\
+          ["node-fetch", "npm:3.3.2"],\
+          ["tar", "npm:6.2.1"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -7574,6 +7596,7 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./",\
         "packageDependencies": [\
           ["wavenotes-new", "workspace:."],\
+          ["@railway/cli", "npm:3.21.0"],\
           ["@types/node", "npm:22.13.5"],\
           ["@yarnpkg/pnpify", "npm:4.1.3"],\
           ["turbo", "npm:1.13.4"],\

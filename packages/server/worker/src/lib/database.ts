@@ -12,13 +12,13 @@ export class DatabaseService {
   async updateStatus(
     summaryId: string, 
     status: ProcessingStatus,
-    error?: string
+    errorMessage?: string
   ): Promise<void> {
     const { error: updateError } = await this.supabase
       .from('summaries')
       .update({ 
         status,
-        error_message: error,
+        error_message: errorMessage,
         updated_at: new Date().toISOString()
       })
       .eq('id', summaryId)

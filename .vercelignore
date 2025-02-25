@@ -1,0 +1,8 @@
+README.md
+.git/
+.github/
+node_modules/
+packages/server/
+packages/shared/
+.yarn/
+yarn-error.log 

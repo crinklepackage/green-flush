@@ -1,0 +1,7 @@
+{
+  "buildCommand": "cd packages/client && yarn install --no-lockfile && yarn build",
+  "outputDirectory": "packages/client/.next",
+  "installCommand": "yarn install",
+  "framework": "nextjs",
+  "nodeVersion": "18.x"
+} 

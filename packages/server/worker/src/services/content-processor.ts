@@ -70,17 +70,17 @@ export class ContentProcessorService {
       }
       
       // 1. Update status to FETCHING_TRANSCRIPT
-      await db.updateStatus(summaryId, ProcessingStatus.FETCHING_TRANSCRIPT);
+      await db.updateSummaryStatus(summaryId, ProcessingStatus.FETCHING_TRANSCRIPT);
       
       // 2. Fetch transcript using TranscriptProcessor (expects a valid YouTube URL)
       const transcript = await TranscriptProcessor.getTranscript(url);
       if (!transcript) {
-        await db.updateStatus(summaryId, ProcessingStatus.FAILED, 'Transcript not available');
+        await db.updateSummaryStatus(summaryId, ProcessingStatus.FAILED, 'Transcript not available');
         return;
       }
       
       // 3. Update status to GENERATING_SUMMARY
-      await db.updateStatus(summaryId, ProcessingStatus.GENERATING_SUMMARY);
+      await db.updateSummaryStatus(summaryId, ProcessingStatus.GENERATING_SUMMARY);
       
       // 4. Generate summary in streaming mode and capture token counts
       let accumulatedSummary = '';
@@ -97,11 +97,11 @@ export class ContentProcessorService {
       await db.updateSummaryTokens(summaryId, inputTokens, outputTokens);
       
       // 5. Update status to COMPLETED
-      await db.updateStatus(summaryId, ProcessingStatus.COMPLETED);
+      await db.updateSummaryStatus(summaryId, ProcessingStatus.COMPLETED);
       
       console.log('Podcast processed successfully.');
     } catch (error) {
-      await db.updateStatus(
+      await db.updateSummaryStatus(
         summaryId,
         ProcessingStatus.FAILED,
         error instanceof Error ? error.message : 'Unknown error'
