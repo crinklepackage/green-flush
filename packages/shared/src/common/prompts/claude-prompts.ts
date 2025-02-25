@@ -20,13 +20,36 @@ export const CLAUDE_PROMPTS = {
 
   /**
    * Token limits for different operations
-   * Centralizing these values ensures consistency across API and worker
+   * 
+   * These token limits are carefully tuned for different use cases across our architecture.
+   * Each service has specific requirements for token usage based on its role and constraints.
    */
   TOKEN_LIMITS: {
-    SUMMARY_GENERATION: 4000,       // Used in worker for generating full summaries
-    SUMMARY_STREAMING: 4096,        // Used in API for streaming summaries
-    SUMMARY_GENERATOR: 1024,        // Used in the summary generator service
-    DEFAULT: 4000,                  // Default token limit
+    /**
+     * Used by: API's SummaryService
+     * Purpose: Provides higher token limit for direct client-facing streaming
+     * File: packages/server/api/src/services/summary.ts
+     * 
+     * The streaming API needs more tokens because it's directly serving content
+     * to users who expect comprehensive, complete summaries with all details.
+     */
+    SUMMARY_STREAMING: 4096,
+
+    /**
+     * Used by: Worker's SummaryGeneratorService
+     * Purpose: Primary summary generation service - needs sufficient tokens for quality
+     * File: packages/server/worker/src/services/summary-generator.ts
+     * 
+     * Using the same token limit as the streaming service (4096) to ensure
+     * we generate high-quality, comprehensive summaries for our users.
+     */
+    SUMMARY_GENERATOR: 4096,
+
+    /**
+     * Used as a fallback when no specific limit is provided
+     * This ensures consistency if developers forget to specify a token limit.
+     */
+    DEFAULT: 4000,
   },
 
   /**

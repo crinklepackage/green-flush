@@ -94,7 +94,7 @@ function SummaryCard({ summary, onDelete }: {
     >
       <CardContent className="p-4">
         <div className="flex justify-between items-start">
-          <div className="flex items-start gap-3 max-w-[calc(100%-90px)]">
+          <div className="flex items-start gap-3 max-w-[calc(100%-120px)]">
             <div className="w-16 h-16 flex-shrink-0">
               {summary.podcast && summary.podcast.thumbnail_url && !imgError ? (
                 <img 
@@ -117,7 +117,7 @@ function SummaryCard({ summary, onDelete }: {
               <p className="text-sm text-muted-foreground">{summary.podcast?.show_name || 'Unknown Show'}</p>
             </div>
           </div>
-          <div className="flex-shrink-0 ml-2 w-[80px] text-right">
+          <div className="flex-shrink-0 ml-4 w-[100px] text-right">
             <StatusBadge status={summary.status as ProcessingStatus} />
           </div>
         </div>
@@ -541,22 +541,22 @@ export default withAuth(function AppDashboard() {
         {/* Summaries Sections */}
         <div className="mt-8 space-y-8">
           {/* In Progress Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>In Progress</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingSummaries ? <p>Loading summaries...</p> : (
-                inProgressSummaries.length > 0 ? (
+          {inProgressSummaries.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>In Progress</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingSummaries ? <p>Loading summaries...</p> : (
                   <div className="grid grid-cols-1 gap-4">
                     {inProgressSummaries.map(summary => (
                       <SummaryCard key={summary.id} summary={summary} onDelete={handleDeleteSummary} />
                     ))}
                   </div>
-                ) : <p>No summaries in progress.</p>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Completed Section */}
           <Card>

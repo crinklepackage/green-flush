@@ -1,1 +1,0 @@
-web: cd ../.. && yarn workspace @wavenotes-new/api start 
