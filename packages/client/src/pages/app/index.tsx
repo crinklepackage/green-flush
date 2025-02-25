@@ -13,6 +13,10 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { ProcessingStatus } from '@wavenotes-new/shared'
 import { getSession, getUser, supabase } from '../../lib/supabase'
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
 
 // Define type for summary with podcast details
 interface SummaryWithPodcast {
@@ -32,15 +36,21 @@ interface SummaryWithPodcast {
 // SummaryCard Component
 function SummaryCard({ summary }: { summary: SummaryWithPodcast }) {
   return (
-    <div className="border p-4 rounded-lg shadow hover:shadow-md transition duration-200">
-      {summary.podcast && summary.podcast.thumbnail_url && (
-        <img src={summary.podcast.thumbnail_url} alt="Podcast thumbnail" className="w-16 h-16 rounded mb-2" />
-      )}
-      <h3 className="text-lg font-semibold">{summary.podcast?.title || 'Unknown Podcast'}</h3>
-      <p className="text-sm text-gray-600">{summary.podcast?.show_name || 'Unknown Show'}</p>
-      <p className="mt-1 text-sm">Status: {summary.status}</p>
-      <a href={`/app/${summary.id}`} className="mt-2 inline-block text-indigo-600 hover:underline">View Summary</a>
-    </div>
+    <Card className="overflow-hidden hover:shadow-md transition duration-200">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          {summary.podcast && summary.podcast.thumbnail_url && (
+            <img src={summary.podcast.thumbnail_url} alt="Podcast thumbnail" className="w-16 h-16 rounded" />
+          )}
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold">{summary.podcast?.title || 'Unknown Podcast'}</h3>
+            <p className="text-sm text-muted-foreground">{summary.podcast?.show_name || 'Unknown Show'}</p>
+            <p className="mt-1 text-sm">Status: <span className="text-blue-600">{summary.status}</span></p>
+            <a href={`/app/${summary.id}`} className="mt-2 inline-block text-primary hover:underline">View Summary</a>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -155,65 +165,76 @@ export default function AppDashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* URL Submission Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="url" className="block text-sm font-medium text-gray-700">
-              Podcast URL
-            </label>
-            <div className="mt-1 flex rounded-md shadow-sm">
-              <input
-                type="url"
-                name="url"
-                id="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                className="flex-1 block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                placeholder="Paste a Spotify or YouTube URL"
-                disabled={isSubmitting}
-              />
-              <button
-                type="submit"
-                className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
-                disabled={isSubmitting || !url}
-              >
-                {isSubmitting ? 'Submitting...' : 'Summarize'}
-              </button>
-            </div>
-            {error && (
-              <p className="mt-2 text-sm text-red-600">{error}</p>
-            )}
-          </div>
-        </form>
+        <Card>
+          <CardHeader>
+            <CardTitle>Add a New Podcast</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="url">Podcast URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    name="url"
+                    id="url"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="Paste a Spotify or YouTube URL"
+                    disabled={isSubmitting}
+                  />
+                  <Button 
+                    type="submit"
+                    disabled={isSubmitting || !url}
+                  >
+                    {isSubmitting ? 'Submitting...' : 'Summarize'}
+                  </Button>
+                </div>
+                {error && (
+                  <p className="text-sm text-destructive">{error}</p>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
         {/* Summaries Sections */}
         <div className="mt-8 space-y-8">
           {/* In Progress Section */}
-          <section className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900">In Progress</h2>
-            {loadingSummaries ? <p>Loading summaries...</p> : (
-              inProgressSummaries.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  {inProgressSummaries.map(summary => (
-                    <SummaryCard key={summary.id} summary={summary} />
-                  ))}
-                </div>
-              ) : <p>No summaries in progress.</p>
-            )}
-          </section>
+          <Card>
+            <CardHeader>
+              <CardTitle>In Progress</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingSummaries ? <p>Loading summaries...</p> : (
+                inProgressSummaries.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {inProgressSummaries.map(summary => (
+                      <SummaryCard key={summary.id} summary={summary} />
+                    ))}
+                  </div>
+                ) : <p>No summaries in progress.</p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Completed Section */}
-          <section className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900">Completed</h2>
-            {loadingSummaries ? <p>Loading summaries...</p> : (
-              completedSummaries.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  {completedSummaries.map(summary => (
-                    <SummaryCard key={summary.id} summary={summary} />
-                  ))}
-                </div>
-              ) : <p>No completed summaries.</p>
-            )}
-          </section>
+          <Card>
+            <CardHeader>
+              <CardTitle>Completed</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingSummaries ? <p>Loading summaries...</p> : (
+                completedSummaries.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {completedSummaries.map(summary => (
+                      <SummaryCard key={summary.id} summary={summary} />
+                    ))}
+                  </div>
+                ) : <p>No completed summaries.</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>

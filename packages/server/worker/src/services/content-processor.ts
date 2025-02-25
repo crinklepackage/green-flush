@@ -6,7 +6,6 @@ import { DatabaseService } from '@wavenotes-new/api';
 import { ProcessingStatus } from '@wavenotes-new/shared';
 import { TranscriptProcessor } from '../processors/transcript';
 import { SummaryGeneratorService } from './summary-generator';
-import { db } from '@wavenotes-new/api';
 import { PlatformMatcher } from '@wavenotes-new/api/src/platforms/matcher/service';
 import { SpotifyService } from '@wavenotes-new/api/src/platforms/spotify/service';
 
@@ -14,6 +13,8 @@ import { SpotifyService } from '@wavenotes-new/api/src/platforms/spotify/service
 const supabaseClient = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
 // Create an instance of DatabaseService
 const dbService = new DatabaseService(supabaseClient);
+// Use our dbService instance for database operations instead of the imported db
+const db = dbService;
 
 // Create a SpotifyService instance using config credentials
 const spotifyService = new SpotifyService({

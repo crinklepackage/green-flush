@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { SummaryRecord } from '@wavenotes-new/shared'  // using shared types
 import ReactMarkdown from 'react-markdown'
+import Link from 'next/link'
+import { Button } from '../../components/ui/button'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card'
 
 interface SummaryWithPodcast extends SummaryRecord {
   podcast?: {
@@ -85,25 +88,79 @@ export default function SummaryPage() {
   }, [id])
 
   if (!summary) {
-    return <div className="container">Loading summary...</div>
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-pulse text-lg">Loading summary...</div>
+      </div>
+    )
   }
 
   return (
-    <div className="container">
-      <div className="video-details">
-        <h1>{summary?.podcast ? summary.podcast.title : 'Loading title...'}</h1>
-        <h3>{summary?.podcast ? summary.podcast.show_name : 'Loading channel...'}</h3>
+    <div className="py-8">
+      <div className="mb-8">
+        <Button variant="link" asChild className="mb-4">
+          <Link href="/app" className="inline-flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            Back to Dashboard
+          </Link>
+        </Button>
+        
+        <Card>
+          <CardHeader>
+            <div className="flex items-start gap-4">
+              {summary?.podcast?.thumbnail_url && (
+                <img 
+                  src={summary.podcast.thumbnail_url} 
+                  alt={summary.podcast?.title || 'Podcast thumbnail'} 
+                  className="w-16 h-16 rounded-md object-cover"
+                />
+              )}
+              <div>
+                <CardTitle>
+                  {summary?.podcast ? summary.podcast.title : 'Loading title...'}
+                </CardTitle>
+                <CardDescription>
+                  {summary?.podcast ? summary.podcast.show_name : 'Loading channel...'}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+              Status: {summary?.error_message 
+                ? `Error: ${summary.error_message}` 
+                : (loadingMessages[summary?.status || ''] || summary?.status)
+              }
+            </div>
+          </CardContent>
+          {summary?.podcast?.url && (
+            <CardFooter>
+              <Button variant="outline" asChild>
+                <a href={summary.podcast.url} target="_blank" rel="noopener noreferrer">
+                  View Original
+                </a>
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
       </div>
-      <p>
-        Status: {summary?.error_message ? `Error: ${summary.error_message}` : (loadingMessages[summary?.status || ''] || summary?.status)}
-      </p>
-      <div className="summary-content">
-        {summary?.summary_text ? (
-          <ReactMarkdown>{summary.summary_text}</ReactMarkdown>
-        ) : (
-          'Your summary will appear here as it is generated.'
-        )}
-      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="prose prose-indigo prose-lg max-w-none">
+            {summary?.summary_text ? (
+              <ReactMarkdown>{summary.summary_text}</ReactMarkdown>
+            ) : (
+              <p className="text-gray-500 italic">Your summary will appear here as it is generated.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
