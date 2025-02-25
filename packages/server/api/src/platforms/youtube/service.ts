@@ -2,6 +2,7 @@ import { google, youtube_v3 } from 'googleapis'
 import { errors } from '@wavenotes-new/shared';
 const { PlatformError } = errors;
 import type { VideoMetadata } from '@wavenotes-new/shared/src/server/types/metadata'
+import { extractYouTubeVideoId, buildYouTubeUrl } from '@wavenotes-new/shared/src/utils/url-utils'
 
 export class YouTubeService {
     private youtube: youtube_v3.Youtube
@@ -11,9 +12,7 @@ export class YouTubeService {
     }
   
     private extractVideoId(url: string): string | null {
-      const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
-      const match = url.match(regex)
-      return match ? match[1] : null
+      return extractYouTubeVideoId(url)
     }
   
     isValidUrl(url: string): boolean {
@@ -125,6 +124,6 @@ export class YouTubeService {
 
     // Static method to build a YouTube video URL from a video ID.
     static buildUrl(videoId: string): string {
-      return `https://www.youtube.com/watch?v=${videoId}`;
+      return buildYouTubeUrl(videoId)
     }
 }

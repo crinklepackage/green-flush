@@ -42,3 +42,6 @@ export {
 
 // Export Claude prompts
 export { CLAUDE_PROMPTS } from './common/prompts/claude-prompts';
+
+// Add this export
+export * as urlUtils from './utils/url-utils'

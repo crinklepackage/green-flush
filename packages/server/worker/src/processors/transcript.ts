@@ -5,6 +5,7 @@ import { youtubeApiClient } from '../platforms/youtube/api-client'
 import { youtubeTranscriptApi } from '../platforms/youtube/transcript-api'
 import { supadataApi } from '../platforms/youtube/supadata'
 import { spotifyApiClient } from '../platforms/spotify/api-client'
+import { extractYouTubeVideoId } from '@wavenotes-new/shared/src/utils/url-utils'
 
 // Add the following declaration at the top of the file (after the imports):
 declare var AggregateError: {
@@ -152,35 +153,7 @@ export class TranscriptProcessor {
  }
 
  private static extractVideoId(url: string): string | null {
-   try {
-     const urlObj = new URL(url)
-     
-     // Handle youtu.be format
-     if (urlObj.hostname === 'youtu.be') {
-       return urlObj.pathname.slice(1)
-     }
-
-     // Handle youtube.com formats
-     if (urlObj.hostname.includes('youtube.com')) {
-       // Handle /shorts/
-       if (urlObj.pathname.startsWith('/shorts/')) {
-         return urlObj.pathname.split('/')[2]
-       }
-
-       // Handle watch?v=
-       const videoId = urlObj.searchParams.get('v')
-       if (videoId) return videoId
-
-       // Handle /embed/ or /v/
-       if (urlObj.pathname.startsWith('/embed/') || urlObj.pathname.startsWith('/v/')) {
-         return urlObj.pathname.split('/')[2]
-       }
-     }
-
-     return null
-   } catch {
-     return null
-   }
+   return extractYouTubeVideoId(url)
  }
 
  private static extractSpotifyEpisodeId(url: string): string | null {

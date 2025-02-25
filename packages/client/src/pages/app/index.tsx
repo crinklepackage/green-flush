@@ -18,6 +18,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { StatusBadge } from '../../components/StatusBadge'
+import withAuth from '../../components/withAuth'
 
 // Define type for summary with podcast details
 interface SummaryWithPodcast {
@@ -126,7 +127,7 @@ function SummaryCard({ summary, onDelete }: {
   );
 }
 
-export default function AppDashboard() {
+export default withAuth(function AppDashboard() {
   const [url, setUrl] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -565,4 +566,4 @@ export default function AppDashboard() {
       </main>
     </div>
   )
-}
+})

@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card'
 import { StatusBadge } from '../../components/StatusBadge'
+import withAuth from '../../components/withAuth'
 
 interface SummaryWithPodcast extends SummaryRecord {
   podcast?: {
@@ -25,7 +26,7 @@ const loadingMessages: Record<string, string> = {
   FAILED: 'Failed to process podcast'
 }
 
-export default function SummaryPage() {
+export default withAuth(function SummaryPage() {
   const router = useRouter()
   const { id } = router.query
   const [summary, setSummary] = useState<SummaryWithPodcast | null>(null)
@@ -174,4 +175,4 @@ export default function SummaryPage() {
       </Card>
     </div>
   )
-}
+})
