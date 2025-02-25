@@ -1,5 +1,5 @@
 import SpotifyWebApi from 'spotify-web-api-node'
-import { VideoMetadata } from '@wavenotes-new/shared/src/server/types/metadata'
+import { VideoMetadata } from '@wavenotes-new/shared'
 
 interface SpotifyMetadata {
   title: string

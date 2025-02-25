@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { isValidStatus } from '@wavenotes-new/shared/src/utils/status-manager';
+import { isValidStatus } from '@wavenotes-new/shared';
 import { ProcessingStatus } from '@wavenotes-new/shared';
 
 /**

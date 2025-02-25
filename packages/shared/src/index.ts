@@ -29,7 +29,7 @@ export * from './server/types/transcript';
 export * from './types/jobs';
 
 // Export status transforms
-export { formatStatusForDisplay, getStatusColor } from './transforms/status';
+export { formatStatusForDisplay, getStatusColor, mapStatusToClient } from './transforms/status';
 
 // Export status manager utilities
 export { 
@@ -43,5 +43,9 @@ export {
 // Export Claude prompts
 export { CLAUDE_PROMPTS } from './common/prompts/claude-prompts';
 
-// Add this export
-export * as urlUtils from './utils/url-utils'
+// Export URL utility functions
+export { 
+  extractYouTubeVideoId,
+  isYouTubeUrl,
+  buildYouTubeUrl
+} from './utils/url-utils';

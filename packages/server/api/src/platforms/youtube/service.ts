@@ -1,8 +1,6 @@
 import { google, youtube_v3 } from 'googleapis'
-import { errors } from '@wavenotes-new/shared';
+import { errors, extractYouTubeVideoId, buildYouTubeUrl, VideoMetadata } from '@wavenotes-new/shared';
 const { PlatformError } = errors;
-import type { VideoMetadata } from '@wavenotes-new/shared/src/server/types/metadata'
-import { extractYouTubeVideoId, buildYouTubeUrl } from '@wavenotes-new/shared/src/utils/url-utils'
 
 export class YouTubeService {
     private youtube: youtube_v3.Youtube

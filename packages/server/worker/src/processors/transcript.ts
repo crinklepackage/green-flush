@@ -1,11 +1,10 @@
 // packages/server/worker/src/processors/transcript.ts
 import { z } from 'zod'
-import { TranscriptSource, TranscriptResult, TranscriptError } from '@wavenotes-new/shared'
+import { TranscriptSource, TranscriptResult, TranscriptError, extractYouTubeVideoId } from '@wavenotes-new/shared'
 import { youtubeApiClient } from '../platforms/youtube/api-client'
 import { youtubeTranscriptApi } from '../platforms/youtube/transcript-api'
 import { supadataApi } from '../platforms/youtube/supadata'
 import { spotifyApiClient } from '../platforms/spotify/api-client'
-import { extractYouTubeVideoId } from '@wavenotes-new/shared/src/utils/url-utils'
 
 // Add the following declaration at the top of the file (after the imports):
 declare var AggregateError: {

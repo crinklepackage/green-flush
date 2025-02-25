@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { ProcessingStatus } from '@wavenotes-new/shared'
-import { createStatusUpdatePayload } from '@wavenotes-new/shared/src/utils/status-manager'
+import { createStatusUpdatePayload } from '@wavenotes-new/shared'
 
 // Configuration for timeout thresholds (in hours)
 const TIMEOUT_CONFIG: Partial<Record<ProcessingStatus, number>> = {

@@ -28,6 +28,9 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string(),
   
+  // Server config
+  PORT: z.string().optional().default('3001'),
+  
   // Environment
   NODE_ENV: z.enum(['development', 'production']).default('development'),
   

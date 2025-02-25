@@ -1,7 +1,7 @@
 // packages/server/api/src/routes/summaries.ts
 import { Router, Request, Response } from 'express'
 import { SummaryService } from '../services/summary'
-import { mapStatusToClient } from '@wavenotes-new/shared/src/transforms/status'
+import { mapStatusToClient } from '@wavenotes-new/shared'
 import { DatabaseService } from '../lib/database'
 import { config } from '../config/environment'
 import { authMiddleware } from '../middleware/auth'
