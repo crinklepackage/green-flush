@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "yarn install"
+buildCommand = "yarn install --no-immutable"
 
 [deploy]
 startCommand = "yarn workspace @wavenotes-new/api start"

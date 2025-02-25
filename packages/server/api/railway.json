@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "nixpacks",
-    "buildCommand": "yarn install && yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/api build"
+    "buildCommand": "yarn install --no-immutable && yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/api build"
   },
   "deploy": {
     "startCommand": "node dist/index.js",
