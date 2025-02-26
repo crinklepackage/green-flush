@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "next dev",
-    "build": "cd ../../packages/shared && yarn build && cd ../client && next build",
+    "build": "echo 'Starting build process' && cd ../shared && yarn build && echo 'Shared built successfully' && cd ../client && echo 'Building client now' && next build",
     "start": "next start"
   },
   "dependencies": {

@@ -1,29 +1,27 @@
 [phases.setup]
 aptPkgs = ["git"]
 
-# Customize install command but keep corepack intact
+# We need to properly set up Corepack for Yarn 4
 [phases.install]
-# Default is 'npm install -g corepack@0.24.1 && corepack enable'
 dependsOn = ["setup"]
 cmds = [
   "npm install -g corepack@0.24.1",
   "corepack enable",
-  "cd /app && node --version",
-  "cd /app && which yarn",
-  "cd /app && yarn --version",
-  "cd /app && yarn install --no-immutable"
+  "yarn -v",
+  "yarn install"
 ]
-targetDir = "/"
 
+# Build the packages in the right order
 [phases.build]
 dependsOn = ["install"]
 cmds = [
-  "cd /app && yarn workspace @wavenotes-new/shared build",
-  "cd /app && yarn workspace @wavenotes-new/api build"
+  "cd packages/shared && yarn build",
+  "cd ../../packages/server/api && yarn build"
 ]
 
+# Launch the API service
 [start]
-cmd = "cd /app/packages/server/api && yarn start"
+cmd = "cd packages/server/api && yarn start"
 
 [variables]
 NODE_ENV = "production" 
