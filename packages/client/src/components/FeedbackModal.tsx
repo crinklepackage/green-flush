@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { showToast } from '../lib/toast';
+import { getSession } from '../lib/supabase';
 
 interface FeedbackModalProps {
   onClose: () => void;
@@ -50,6 +51,12 @@ export function FeedbackModal({
     try {
       setIsSubmitting(true);
       
+      // Get the authentication token
+      const session = await getSession();
+      if (!session) {
+        throw new Error('You must be logged in to submit feedback');
+      }
+      
       const feedbackRequest: FeedbackRequest = {
         feedbackType,
         feedbackText: feedbackText.trim(),
@@ -65,7 +72,8 @@ export function FeedbackModal({
       const response = await fetch('/api/feedback', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           feedback_type: feedbackRequest.feedbackType,
