@@ -12,11 +12,12 @@ targetDir = "/"
 [phases.build]
 dependsOn = ["install"]
 cmds = [
-  "yarn workspace @wavenotes-new/shared build"
+  "yarn workspace @wavenotes-new/shared build",
+  "yarn workspace @wavenotes-new/api build"
 ]
 
 [start]
-cmd = "node dist/index.js"
+cmd = "cd ./packages/server/api && yarn start"
 
 [variables]
 NODE_ENV = "production" 

@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "yarn workspace @wavenotes-new/api start"
+startCommand = "cd ./packages/server/api && yarn start"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
 
