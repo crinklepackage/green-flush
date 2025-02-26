@@ -1,5 +1,5 @@
 [phases.setup]
-aptPkgs = ["git"]
+aptPkgs = ["git", "tree"]
 # Disable Railway's autodetection to prevent it from trying to run its own package manager
 nixPkgs = ["nodejs_20"]
 
@@ -19,23 +19,28 @@ cmds = [
 [phases.build]
 dependsOn = ["install"]
 cmds = [
-  # Step 1: Build the shared package 
+  # Step 1: First check what's in the shared package
+  "echo '=== DEBUG: Checking initial shared package structure ==='",
+  "ls -la /app/packages/shared",
+  "cat /app/packages/shared/package.json",
+  
+  # Step 2: Build the shared package 
   "echo '=== Step 1: Building shared package ==='",
   "cd /app/packages/shared && yarn build",
   "echo 'Shared package built successfully:'",
   "ls -la /app/packages/shared/dist",
+  "cat /app/packages/shared/dist/index.js | head -n 20",
   
-  # Step 2: Build the API package
+  # Step 3: Build the API package
   "echo '=== Step 2: Building API package ==='", 
   "cd /app/packages/server/api && yarn build",
   "echo 'API package built successfully.'",
   
-  # Step 3: Manually create proper node_modules structure
-  "echo '=== Step 3: Preparing deployment environment ==='",
+  # Step 4: THREE approaches to module resolution
+  "echo '=== Step 3: Setting up THREE approaches to module resolution ==='",
   
-  # Step 4: Make sure symlinks are properly recreated in the node_modules
-  "echo '=== Step 4: Ensuring modules are available ==='",
-  
+  # APPROACH 1: Copy to node_modules
+  "echo '--- APPROACH 1: Copy to node_modules ---'",
   # Remove any existing shared package directory to avoid conflicts
   "echo 'Removing any existing shared package symlink or directory...'",
   "rm -rf /app/packages/server/api/node_modules/@wavenotes-new/shared",
@@ -47,27 +52,67 @@ cmds = [
   "echo 'Copying shared package with all files...'",
   "cp -r /app/packages/shared /app/packages/server/api/node_modules/@wavenotes-new/",
   
-  # Critical: Ensure the dist directory was successfully copied
-  "echo 'Verifying dist directory was correctly copied:'",
-  "ls -la /app/packages/server/api/node_modules/@wavenotes-new/shared/dist || echo 'ERROR: dist directory not found!'",
+  # APPROACH 2: Create a global node_modules link
+  "echo '--- APPROACH 2: Set up global node_modules ---'",
+  "mkdir -p /node_modules/@wavenotes-new",
+  "cp -r /app/packages/shared /node_modules/@wavenotes-new/",
   
-  # Ensure package.json has correct main entry
-  "echo 'Ensuring package.json main entry is correct'",
-  "node -e \"const fs=require('fs'); const path='/app/packages/server/api/node_modules/@wavenotes-new/shared/package.json'; const pkg=JSON.parse(fs.readFileSync(path)); console.log('Current main entry:', pkg.main); pkg.main='dist/index.js'; fs.writeFileSync(path, JSON.stringify(pkg, null, 2)); console.log('Updated main entry to:', 'dist/index.js');\"",
+  # APPROACH 3: Use NODE_PATH to find modules
+  "echo '--- APPROACH 3: Set up NODE_PATH ---'",
+  "echo 'We will set NODE_PATH=/app/packages to allow direct import'",
   
-  # Verify the final structure and check that index.js specifically exists
-  "echo 'Verifying main index.js file exists:'",
-  "ls -la /app/packages/server/api/node_modules/@wavenotes-new/shared/dist/index.js || echo 'ERROR: index.js NOT FOUND!'",
+  # Step 5: EXTENSIVE verification
+  "echo '=== Step 4: EXTENSIVE verification ==='",
   
-  # Add a comprehensive test of the module loading
-  "echo 'Testing module loading with a simple script:'",
-  "echo 'try { const shared = require(\"/app/packages/server/api/node_modules/@wavenotes-new/shared\"); console.log(\"Module loaded successfully!\", Object.keys(shared)); } catch (err) { console.error(\"Failed to load module:\", err); process.exit(1); }' > /app/test-module.js",
-  "cd /app && node test-module.js"
+  # Show directory trees to see exactly what's where
+  "echo 'Directory structure for shared package:'",
+  "find /app/packages/shared -type f -name 'index.js' | sort",
+  "tree -L 3 /app/packages/shared",
+  
+  "echo 'Directory structure for API node_modules:'",
+  "tree -L 4 /app/packages/server/api/node_modules/@wavenotes-new",
+  
+  "echo 'Global node_modules:'",
+  "tree -L 4 /node_modules/@wavenotes-new",
+  
+  # Critical verification of dist files and package.json
+  "echo 'Verification of dist/index.js file at ALL locations:'",
+  "ls -la /app/packages/shared/dist/index.js || echo 'ERROR: Original index.js NOT FOUND!'",
+  "ls -la /app/packages/server/api/node_modules/@wavenotes-new/shared/dist/index.js || echo 'ERROR: node_modules index.js NOT FOUND!'",
+  "ls -la /node_modules/@wavenotes-new/shared/dist/index.js || echo 'ERROR: Global index.js NOT FOUND!'",
+  
+  # Check package.json in all locations
+  "echo 'Contents of package.json files:'",
+  "echo '1. Original:' && cat /app/packages/shared/package.json",
+  "echo '2. node_modules:' && cat /app/packages/server/api/node_modules/@wavenotes-new/shared/package.json",
+  "echo '3. Global:' && cat /node_modules/@wavenotes-new/shared/package.json",
+  
+  # Update package.json in all locations to absolutely ensure main is correct
+  "echo 'Updating package.json main entries in ALL locations:'",
+  "node -e \"const fs=require('fs'); const locations = ['/app/packages/shared/package.json', '/app/packages/server/api/node_modules/@wavenotes-new/shared/package.json', '/node_modules/@wavenotes-new/shared/package.json']; locations.forEach(path => { try { const pkg=JSON.parse(fs.readFileSync(path)); console.log(path + ' before:', pkg.main); pkg.main='dist/index.js'; fs.writeFileSync(path, JSON.stringify(pkg, null, 2)); console.log(path + ' after:', 'dist/index.js'); } catch(e) { console.log('Error with ' + path + ':', e.message); } });\"",
+  
+  # Create comprehensive test scripts that try different module resolution approaches
+  "echo 'Creating test scripts for ALL approaches:'",
+  
+  # Test Approach 1: Normal require
+  "echo 'console.log(\"===== TEST 1: NORMAL REQUIRE =====\"); try { const shared = require(\"@wavenotes-new/shared\"); console.log(\"SUCCESS: Module loaded via normal require!\", Object.keys(shared)); } catch (err) { console.error(\"FAIL: Normal require:\", err.message); }' > /app/test-normal.js",
+  
+  # Test Approach 2: Absolute path require
+  "echo 'console.log(\"===== TEST 2: ABSOLUTE PATH =====\"); try { const shared = require(\"/app/packages/server/api/node_modules/@wavenotes-new/shared\"); console.log(\"SUCCESS: Module loaded via absolute path!\", Object.keys(shared)); } catch (err) { console.error(\"FAIL: Absolute path:\", err.message); }' > /app/test-absolute.js",
+  
+  # Test Approach 3: NODE_PATH require
+  "echo 'console.log(\"===== TEST 3: NODE_PATH =====\"); try { const shared = require(\"shared\"); console.log(\"SUCCESS: Module loaded via NODE_PATH!\", Object.keys(shared)); } catch (err) { console.error(\"FAIL: NODE_PATH:\", err.message); }' > /app/test-node-path.js",
+  
+  # Run all tests
+  "echo 'Running all test approaches:'",
+  "cd /app/packages/server/api && node /app/test-normal.js",
+  "cd /app/packages/server/api && node /app/test-absolute.js",
+  "cd /app/packages/server/api && NODE_PATH=/app/packages NODE_DEBUG=module node /app/test-node-path.js"
 ]
 
-# Launch the API service
+# Launch the API service with all approaches available
 [start]
-cmd = "cd /app/packages/server/api && NODE_ENV=production node dist/index.js"
+cmd = "cd /app/packages/server/api && NODE_PATH=/app/packages NODE_ENV=production node dist/index.js"
 
 # Explicitly disable Railway's automatic package detection
 [detect]

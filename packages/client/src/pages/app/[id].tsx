@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card'
 import { StatusBadge } from '../../components/StatusBadge'
+import { PlatformLinks } from '../../components/PlatformLinks'
 import withAuth from '../../components/withAuth'
 
 interface SummaryWithPodcast extends SummaryRecord {
@@ -16,6 +17,7 @@ interface SummaryWithPodcast extends SummaryRecord {
     url?: string;
     youtube_url?: string;
     thumbnail_url?: string | null;
+    platform?: string;
   };
 }
 
@@ -49,7 +51,8 @@ export default withAuth(function SummaryPage() {
             show_name,
             url,
             youtube_url,
-            thumbnail_url
+            thumbnail_url,
+            platform
           )
         `)
         .eq('id', idString)
@@ -131,13 +134,20 @@ export default withAuth(function SummaryPage() {
                   className="w-16 h-16 rounded-md object-cover"
                 />
               )}
-              <div>
+              <div className="flex-1">
                 <CardTitle>
                   {summary?.podcast ? summary.podcast.title : 'Loading title...'}
                 </CardTitle>
                 <CardDescription>
                   {summary?.podcast ? summary.podcast.show_name : 'Loading channel...'}
                 </CardDescription>
+                {summary?.podcast && (
+                  <PlatformLinks
+                    className="mt-2"
+                    youtubeUrl={summary.podcast.youtube_url}
+                    spotifyUrl={summary.podcast.platform === 'spotify' ? summary.podcast.url : null}
+                  />
+                )}
               </div>
             </div>
           </CardHeader>
@@ -164,7 +174,7 @@ export default withAuth(function SummaryPage() {
           <CardTitle>Summary</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="prose prose-indigo prose-lg max-w-none">
+          <div className="prose prose-indigo max-w-none">
             {summary?.summary_text ? (
               <ReactMarkdown>{summary.summary_text}</ReactMarkdown>
             ) : (

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Toaster } from 'sonner';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -6,10 +7,11 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 md:px-8 lg:px-12">
+    <div className="min-h-screen bg-gray-0">
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 md:px-8 lg:px-12">
         {children}
       </div>
+      <Toaster position="top-right" />
     </div>
   );
 };

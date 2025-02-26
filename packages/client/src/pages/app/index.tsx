@@ -9,7 +9,7 @@
 
 
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { ProcessingStatus } from '@wavenotes-new/shared'
 import { getSession, getUser, supabase } from '../../lib/supabase'
@@ -18,6 +18,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { StatusBadge } from '../../components/StatusBadge'
+import { PlatformLinks } from '../../components/PlatformLinks'
 import withAuth from '../../components/withAuth'
 
 // Define type for summary with podcast details
@@ -31,7 +32,9 @@ interface SummaryWithPodcast {
     title: string;
     show_name: string;
     thumbnail_url?: string | null;
-    url?: string;
+    url?: string | null;
+    youtube_url?: string | null;
+    platform?: string;
   };
 }
 
@@ -89,7 +92,7 @@ function SummaryCard({ summary, onDelete }: {
   
   return (
     <Card 
-      className="overflow-hidden hover:shadow-md transition duration-200 cursor-pointer"
+      className="overflow-hidden hover:bg-gray-50 transition duration-200 cursor-pointer"
       onClick={handleCardClick}
     >
       <CardContent className="p-4">
@@ -107,7 +110,7 @@ function SummaryCard({ summary, onDelete }: {
                   }}
                 />
               ) : (
-                <div className="h-16 w-16 bg-gray-200 rounded flex items-center justify-center">
+                <div className="h-16 w-16 bg-gray-0 rounded flex items-center justify-center">
                   <span className="text-gray-400 text-xs">No image</span>
                 </div>
               )}
@@ -115,6 +118,13 @@ function SummaryCard({ summary, onDelete }: {
             <div className="flex-1 min-w-0">
               <h3 className="text-lg font-semibold line-clamp-2">{summary.podcast?.title || 'Unknown Podcast'}</h3>
               <p className="text-sm text-muted-foreground">{summary.podcast?.show_name || 'Unknown Show'}</p>
+              {summary.podcast && (
+                <PlatformLinks
+                  className="mt-2"
+                  youtubeUrl={summary.podcast.youtube_url}
+                  spotifyUrl={summary.podcast.platform === 'spotify' ? summary.podcast.url : null}
+                />
+              )}
             </div>
           </div>
           <div className="flex-shrink-0 ml-4 w-[100px] text-right">
@@ -149,6 +159,12 @@ export default withAuth(function AppDashboard() {
   const [summaries, setSummaries] = useState<SummaryWithPodcast[]>([]);
   const [loadingSummaries, setLoadingSummaries] = useState<boolean>(false);
   const router = useRouter()
+  
+  // Pagination state for completed summaries
+  const [visibleCompletedCount, setVisibleCompletedCount] = useState<number>(10);
+  const [hasMoreCompleted, setHasMoreCompleted] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  const completedContainerRef = useRef<HTMLDivElement>(null);
 
   // Load user session on component mount
   useEffect(() => {
@@ -263,6 +279,61 @@ export default withAuth(function AppDashboard() {
       fetchSummaries();
     }
   }, [user]);
+  
+  // Set up intersection observer for infinite scrolling
+  useEffect(() => {
+    // Reset visible count when summaries change
+    setVisibleCompletedCount(10);
+    setHasMoreCompleted(true);
+    
+    // Check if we need to set hasMoreCompleted to false initially
+    const completedSummaries = summaries.filter(s => s.status === ProcessingStatus.COMPLETED);
+    if (completedSummaries.length <= 10) {
+      setHasMoreCompleted(false);
+    }
+  }, [summaries]);
+  
+  // Intersection observer for infinite scrolling
+  useEffect(() => {
+    const options = {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.1
+    };
+    
+    const observer = new IntersectionObserver((entries) => {
+      const [entry] = entries;
+      if (entry.isIntersecting && hasMoreCompleted && !loadingMore) {
+        loadMoreCompletedSummaries();
+      }
+    }, options);
+    
+    const loadMoreElement = document.getElementById('load-more-trigger');
+    if (loadMoreElement) {
+      observer.observe(loadMoreElement);
+    }
+    
+    return () => {
+      if (loadMoreElement) {
+        observer.unobserve(loadMoreElement);
+      }
+    };
+  }, [hasMoreCompleted, loadingMore, visibleCompletedCount]);
+  
+  // Function to load more completed summaries
+  const loadMoreCompletedSummaries = useCallback(() => {
+    setLoadingMore(true);
+    
+    // Simulate a delay to prevent rapid loading
+    setTimeout(() => {
+      const completedSummaries = summaries.filter(s => s.status === ProcessingStatus.COMPLETED);
+      const newVisibleCount = visibleCompletedCount + 10;
+      
+      setVisibleCompletedCount(newVisibleCount);
+      setHasMoreCompleted(newVisibleCount < completedSummaries.length);
+      setLoadingMore(false);
+    }, 300);
+  }, [summaries, visibleCompletedCount]);
 
   // Extract fetchSummaries function to be reusable
   const fetchSummaries = async () => {
@@ -270,125 +341,89 @@ export default withAuth(function AppDashboard() {
     
     setLoadingSummaries(true);
     try {
-      // First get the summary IDs this user has access to
-      const { data: userSummaries, error: userSummariesError } = await supabase
-        .from('user_summaries')
-        .select('summary_id')
-        .eq('user_id', user.id);
-        
-      if (userSummariesError) {
-        console.error('Error fetching user summaries:', userSummariesError);
-        setLoadingSummaries(false);
-        return;
-      }
-      
-      // If no summaries found, set empty array and return
-      if (!userSummaries || userSummaries.length === 0) {
-        setSummaries([]);
-        setLoadingSummaries(false);
-        return;
-      }
-      
-      // Extract summary IDs
-      // @ts-ignore: Temporarily ignoring type checking here
-      const summaryIds = userSummaries.map(item => item.summary_id);
-      
-      // Simple direct query to get both summaries and podcasts
-      const { data: podcastData, error: podcastError } = await supabase
-        .from('podcasts')
-        .select('*');
-        
-      if (podcastError) {
-        console.error('Error fetching podcasts:', podcastError);
-      }
-      
-      // Create a map of podcasts by ID for easy lookup
-      type PodcastMap = {
-        [key: string]: {
+      // Define the type for our nested query response
+      type SupabaseSummaryResponse = {
+        summary_id: string;
+        summaries: {
           id: string;
-          title: string;
-          show_name: string;
-          thumbnail_url?: string | null;
-          url?: string;
-        }
+          status: string;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+          podcast: {
+            id: string;
+            title: string;
+            show_name: string;
+            thumbnail_url: string | null;
+            url: string | null;
+            youtube_url: string | null;
+            platform: string | null;
+          } | null;
+        } | null;
       };
-      
-      const podcastMap: PodcastMap = {};
-      if (podcastData) {
-        podcastData.forEach(podcast => {
-          podcastMap[podcast.id] = podcast;
-        });
-      }
-      
-      console.log('Podcast map:', podcastMap);
-      
-      // Get summaries
-      const { data: summariesData, error: summariesError } = await supabase
-        .from('summaries')
-        .select('*')
-        .in('id', summaryIds)
-        .order('created_at', { ascending: false });
-        
+
+      // Get summaries with their associated podcasts in a single query
+      const { data: userSummariesWithPodcasts, error: summariesError } = await supabase
+        .from('user_summaries')
+        .select(`
+          summary_id,
+          added_at,
+          summaries:summary_id (
+            id,
+            status,
+            error_message,
+            created_at,
+            updated_at,
+            podcast:podcast_id (
+              id,
+              title,
+              show_name,
+              thumbnail_url,
+              url,
+              youtube_url,
+              platform
+            )
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('added_at', { ascending: false });
+
       if (summariesError) {
         console.error('Error fetching summaries:', summariesError);
         setSummaries([]);
-        setLoadingSummaries(false);
         return;
       }
-      
-      console.log('Raw summaries data:', summariesData);
-      
-      // Debug: Show podcast_id from each summary to verify relationship
-      if (summariesData && summariesData.length > 0) {
-        console.log('Summary to podcast relationships:');
-        summariesData.forEach(summary => {
-          console.log(`Summary ${summary.id} has podcast_id: ${summary.podcast_id}`);
-          if (summary.podcast_id && podcastMap[summary.podcast_id]) {
-            console.log(`  Found matching podcast: ${podcastMap[summary.podcast_id].title}`);
-          } else {
-            console.log(`  No matching podcast found in podcast map`);
-          }
-        });
-      }
-        
-      // Transform the data with the podcast map lookup
-      const transformedData = (summariesData || []).map(summary => {
-        // Get the podcast using the podcast_id if available
-        const podcastInfo = summary.podcast_id && podcastMap[summary.podcast_id] 
-          ? {
-              id: podcastMap[summary.podcast_id].id,
-              title: podcastMap[summary.podcast_id].title || 'Unknown Title',
-              show_name: podcastMap[summary.podcast_id].show_name || 'Unknown Show',
-              thumbnail_url: podcastMap[summary.podcast_id].thumbnail_url,
-              url: podcastMap[summary.podcast_id].url
-            }
-          : {
-              // For in-progress summaries with missing podcast data, provide default values
-              // This ensures cards still appear in the "In Progress" section
+
+      // Transform the nested data structure into our expected format
+      const transformedData = ((userSummariesWithPodcasts || []) as unknown as SupabaseSummaryResponse[])
+        .map(item => {
+          const summary = item.summaries;
+          if (!summary) return null;
+
+          return {
+            id: summary.id,
+            status: summary.status,
+            error_message: summary.error_message,
+            created_at: summary.created_at,
+            updated_at: summary.updated_at,
+            podcast: summary.podcast || {
               title: summary.status === ProcessingStatus.IN_QUEUE || 
                      summary.status === ProcessingStatus.FETCHING_TRANSCRIPT || 
                      summary.status === ProcessingStatus.GENERATING_SUMMARY 
                      ? 'Processing Podcast' : 'Unknown Podcast',
               show_name: 'Please wait...',
-            };
-            
-        return {
-          id: summary.id,
-          status: summary.status,
-          error_message: summary.error_message,
-          created_at: summary.created_at,
-          updated_at: summary.updated_at,
-          podcast: podcastInfo
-        };
-      });
+            }
+          } as SummaryWithPodcast;
+        })
+        .filter((item): item is SummaryWithPodcast => item !== null);
       
-      console.log('Transformed summaries with podcasts:', transformedData);
       setSummaries(transformedData);
     } catch (err) {
       console.error('Error in summaries fetch flow:', err);
       setSummaries([]);
+    } finally {
+      setLoadingSummaries(false);
     }
-    setLoadingSummaries(false);
   };
 
   // URL submission handler
@@ -487,14 +522,16 @@ export default withAuth(function AppDashboard() {
   // Filter summaries based on status
   const inProgressSummaries = summaries.filter(s => s.status !== ProcessingStatus.COMPLETED && s.status !== ProcessingStatus.FAILED);
   const completedSummaries = summaries.filter(s => s.status === ProcessingStatus.COMPLETED);
+  // Get only the visible completed summaries
+  const visibleCompletedSummaries = completedSummaries.slice(0, visibleCompletedCount);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-0">
       {/* Header */}
-      <header className="bg-white shadow">
+      <header className="bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <h1 className="text-xl font-bold text-gray-900">WaveNotes</h1>
+            <h1 className="text-lg font-bold text-gray-900">WaveNotes</h1>
             {/* Display welcome message if user is available */}
             {user && (
               <span className="text-sm text-gray-700">Welcome, {user.email}</span>
@@ -566,10 +603,24 @@ export default withAuth(function AppDashboard() {
             <CardContent>
               {loadingSummaries ? <p>Loading summaries...</p> : (
                 completedSummaries.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-4">
-                    {completedSummaries.map(summary => (
+                  <div ref={completedContainerRef} className="grid grid-cols-1 gap-4">
+                    {visibleCompletedSummaries.map(summary => (
                       <SummaryCard key={summary.id} summary={summary} onDelete={handleDeleteSummary} />
                     ))}
+                    
+                    {/* Load more indicator */}
+                    {hasMoreCompleted && (
+                      <div id="load-more-trigger" className="py-4 text-center">
+                        <Button 
+                          variant="outline" 
+                          className="w-full"
+                          onClick={loadMoreCompletedSummaries}
+                          disabled={loadingMore}
+                        >
+                          {loadingMore ? 'Loading...' : 'Load More'}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ) : <p>No completed summaries.</p>
               )}
