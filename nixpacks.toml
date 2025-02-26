@@ -8,7 +8,10 @@ cmds = [
   "npm install -g corepack@0.24.1",
   "corepack enable",
   "yarn -v",
-  "yarn install --immutable"
+  # Clear any cache that might cause issues
+  "rm -rf .yarn/cache .yarn/unplugged .yarn/install-state.gz || true",
+  # Try with the more strict frozen-lockfile option
+  "YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --check-cache"
 ]
 
 # Build the packages in the right order
