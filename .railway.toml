@@ -1,0 +1,25 @@
+# Root-level Railway configuration
+[build]
+builder = "nixpacks"
+nixpacksConfigPath = "nixpacks.toml"
+# Disable Railway's automated build commands
+buildCommand = ""
+
+[deploy]
+startCommand = "cd packages/server/api && NODE_ENV=production node dist/index.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 10
+
+# Explicitly ensure Nixpacks is used and Dockerfile is disabled
+[build.nixpacks]
+enable = true
+
+[build.dockerfile]
+enable = false
+path = ""
+
+# Set environment variables
+[variables]
+NODE_ENV = "production" 

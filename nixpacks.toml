@@ -10,17 +10,21 @@ cmds = [
   "npm install -g corepack@0.24.1",
   "corepack enable",
   "yarn -v",
-  # Use the approach recommended in Railway docs for skipping lockfile verification
-  # https://docs.railway.app/troubleshoot/deployments
-  "YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile"
+  "echo 'Starting Yarn installation with update-lockfile mode...'",
+  "YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile --verbose",
+  "echo 'Yarn installation completed.'"
 ]
 
 # Build the packages in the right order
 [phases.build]
 dependsOn = ["install"]
 cmds = [
+  "echo 'Building shared package...'",
   "cd packages/shared && yarn build",
-  "cd ../../packages/server/api && yarn build"
+  "echo 'Shared package built successfully.'",
+  "echo 'Building API package...'", 
+  "cd ../../packages/server/api && yarn build",
+  "echo 'API package built successfully.'"
 ]
 
 # Launch the API service
