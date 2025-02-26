@@ -24,7 +24,7 @@ path = ""
 [variables]
 NODE_ENV = "production"
 
-# Add cron job from railway.json
+# Add cron job from railway.json - update to use Node directly instead of Yarn
 [[crons]]
 schedule = "*/30 * * * *"
-command = "cd packages/server/api && yarn check-timeouts" 
+command = "cd packages/server/api && NODE_ENV=production node dist/scripts/check-timeouts.js" 

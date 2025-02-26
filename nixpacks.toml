@@ -24,7 +24,15 @@ cmds = [
   "echo 'Shared package built successfully.'",
   "echo 'Building API package...'", 
   "cd ../../packages/server/api && yarn build",
-  "echo 'API package built successfully.'"
+  "echo 'API package built successfully.'",
+  # Add explicit package linking to ensure the API can find the shared package
+  "echo 'Setting up package references for production...'",
+  # Make sure the API's package.json is pointing to the correct path
+  "cd ../../packages/server/api && node -e \"const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json')); pkg.dependencies['@wavenotes-new/shared'] = '../../shared'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));\"",
+  # Create a symlink to make sure the API can find the shared package
+  "mkdir -p packages/server/api/node_modules/@wavenotes-new",
+  "ln -sf ../../../shared packages/server/api/node_modules/@wavenotes-new/shared",
+  "echo 'Package references set up successfully.'"
 ]
 
 # Launch the API service
