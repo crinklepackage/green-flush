@@ -38,7 +38,25 @@ export function PodcastUrlForm() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to submit podcast')
+        let errorMessage = 'Failed to submit podcast';
+        
+        // Check content type to determine how to parse response
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (parseError) {
+            console.error('Error parsing JSON response:', parseError);
+            // Fall back to text response if JSON parsing fails
+            errorMessage = await response.text();
+          }
+        } else {
+          // Not a JSON response, get text directly
+          errorMessage = await response.text();
+        }
+        
+        throw new Error(errorMessage);
       }
 
       // 3. Redirect to summary page

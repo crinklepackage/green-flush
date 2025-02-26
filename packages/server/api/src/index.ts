@@ -6,6 +6,7 @@ import { DatabaseService } from './lib/database'
 import { QueueService } from './services/queue'
 import { podcastRoutes } from './routes/podcasts'
 import { createSummariesRouter } from './routes/summaries'
+import { feedbackRoutes } from './routes/feedback'
 import { supabase } from './lib/supabase';
 import adminRouter from './routes/admin';
 import { validateStatusMiddleware } from './middleware/validate-status';
@@ -22,6 +23,7 @@ async function main() {
   // Create routers
   const podcastRouter = podcastRoutes(db, queue)
   const summariesRouter = createSummariesRouter(db)
+  const feedbackRouter = feedbackRoutes(db)
   
   // Create a root router and mount the other routers with path prefixes
   const rootRouter = Router();
@@ -31,6 +33,7 @@ async function main() {
   
   rootRouter.use('/podcasts', podcastRouter);
   rootRouter.use('/summaries', summariesRouter);
+  rootRouter.use('/feedback', feedbackRouter);
   rootRouter.use('/admin', adminRouter);
   
   // Start API with the root router

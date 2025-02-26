@@ -5,7 +5,10 @@ import { config } from '../config/environment'
 declare global {
   namespace Express {
     interface Request {
-      user: { id: string }
+      user: { 
+        id: string;
+        email?: string;
+      }
     }
   }
 }
@@ -19,7 +22,12 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   
   if (error || !user) return res.status(401).json({ error: 'Invalid token' })
   
-  req.user = { id: user.id }
+  // Include both id and email for admin middleware use
+  req.user = { 
+    id: user.id,
+    email: user.email 
+  }
+  
   try {
     // simulate awaiting some async operation
     await new Promise(resolve => setTimeout(resolve, 10))

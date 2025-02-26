@@ -12,6 +12,26 @@ export * from './server/types/entities/podcast';
 //export { PodcastJobValue as PodcastJob } from './server/types/jobs/podcast';
 export type { PodcastJob } from './server/types/jobs/podcast';
 
+// Export feedback types
+export type { 
+  FeedbackRecord,
+  FeedbackType,
+  FeedbackStatus,
+  CreateFeedbackParams,
+  UpdateFeedbackParams
+} from './server/types/entities/feedback';
+
+// Export browser-side feedback types
+export type { FeedbackRequest } from './browser/types/feedback';
+
+// Export feedback schemas
+export {
+  FeedbackTypeSchema,
+  FeedbackStatusSchema,
+  CreateFeedbackSchema,
+  UpdateFeedbackSchema
+} from './server/schemas/entities/feedback';
+
 // Re-export additional types from metadata
 export type { Database, SummaryRecord, VideoMetadata, RPCPodcastResponse } from './server/types/metadata';
 

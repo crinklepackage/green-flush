@@ -9,7 +9,12 @@ import {
   ProcessingStatus,
   SummaryRecord,
 } from '@wavenotes-new/shared'
-import { DatabaseError } from '@wavenotes-new/shared'
+import { 
+  DatabaseError,
+  FeedbackRecord,
+  CreateFeedbackParams,
+  UpdateFeedbackParams
+} from '@wavenotes-new/shared'
 import { supabase } from './supabase'
 
 export interface DatabaseService {
@@ -67,6 +72,12 @@ export interface DatabaseService {
   updateSummaryTokens(summaryId: string, inputTokens: number, outputTokens: number): Promise<void>
   deleteSummary(summaryId: string, userId: string): Promise<void>
   userHasAccessToSummary(userId: string, summaryId: string): Promise<boolean>
+  // Feedback methods
+  createFeedback(data: CreateFeedbackParams): Promise<FeedbackRecord>
+  getFeedback(filters?: Record<string, any>, sortOptions?: Record<string, 1 | -1>): Promise<FeedbackRecord[]>
+  getFeedbackById(id: string): Promise<FeedbackRecord | null>
+  updateFeedback(id: string, data: UpdateFeedbackParams): Promise<FeedbackRecord>
+  isUserOriginalSummarizer(userId: string, summaryId: string): Promise<boolean>
 }
 
 export class DatabaseService {
@@ -584,6 +595,137 @@ export class DatabaseService {
           'deleteSummary',
           { summaryId, userId, error }
         );
+      }
+    }
+
+    async createFeedback(data: CreateFeedbackParams): Promise<FeedbackRecord> {
+      const { data: feedback, error } = await this.supabase
+        .from('user_feedback')
+        .insert({
+          user_id: data.user_id,
+          feedback_type: data.feedback_type,
+          feedback_text: data.feedback_text,
+          summary_id: data.summary_id,
+          podcast_id: data.podcast_id,
+          page_url: data.page_url,
+          browser_info: data.browser_info,
+          tags: data.tags,
+          submitted_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw new DatabaseError(
+          'Failed to create feedback',
+          error.code,
+          'createFeedback',
+          { data }
+        );
+      }
+
+      return feedback;
+    }
+
+    async getFeedback(filters: Record<string, any> = {}, sortOptions: Record<string, 1 | -1> = { submitted_at: -1 }): Promise<FeedbackRecord[]> {
+      let query = this.supabase
+        .from('user_feedback')
+        .select('*');
+
+      // Apply filters
+      Object.entries(filters).forEach(([key, value]) => {
+        query = query.eq(key, value);
+      });
+
+      // Apply sorting (most recent first by default)
+      const sortKey = Object.keys(sortOptions)[0] || 'submitted_at';
+      const sortDirection = sortOptions[sortKey] === 1 ? 'asc' : 'desc';
+      query = query.order(sortKey, { ascending: sortDirection === 'asc' });
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw new DatabaseError(
+          'Failed to fetch feedback',
+          error.code,
+          'getFeedback',
+          { filters, sortOptions }
+        );
+      }
+
+      return data || [];
+    }
+
+    async getFeedbackById(id: string): Promise<FeedbackRecord | null> {
+      const { data, error } = await this.supabase
+        .from('user_feedback')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        throw new DatabaseError(
+          'Failed to fetch feedback',
+          error.code,
+          'getFeedbackById',
+          { id }
+        );
+      }
+
+      return data;
+    }
+
+    async updateFeedback(id: string, data: UpdateFeedbackParams): Promise<FeedbackRecord> {
+      const { data: feedback, error } = await this.supabase
+        .from('user_feedback')
+        .update({
+          ...data,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new DatabaseError(
+          'Failed to update feedback',
+          error.code,
+          'updateFeedback',
+          { id, data }
+        );
+      }
+
+      return feedback;
+    }
+
+    async isUserOriginalSummarizer(userId: string, summaryId: string): Promise<boolean> {
+      try {
+        // Get all user_summaries for this summary, ordered by created_at
+        const { data, error } = await this.supabase
+          .from('user_summaries')
+          .select('*')
+          .eq('summary_id', summaryId)
+          .order('created_at', { ascending: true })
+          .limit(1);
+
+        if (error) {
+          throw new DatabaseError(
+            'Failed to check if user is original summarizer',
+            error.code,
+            'isUserOriginalSummarizer',
+            { userId, summaryId }
+          );
+        }
+
+        // If there's at least one record and the first (oldest) one belongs to this user,
+        // they are the original summarizer
+        return data && data.length > 0 && data[0].user_id === userId;
+      } catch (error) {
+        console.error('Error checking if user is original summarizer:', error);
+        return false;
       }
     }
 }

@@ -436,7 +436,7 @@ export default withAuth(function AppDashboard() {
     console.log('Request headers:', { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` });
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/podcasts`, {
+      const response = await fetch('/api/podcasts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -446,8 +446,25 @@ export default withAuth(function AppDashboard() {
       })
 
       if (!response.ok) {
-        const errorResp = await response.json()
-        throw new Error(errorResp.message || 'Failed to submit podcast')
+        let errorMessage = 'Failed to submit podcast';
+        
+        // Check content type to determine how to parse response
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const errorResp = await response.json();
+            errorMessage = errorResp.message || errorMessage;
+          } catch (parseError) {
+            console.error('Error parsing JSON response:', parseError);
+            // Fall back to text response if JSON parsing fails
+            errorMessage = await response.text();
+          }
+        } else {
+          // Not a JSON response, get text directly
+          errorMessage = await response.text();
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const data = await response.json()
@@ -484,7 +501,7 @@ export default withAuth(function AppDashboard() {
   // Add handleDeleteSummary function
   const handleDeleteSummary = async (id: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/summaries/${id}`, {
+      const response = await fetch(`/api/summaries/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${accessToken}`

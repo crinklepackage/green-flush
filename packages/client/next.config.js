@@ -16,6 +16,19 @@ const nextConfig = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
+  
+  // Add API routes rewrites to forward requests to the Express API server
+  async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    console.log('API URL for rewrites:', apiUrl);
+    
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${apiUrl}/:path*`, // Proxy to Express API
+      },
+    ];
+  },
 }
 
 module.exports = nextConfig 
