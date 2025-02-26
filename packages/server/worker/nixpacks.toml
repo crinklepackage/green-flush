@@ -13,7 +13,7 @@ targetDir = "/"
 dependsOn = ["install"]
 cmds = [
   "yarn workspace @wavenotes-new/shared build",
-  "yarn workspace @wavenotes-new/api build"
+  "yarn workspace @wavenotes-new/worker build"
 ]
 
 [start]
