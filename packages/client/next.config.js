@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
-module.exports = {
+const nextConfig = {
   transpilePackages: ['@wavenotes-new/shared'],
+  reactStrictMode: true,
   // Disable the build error overlay
   typescript: {
     // !! WARN !!
@@ -15,4 +16,6 @@ module.exports = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
-} 
+}
+
+module.exports = nextConfig 
