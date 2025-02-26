@@ -6,7 +6,11 @@ aptPkgs = ["git"]
 # Default is 'npm install -g corepack@0.24.1 && corepack enable'
 # We'll let Railway handle that part and add our own command after
 dependsOn = ["setup"]
-cmds = ["yarn install --no-immutable"]
+cmds = [
+  "npm install -g corepack",
+  "corepack enable",
+  "yarn install --no-immutable"
+]
 targetDir = "/"
 
 [phases.build]
