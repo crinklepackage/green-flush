@@ -19,10 +19,10 @@ cmds = [
 [phases.build]
 dependsOn = ["install"]
 cmds = [
-  # Step 1: Build the shared package
+  # Step 1: Build the shared package 
   "echo '=== Step 1: Building shared package ==='",
   "cd /app/packages/shared && yarn build",
-  "echo 'Shared package files:'",
+  "echo 'Shared package built successfully:'",
   "ls -la /app/packages/shared/dist",
   
   # Step 2: Build the API package
@@ -30,27 +30,39 @@ cmds = [
   "cd /app/packages/server/api && yarn build",
   "echo 'API package built successfully.'",
   
-  # Step 3: Set up module resolution - simplified approach
-  "echo '=== Step 3: Setting up module resolution ==='",
+  # Step 3: Manually create proper node_modules structure
+  "echo '=== Step 3: Preparing deployment environment ==='",
   
-  # Ensure shared package has main entry pointing to dist/index.js
-  "echo 'Updating shared package.json main entry'",
-  "cd /app/packages/shared && node -e \"const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json')); pkg.main = 'dist/index.js'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));\"",
+  # If node_modules exists, preserve it - it should have been created during install
+  "echo 'Preserving core node_modules structure...'",
   
-  # Create a clean node_modules structure
-  "echo 'Creating fresh node_modules structure'",
-  "mkdir -p /app/packages/server/api/node_modules/@wavenotes-new",
+  # Step 4: Make sure symlinks are properly recreated in the node_modules
+  # The key is that we need to *replace* the symlink with the actual files
+  "echo '=== Step 4: Ensuring modules are available ==='",
+  "echo 'Recreating package structure...'",
   
-  # Copy the shared package directly into API's node_modules
-  "echo 'Copying shared package to API node_modules'",
-  "cp -r /app/packages/shared /app/packages/server/api/node_modules/@wavenotes-new/",
+  # Remove and recreate the shared package directory
+  "rm -rf /app/packages/server/api/node_modules/@wavenotes-new/shared || true",
+  "mkdir -p /app/packages/server/api/node_modules/@wavenotes-new/shared",
   
-  # Verify the structure
-  "echo 'Verifying node_modules structure:'",
-  "ls -la /app/packages/server/api/node_modules/@wavenotes-new/shared",
-  "ls -la /app/packages/server/api/node_modules/@wavenotes-new/shared/dist || echo 'dist directory missing!'",
+  # Copy EVERYTHING from the source package
+  "echo 'Copying shared package with all files...'",
+  "cp -rf /app/packages/shared/* /app/packages/server/api/node_modules/@wavenotes-new/shared/",
   
-  "echo 'Module resolution setup completed.'"
+  # Ensure package.json has correct main entry
+  "echo 'Ensuring package.json main entry is correct'",
+  "node -e \"const fs=require('fs'); const path='/app/packages/server/api/node_modules/@wavenotes-new/shared/package.json'; const pkg=JSON.parse(fs.readFileSync(path)); pkg.main='dist/index.js'; fs.writeFileSync(path, JSON.stringify(pkg, null, 2));\"",
+  
+  # Verify the final structure
+  "echo 'Verifying final module structure:'",
+  "find /app/packages/server/api/node_modules/@wavenotes-new/shared -type f -name 'index.js' | sort",
+  "ls -la /app/packages/server/api/node_modules/@wavenotes-new/shared/dist",
+  
+  # Debug: Show loading paths - this creates a script we can use to troubleshoot
+  "echo 'Creating debug script...'",
+  "echo 'console.log(\"Debug module loading attempt\"); try { const shared = require(\"@wavenotes-new/shared\"); console.log(\"Successfully loaded shared:\", Object.keys(shared)); } catch (err) { console.error(\"Failed to load shared:\", err); console.log(\"Module search paths:\", module.paths); }' > /app/debug-modules.js",
+  "echo 'Running debug script from API directory...'",
+  "cd /app/packages/server/api && node ../../debug-modules.js"
 ]
 
 # Launch the API service
