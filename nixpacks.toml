@@ -11,7 +11,7 @@ cmds = [
   "corepack enable",
   "yarn -v",
   "echo 'Installing dependencies...'",
-  "YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode update-lockfile",
+  "cd /app && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode update-lockfile",
   "echo 'Dependencies installed successfully.'"
 ]
 
@@ -19,29 +19,43 @@ cmds = [
 [phases.build]
 dependsOn = ["install"]
 cmds = [
-  "echo 'Building shared package...'",
-  "cd packages/shared && yarn build",
-  "echo 'Shared package built successfully.'",
-  "echo 'Building API package...'", 
-  "cd ../../packages/server/api && yarn build",
+  # Step 1: Build the shared package
+  "echo '=== Step 1: Building shared package ==='",
+  "cd /app/packages/shared && yarn build",
+  "echo 'Shared package files:'",
+  "ls -la /app/packages/shared/dist",
+  
+  # Step 2: Build the API package
+  "echo '=== Step 2: Building API package ==='", 
+  "cd /app/packages/server/api && yarn build",
   "echo 'API package built successfully.'",
-  # Use a much more robust approach to ensure module resolution works
-  "echo 'Setting up module resolution for production...'",
-  # Make sure the shared package has the correct main entry
-  "cd packages/shared && node -e \"const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json')); pkg.main = 'dist/index.js'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));\"",
-  # Copy the shared package directly into the API's node_modules
-  "mkdir -p packages/server/api/node_modules/@wavenotes-new/shared/dist",
-  "cp -r packages/shared/dist/* packages/server/api/node_modules/@wavenotes-new/shared/dist/",
-  "cp packages/shared/package.json packages/server/api/node_modules/@wavenotes-new/shared/",
-  # Add a NODE_PATH environment variable to help Node find the modules
-  "echo 'export NODE_PATH=/app/packages/shared:/app/packages/server/api/node_modules:/app/node_modules' > /app/.profile.d/nodejs.sh",
-  "chmod +x /app/.profile.d/nodejs.sh",
+  
+  # Step 3: Set up module resolution - simplified approach
+  "echo '=== Step 3: Setting up module resolution ==='",
+  
+  # Ensure shared package has main entry pointing to dist/index.js
+  "echo 'Updating shared package.json main entry'",
+  "cd /app/packages/shared && node -e \"const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json')); pkg.main = 'dist/index.js'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));\"",
+  
+  # Create a clean node_modules structure
+  "echo 'Creating fresh node_modules structure'",
+  "mkdir -p /app/packages/server/api/node_modules/@wavenotes-new",
+  
+  # Copy the shared package directly into API's node_modules
+  "echo 'Copying shared package to API node_modules'",
+  "cp -r /app/packages/shared /app/packages/server/api/node_modules/@wavenotes-new/",
+  
+  # Verify the structure
+  "echo 'Verifying node_modules structure:'",
+  "ls -la /app/packages/server/api/node_modules/@wavenotes-new/shared",
+  "ls -la /app/packages/server/api/node_modules/@wavenotes-new/shared/dist || echo 'dist directory missing!'",
+  
   "echo 'Module resolution setup completed.'"
 ]
 
 # Launch the API service
 [start]
-cmd = "cd packages/server/api && NODE_PATH=/app/packages/shared:/app/packages/server/api/node_modules:/app/node_modules NODE_ENV=production node dist/index.js"
+cmd = "cd /app/packages/server/api && NODE_ENV=production node dist/index.js"
 
 # Explicitly disable Railway's automatic package detection
 [detect]
