@@ -10,7 +10,7 @@ export class SummaryGeneratorService {
       logger.info('Generating summary from transcript', { transcriptLength: transcript.length });
       
       // Prepare user message with transcript inserted
-      const userContent = CLAUDE_PROMPTS.PODCAST_SUMMARY.USER_TEMPLATE.replace('{transcript}', transcript);
+      const userContent = CLAUDE_PROMPTS.PODCAST_SUMMARY.USER_TEMPLATE.replace('{{TRANSCRIPT}}', transcript);
       
       // Use Anthropic SDK's streaming method with model from shared constants
       const client = new Anthropic();
