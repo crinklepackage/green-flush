@@ -11,7 +11,8 @@ cmds = [
   "corepack enable",
   "yarn -v",
   "echo 'Starting Yarn installation...'",
-  "YARN_ENABLE_IMMUTABLE_INSTALLS=false YARN_ENABLE_PROGRESS_BARS=false YARN_VERBOSE=true yarn install --mode update-lockfile",
+  # Keep it simple - just the core command with update-lockfile mode
+  "YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode update-lockfile",
   "echo 'Yarn installation completed.'"
 ]
 
