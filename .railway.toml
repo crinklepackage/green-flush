@@ -5,6 +5,12 @@ nixpacksConfigPath = "nixpacks.toml"
 # Let the nixpacks.toml file handle the build process
 buildCommand = ""
 
+# Define watch paths for API service - only trigger builds when these paths change
+watchPaths = [
+  "packages/server/api/**",
+  "packages/shared/**"
+]
+
 [deploy]
 startCommand = "cd packages/server/api && NODE_ENV=production node dist/index.js"
 healthcheckPath = "/health"

@@ -5,6 +5,14 @@ nixpacksConfigPath = "nixpacks-worker.toml"
 # Let the nixpacks-worker.toml file handle the build process
 buildCommand = ""
 
+# Define watch paths for Worker service - only trigger builds when these paths change
+watchPaths = [
+  "packages/server/worker/**",
+  "packages/shared/**",
+  "packages/server/api/src/platforms/matcher/service.ts",
+  "packages/server/api/src/platforms/spotify/service.ts"
+]
+
 [deploy]
 startCommand = "cd packages/server/worker && NODE_ENV=production node dist/index.js"
 healthcheckPath = "/health"

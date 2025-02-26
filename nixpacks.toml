@@ -33,36 +33,36 @@ cmds = [
   # Step 3: Manually create proper node_modules structure
   "echo '=== Step 3: Preparing deployment environment ==='",
   
-  # If node_modules exists, preserve it - it should have been created during install
-  "echo 'Preserving core node_modules structure...'",
-  
   # Step 4: Make sure symlinks are properly recreated in the node_modules
-  # The key is that we need to *replace* the symlink with the actual files
   "echo '=== Step 4: Ensuring modules are available ==='",
-  "echo 'Recreating package structure...'",
   
-  # Remove and recreate the shared package directory
-  "rm -rf /app/packages/server/api/node_modules/@wavenotes-new/shared || true",
-  "mkdir -p /app/packages/server/api/node_modules/@wavenotes-new/shared",
+  # Remove any existing shared package directory to avoid conflicts
+  "echo 'Removing any existing shared package symlink or directory...'",
+  "rm -rf /app/packages/server/api/node_modules/@wavenotes-new/shared",
   
-  # Copy EVERYTHING from the source package
+  # Create parent directories if they don't exist
+  "mkdir -p /app/packages/server/api/node_modules/@wavenotes-new",
+  
+  # Copy the ENTIRE shared package including the dist directory
   "echo 'Copying shared package with all files...'",
-  "cp -rf /app/packages/shared/* /app/packages/server/api/node_modules/@wavenotes-new/shared/",
+  "cp -r /app/packages/shared /app/packages/server/api/node_modules/@wavenotes-new/",
+  
+  # Critical: Ensure the dist directory was successfully copied
+  "echo 'Verifying dist directory was correctly copied:'",
+  "ls -la /app/packages/server/api/node_modules/@wavenotes-new/shared/dist || echo 'ERROR: dist directory not found!'",
   
   # Ensure package.json has correct main entry
   "echo 'Ensuring package.json main entry is correct'",
-  "node -e \"const fs=require('fs'); const path='/app/packages/server/api/node_modules/@wavenotes-new/shared/package.json'; const pkg=JSON.parse(fs.readFileSync(path)); pkg.main='dist/index.js'; fs.writeFileSync(path, JSON.stringify(pkg, null, 2));\"",
+  "node -e \"const fs=require('fs'); const path='/app/packages/server/api/node_modules/@wavenotes-new/shared/package.json'; const pkg=JSON.parse(fs.readFileSync(path)); console.log('Current main entry:', pkg.main); pkg.main='dist/index.js'; fs.writeFileSync(path, JSON.stringify(pkg, null, 2)); console.log('Updated main entry to:', 'dist/index.js');\"",
   
-  # Verify the final structure
-  "echo 'Verifying final module structure:'",
-  "find /app/packages/server/api/node_modules/@wavenotes-new/shared -type f -name 'index.js' | sort",
-  "ls -la /app/packages/server/api/node_modules/@wavenotes-new/shared/dist",
+  # Verify the final structure and check that index.js specifically exists
+  "echo 'Verifying main index.js file exists:'",
+  "ls -la /app/packages/server/api/node_modules/@wavenotes-new/shared/dist/index.js || echo 'ERROR: index.js NOT FOUND!'",
   
-  # Debug: Show loading paths - this creates a script we can use to troubleshoot
-  "echo 'Creating debug script...'",
-  "echo 'console.log(\"Debug module loading attempt\"); try { const shared = require(\"@wavenotes-new/shared\"); console.log(\"Successfully loaded shared:\", Object.keys(shared)); } catch (err) { console.error(\"Failed to load shared:\", err); console.log(\"Module search paths:\", module.paths); }' > /app/debug-modules.js",
-  "echo 'Running debug script from API directory...'",
-  "cd /app/packages/server/api && node ../../debug-modules.js"
+  # Add a comprehensive test of the module loading
+  "echo 'Testing module loading with a simple script:'",
+  "echo 'try { const shared = require(\"/app/packages/server/api/node_modules/@wavenotes-new/shared\"); console.log(\"Module loaded successfully!\", Object.keys(shared)); } catch (err) { console.error(\"Failed to load module:\", err); process.exit(1); }' > /app/test-module.js",
+  "cd /app && node test-module.js"
 ]
 
 # Launch the API service

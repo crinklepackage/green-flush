@@ -35,52 +35,52 @@ cmds = [
   "cd /app/packages/server/worker && yarn build",
   "echo 'Worker package built successfully.'",
   
-  # Step 4: Manually create proper node_modules structure
+  # Step 4: Prepare deployment environment
   "echo '=== Step 4: Preparing deployment environment ==='",
   
-  # If node_modules exists, preserve it - it should have been created during install
-  "echo 'Preserving core node_modules structure...'",
-  
-  # Step 5: Make sure symlinks are properly recreated in the node_modules
-  # The key is that we need to *replace* the symlink with the actual files
+  # Step 5: Ensure modules are properly available
   "echo '=== Step 5: Ensuring modules are available ==='",
-  "echo 'Recreating package structure...'",
   
-  # Remove and recreate the shared package directory
-  "rm -rf /app/packages/server/worker/node_modules/@wavenotes-new/shared || true",
-  "mkdir -p /app/packages/server/worker/node_modules/@wavenotes-new/shared",
+  # Remove any existing directories to avoid conflicts
+  "echo 'Removing any existing package symlinks or directories...'",
+  "rm -rf /app/packages/server/worker/node_modules/@wavenotes-new/shared",
+  "rm -rf /app/packages/server/worker/node_modules/@wavenotes-new/api",
   
-  # Copy EVERYTHING from the source package for shared
+  # Create parent directories if they don't exist
+  "mkdir -p /app/packages/server/worker/node_modules/@wavenotes-new",
+  
+  # Copy the ENTIRE shared package including the dist directory
   "echo 'Copying shared package with all files...'",
-  "cp -rf /app/packages/shared/* /app/packages/server/worker/node_modules/@wavenotes-new/shared/",
+  "cp -r /app/packages/shared /app/packages/server/worker/node_modules/@wavenotes-new/",
   
-  # Remove and recreate the API package directory
-  "rm -rf /app/packages/server/worker/node_modules/@wavenotes-new/api || true",
-  "mkdir -p /app/packages/server/worker/node_modules/@wavenotes-new/api",
-  
-  # Copy EVERYTHING from the source package for API
+  # Copy the ENTIRE API package including the dist directory
   "echo 'Copying API package with all files...'",
-  "cp -rf /app/packages/server/api/* /app/packages/server/worker/node_modules/@wavenotes-new/api/",
+  "cp -r /app/packages/server/api /app/packages/server/worker/node_modules/@wavenotes-new/",
+  
+  # Critical: Ensure the dist directories were successfully copied
+  "echo 'Verifying shared dist directory was correctly copied:'",
+  "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist || echo 'ERROR: shared dist directory not found!'",
+  
+  "echo 'Verifying API dist directory was correctly copied:'",
+  "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/api/dist || echo 'ERROR: API dist directory not found!'",
   
   # Ensure package.json has correct main entry for shared
   "echo 'Ensuring shared package.json main entry is correct'",
-  "node -e \"const fs=require('fs'); const path='/app/packages/server/worker/node_modules/@wavenotes-new/shared/package.json'; const pkg=JSON.parse(fs.readFileSync(path)); pkg.main='dist/index.js'; fs.writeFileSync(path, JSON.stringify(pkg, null, 2));\"",
+  "node -e \"const fs=require('fs'); const path='/app/packages/server/worker/node_modules/@wavenotes-new/shared/package.json'; const pkg=JSON.parse(fs.readFileSync(path)); console.log('Current shared main entry:', pkg.main); pkg.main='dist/index.js'; fs.writeFileSync(path, JSON.stringify(pkg, null, 2)); console.log('Updated shared main entry to:', 'dist/index.js');\"",
   
   # Ensure package.json has correct main entry for API
   "echo 'Ensuring API package.json main entry is correct'",
-  "node -e \"const fs=require('fs'); const path='/app/packages/server/worker/node_modules/@wavenotes-new/api/package.json'; const pkg=JSON.parse(fs.readFileSync(path)); pkg.main='dist/index.js'; fs.writeFileSync(path, JSON.stringify(pkg, null, 2));\"",
+  "node -e \"const fs=require('fs'); const path='/app/packages/server/worker/node_modules/@wavenotes-new/api/package.json'; const pkg=JSON.parse(fs.readFileSync(path)); console.log('Current API main entry:', pkg.main); pkg.main='dist/index.js'; fs.writeFileSync(path, JSON.stringify(pkg, null, 2)); console.log('Updated API main entry to:', 'dist/index.js');\"",
   
-  # Verify the final structure
-  "echo 'Verifying final module structure:'",
-  "find /app/packages/server/worker/node_modules/@wavenotes-new/shared -type f -name 'index.js' | sort",
-  "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist",
-  "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/api/dist",
+  # Verify the final structure and check that index.js files specifically exist
+  "echo 'Verifying main index.js files exist:'",
+  "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist/index.js || echo 'ERROR: shared index.js NOT FOUND!'",
+  "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/api/dist/index.js || echo 'ERROR: API index.js NOT FOUND!'",
   
-  # Debug: Show loading paths - this creates a script we can use to troubleshoot
-  "echo 'Creating debug script...'",
-  "echo 'console.log(\"Debug module loading attempt\"); try { const shared = require(\"@wavenotes-new/shared\"); const api = require(\"@wavenotes-new/api\"); console.log(\"Successfully loaded shared:\", Object.keys(shared)); console.log(\"Successfully loaded api:\", Object.keys(api)); } catch (err) { console.error(\"Failed to load modules:\", err); console.log(\"Module search paths:\", module.paths); }' > /app/debug-worker-modules.js",
-  "echo 'Running debug script from worker directory...'",
-  "cd /app/packages/server/worker && node ../../debug-worker-modules.js"
+  # Add a comprehensive test of the module loading
+  "echo 'Testing module loading with a simple script:'",
+  "echo 'try { const shared = require(\"/app/packages/server/worker/node_modules/@wavenotes-new/shared\"); const api = require(\"/app/packages/server/worker/node_modules/@wavenotes-new/api\"); console.log(\"Shared module loaded successfully!\", Object.keys(shared)); console.log(\"API module loaded successfully!\", Object.keys(api)); } catch (err) { console.error(\"Failed to load modules:\", err); process.exit(1); }' > /app/test-worker-modules.js",
+  "cd /app && node test-worker-modules.js"
 ]
 
 # Launch the Worker service
