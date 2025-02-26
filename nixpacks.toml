@@ -1,5 +1,7 @@
 [phases.setup]
 aptPkgs = ["git"]
+# Disable Railway's autodetection to prevent it from trying to run its own package manager
+nixPkgs = ["nodejs_20"]
 
 # We need to properly set up Corepack for Yarn 4
 [phases.install]
@@ -8,10 +10,9 @@ cmds = [
   "npm install -g corepack@0.24.1",
   "corepack enable",
   "yarn -v",
-  # Clear any cache that might cause issues
-  "rm -rf .yarn/cache .yarn/unplugged .yarn/install-state.gz || true",
-  # Try with the more strict frozen-lockfile option
-  "YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --check-cache"
+  # Use the approach recommended in Railway docs for skipping lockfile verification
+  # https://docs.railway.app/troubleshoot/deployments
+  "YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile"
 ]
 
 # Build the packages in the right order
@@ -25,6 +26,12 @@ cmds = [
 # Launch the API service
 [start]
 cmd = "cd packages/server/api && yarn start"
+
+# Explicitly disable Railway's automatic package detection
+[detect]
+# Disable auto-detection for both npm and yarn
+NPM = false
+YARN = false
 
 [variables]
 NODE_ENV = "production" 
