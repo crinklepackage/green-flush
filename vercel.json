@@ -1,7 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "yarn install",
-  "buildCommand": "yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/client build",
-  "outputDirectory": "packages/client/.next",
   "framework": "nextjs"
 }
