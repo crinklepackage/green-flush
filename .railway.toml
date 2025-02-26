@@ -2,8 +2,8 @@
 [build]
 builder = "nixpacks"
 nixpacksConfigPath = "nixpacks.toml"
-# We need to explicitly set the buildCommand to use our Corepack-enabled Yarn
-buildCommand = "npm install -g corepack@0.24.1 && corepack enable && yarn install --mode update-lockfile && yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/api build"
+# Let the nixpacks.toml file handle the build process
+buildCommand = ""
 
 [deploy]
 startCommand = "cd packages/server/api && NODE_ENV=production node dist/index.js"

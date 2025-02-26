@@ -3,19 +3,33 @@ aptPkgs = ["git"]
 # Disable Railway's autodetection to prevent it from trying to run its own package manager
 nixPkgs = ["nodejs_20"]
 
-# The build and installation commands are now handled by .railway.toml buildCommand
-# This is to prevent duplicate/conflicting build processes
+# Set up Corepack for Yarn 4 and handle all installation
 [phases.install]
 dependsOn = ["setup"]
 cmds = [
-  "echo 'Setup complete. Build commands will run from .railway.toml buildCommand'"
+  "npm install -g corepack@0.24.1",
+  "corepack enable",
+  "yarn -v",
+  "echo 'Installing dependencies...'",
+  "YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode update-lockfile",
+  "echo 'Dependencies installed successfully.'"
 ]
 
-# Build commands are now in .railway.toml buildCommand
+# Build the packages in the right order
+[phases.build]
+dependsOn = ["install"]
+cmds = [
+  "echo 'Building shared package...'",
+  "cd packages/shared && yarn build",
+  "echo 'Shared package built successfully.'",
+  "echo 'Building API package...'", 
+  "cd ../../packages/server/api && yarn build",
+  "echo 'API package built successfully.'"
+]
 
-# Launch the API service - This is a fallback, as .railway.toml startCommand will be used
+# Launch the API service
 [start]
-cmd = "cd packages/server/api && yarn start"
+cmd = "cd packages/server/api && NODE_ENV=production node dist/index.js"
 
 # Explicitly disable Railway's automatic package detection
 [detect]
