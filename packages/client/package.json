@@ -12,7 +12,7 @@
     "@radix-ui/react-slot": "^1.1.2",
     "@supabase/auth-helpers-nextjs": "^0.9.0",
     "@supabase/supabase-js": "^2.39.3",
-    "@wavenotes-new/shared": "0.0.1",
+    "@wavenotes-new/shared": "file:../shared",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",

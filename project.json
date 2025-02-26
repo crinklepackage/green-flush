@@ -1,0 +1,9 @@
+{
+  "projectConfigs": {
+    "packages/client": {
+      "outputDirectory": ".next",
+      "buildCommand": "cd ../../ && yarn install && yarn turbo run build --filter=@wavenotes-new/client...",
+      "projectId": ""
+    }
+  }
+} 

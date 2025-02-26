@@ -4,3 +4,12 @@ dist
 .env*
 .turbo
 .env*.local
+
+# Yarn PnP files
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
