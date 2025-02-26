@@ -1,0 +1,25 @@
+# Worker-specific Railway configuration
+[build]
+builder = "nixpacks"
+nixpacksConfigPath = "nixpacks-worker.toml"
+# Let the nixpacks-worker.toml file handle the build process
+buildCommand = ""
+
+[deploy]
+startCommand = "cd packages/server/worker && NODE_ENV=production node dist/index.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 10
+
+# Explicitly ensure Nixpacks is used and Dockerfile is disabled
+[build.nixpacks]
+enable = true
+
+[build.dockerfile]
+enable = false
+path = ""
+
+# Set environment variables
+[variables]
+NODE_ENV = "production" 

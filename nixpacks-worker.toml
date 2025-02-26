@@ -25,23 +25,31 @@ cmds = [
   "echo 'Building API package...'", 
   "cd ../../packages/server/api && yarn build",
   "echo 'API package built successfully.'",
+  "echo 'Building Worker package...'",
+  "cd ../../packages/server/worker && yarn build",
+  "echo 'Worker package built successfully.'",
   # Use a much more robust approach to ensure module resolution works
   "echo 'Setting up module resolution for production...'",
   # Make sure the shared package has the correct main entry
   "cd packages/shared && node -e \"const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json')); pkg.main = 'dist/index.js'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));\"",
-  # Copy the shared package directly into the API's node_modules
-  "mkdir -p packages/server/api/node_modules/@wavenotes-new/shared/dist",
-  "cp -r packages/shared/dist/* packages/server/api/node_modules/@wavenotes-new/shared/dist/",
-  "cp packages/shared/package.json packages/server/api/node_modules/@wavenotes-new/shared/",
+  # Ensure the API package has the correct main entry
+  "cd ../../packages/server/api && node -e \"const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json')); pkg.main = 'dist/index.js'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));\"",
+  # Copy the shared and API packages directly into the Worker's node_modules
+  "mkdir -p packages/server/worker/node_modules/@wavenotes-new/shared/dist",
+  "mkdir -p packages/server/worker/node_modules/@wavenotes-new/api/dist",
+  "cp -r packages/shared/dist/* packages/server/worker/node_modules/@wavenotes-new/shared/dist/",
+  "cp -r packages/server/api/dist/* packages/server/worker/node_modules/@wavenotes-new/api/dist/",
+  "cp packages/shared/package.json packages/server/worker/node_modules/@wavenotes-new/shared/",
+  "cp packages/server/api/package.json packages/server/worker/node_modules/@wavenotes-new/api/",
   # Add a NODE_PATH environment variable to help Node find the modules
-  "echo 'export NODE_PATH=/app/packages/shared:/app/packages/server/api/node_modules:/app/node_modules' > /app/.profile.d/nodejs.sh",
+  "echo 'export NODE_PATH=/app/packages/shared:/app/packages/server/api:/app/packages/server/worker/node_modules:/app/node_modules' > /app/.profile.d/nodejs.sh",
   "chmod +x /app/.profile.d/nodejs.sh",
   "echo 'Module resolution setup completed.'"
 ]
 
-# Launch the API service
+# Launch the Worker service
 [start]
-cmd = "cd packages/server/api && NODE_PATH=/app/packages/shared:/app/packages/server/api/node_modules:/app/node_modules NODE_ENV=production node dist/index.js"
+cmd = "cd packages/server/worker && NODE_PATH=/app/packages/shared:/app/packages/server/api:/app/packages/server/worker/node_modules:/app/node_modules NODE_ENV=production node dist/index.js"
 
 # Explicitly disable Railway's automatic package detection
 [detect]
