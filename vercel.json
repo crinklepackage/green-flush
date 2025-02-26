@@ -3,6 +3,5 @@
   "installCommand": "yarn install",
   "buildCommand": "yarn turbo run build --filter=@wavenotes-new/client...",
   "outputDirectory": "packages/client/.next",
-  "framework": "nextjs",
-  "nodeVersion": "18.x"
-} 
+  "framework": "nextjs"
+}
