@@ -96,10 +96,14 @@ export class YouTubeService {
           part: ['snippet'],
           q: query,
           type: ['video'],
-          maxResults: 5,
+          maxResults: 10,
           videoType: 'any',
           safeSearch: 'none',
-          order: 'relevance'
+          order: 'relevance',
+          regionCode: 'US',
+          relevanceLanguage: 'en',
+          videoEmbeddable: 'true',
+          videoDuration: 'long'
         });
         if (!response.data.items) return [];
 
@@ -113,6 +117,8 @@ export class YouTubeService {
           duration: null,
           platform: 'youtube'
         }));
+        
+        console.info(`YouTube search for "${query}" returned ${results.length} results`);
         return results;
       } catch (error) {
         console.error('Error during YouTube search:', { query, error });

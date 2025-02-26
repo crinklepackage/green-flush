@@ -6,6 +6,14 @@ import { config } from '../../config/environment'
 const logger = console
 
 export class PlatformMatcher {
+  private readonly spotify: SpotifyService;
+  private readonly youtube: YouTubeService;
+
+  constructor(spotify: SpotifyService, youtube: YouTubeService) {
+    this.spotify = spotify;
+    this.youtube = youtube;
+  }
+
   static async findYouTubeMatch(spotifyUrl: string, spotifyService: import('../spotify/service').SpotifyService): Promise<string | null> {
     try {
       // Use the passed-in instance to extract episode ID and fetch metadata
@@ -47,12 +55,52 @@ export class PlatformMatcher {
     spotifyUrl: string,
     spotifyMetadata: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata
   ): Promise<string | null> {
+    // Normalize and clean up the title and show name
+    const cleanTitle = this.normalizeText(spotifyMetadata.title);
+    const cleanShowName = this.normalizeText(spotifyMetadata.showName);
+    
+    // Extract episode number if present - expanded pattern to catch more variants
+    const episodeMatch = cleanTitle.match(/ep\.?\s*(\d+)|episode\s*(\d+)|#(\d+)|(\d+)\s*:/i);
+    const episodeNumber = episodeMatch ? 
+      (episodeMatch[1] || episodeMatch[2] || episodeMatch[3] || episodeMatch[4]) : null;
+    
     // Define multiple search queries based on the Spotify metadata
-    const searchQueries = [
+    const searchQueries: string[] = [];
+    
+    // Prioritize episode number queries if available
+    if (episodeNumber) {
+      // Add episode number specific searches as the highest priority
+      searchQueries.push(
+        `${spotifyMetadata.showName} EP.${episodeNumber}`, // With period
+        `${spotifyMetadata.showName} EP ${episodeNumber}`, // Without period
+        `${spotifyMetadata.showName} episode ${episodeNumber}`,
+        `${spotifyMetadata.showName} #${episodeNumber}`,
+        `${spotifyMetadata.showName} ${episodeNumber}`, // Just the number
+        `EP.${episodeNumber} ${spotifyMetadata.showName}`, // Episode first
+        `Episode ${episodeNumber} ${spotifyMetadata.showName}`
+      );
+    }
+    
+    // Add the general search queries
+    searchQueries.push(
+      // Original queries
       `${spotifyMetadata.title} ${spotifyMetadata.showName} podcast`,
       `${spotifyMetadata.title} podcast`,
-      `${spotifyMetadata.showName} podcast ${spotifyMetadata.title}`
-    ];
+      `${spotifyMetadata.showName} podcast ${spotifyMetadata.title}`,
+      
+      // New queries with more variations
+      `${spotifyMetadata.showName} ${spotifyMetadata.title}`, // Without "podcast"
+      `"${spotifyMetadata.title}" "${spotifyMetadata.showName}"`, // Exact phrase matching
+      spotifyMetadata.title // Just the title
+    );
+
+    // Log what we're searching for
+    logger.info('Searching for podcast with metadata', { 
+      title: spotifyMetadata.title,
+      showName: spotifyMetadata.showName,
+      episodeNumber,
+      searchQueries
+    });
 
     for (const query of searchQueries) {
       try {
@@ -62,7 +110,7 @@ export class PlatformMatcher {
         if (!results || results.length === 0) continue;
 
         // Enrich each result by fetching detailed video info
-        const enrichedResults = await Promise.all(results.map(async (video) => {
+        const enrichedResults = await Promise.all(results.map(async (video: { id: string }) => {
           try {
             const videoUrl = YouTubeService.buildUrl(video.id);
             const youtubeService = new YouTubeService(config.YOUTUBE_API_KEY);
@@ -74,22 +122,28 @@ export class PlatformMatcher {
           }
         }));
 
-        const validVideos = enrichedResults.filter((v: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata | null): v is import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata => v !== null);
+        const validVideos = enrichedResults.filter((v: any): v is import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata => v !== null);
         if (validVideos.length === 0) continue;
 
         // Compute match scores for each enriched video
-        const matches = validVideos.map(video => ({
+        const matches = validVideos.map((video: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata) => ({
           video,
           score: this.calculateMatchScore(video, spotifyMetadata),
           query
         }));
 
-        const validMatches = matches.filter(m => m.score >= 0.5);
+        // Lower the threshold from 0.5 to 0.4 for more matches
+        const validMatches = matches.filter((m: { score: number }) => m.score >= 0.4);
 
         if (validMatches.length > 0) {
-          const bestMatch = validMatches.reduce((prev, curr) => prev.score > curr.score ? prev : curr);
+          const bestMatch = validMatches.reduce(
+            (prev: typeof validMatches[0], curr: typeof validMatches[0]) => 
+              prev.score > curr.score ? prev : curr
+          );
           const youtubeUrl = YouTubeService.buildUrl(bestMatch.video.id);
-          if (bestMatch.score >= 0.8) {
+          
+          // Lower the high confidence threshold from 0.8 to 0.7
+          if (bestMatch.score >= 0.7) {
             logger.info('Found high-confidence YouTube match', { 
               spotifyId: spotifyMetadata.id, 
               youtubeUrl, 
@@ -123,26 +177,91 @@ export class PlatformMatcher {
     video: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata, 
     spotify: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata
   ): number {
-    // Calculate title similarity
+    // Normalize titles for better comparison
+    const normalizedVideoTitle = this.normalizeText(video.title);
+    const normalizedSpotifyTitle = this.normalizeText(spotify.title);
+    
+    // Extract key elements that might be present in both titles
+    // 1. Episode numbers - expanded pattern to catch more variants
+    const videoEpMatch = normalizedVideoTitle.match(/ep\.?\s*(\d+)|episode\s*(\d+)|#(\d+)|(\d+)\s*:/i);
+    const spotifyEpMatch = normalizedSpotifyTitle.match(/ep\.?\s*(\d+)|episode\s*(\d+)|#(\d+)|(\d+)\s*:/i);
+    const videoEpNumber = videoEpMatch ? 
+      (videoEpMatch[1] || videoEpMatch[2] || videoEpMatch[3] || videoEpMatch[4]) : null;
+    const spotifyEpNumber = spotifyEpMatch ? 
+      (spotifyEpMatch[1] || spotifyEpMatch[2] || spotifyEpMatch[3] || spotifyEpMatch[4]) : null;
+    
+    // 2. Guest names - assume first part of title could be guest name
+    const possibleVideoGuest = normalizedVideoTitle.split(' - ')[0];
+    const possibleSpotifyGuest = normalizedSpotifyTitle.split(' - ')[0];
+    
+    // Calculate direct string similarity
     const titleSimilarity = this.calculateStringSimilarity(
-      video.title.toLowerCase(),
-      spotify.title.toLowerCase()
+      normalizedVideoTitle,
+      normalizedSpotifyTitle
     );
-
-    // Calculate duration values
+    
+    // Calculate similarity bonuses
+    let titleBonus = 0;
+    
+    // Exact episode number match is a very strong signal - increased from 0.3 to 0.4
+    if (videoEpNumber && spotifyEpNumber && videoEpNumber === spotifyEpNumber) {
+      titleBonus += 0.4;
+      
+      // Additional bonus if the episode number appears in a similar position in both titles
+      const videoEpIndex = normalizedVideoTitle.indexOf(videoEpNumber);
+      const spotifyEpIndex = normalizedSpotifyTitle.indexOf(spotifyEpNumber);
+      
+      if (Math.abs(videoEpIndex - spotifyEpIndex) < 10) {
+        titleBonus += 0.1; // Even more bonus if positioned similarly
+      }
+    }
+    
+    // If the guest names match well, that's a good signal
+    if (possibleVideoGuest && possibleSpotifyGuest) {
+      const guestSimilarity = this.calculateStringSimilarity(possibleVideoGuest, possibleSpotifyGuest);
+      if (guestSimilarity > 0.8) {
+        titleBonus += 0.2;
+      }
+    }
+    
+    // Calculate duration score
     const videoDuration = video.duration || 0;
     const spotifyDuration = spotify.duration || 0;
-    const durationDiff = Math.abs(videoDuration - spotifyDuration);
-    const durationScore = spotifyDuration > 0 && durationDiff < (spotifyDuration * 0.05) ? 0.3 : 0;
+    
+    let durationScore = 0;
+    if (spotifyDuration > 0 && videoDuration > 0) {
+      // If either duration is 0, we can't compare
+      const durationDiff = Math.abs(videoDuration - spotifyDuration);
+      const durationPercent = spotifyDuration > 0 ? durationDiff / spotifyDuration : 1;
+      
+      // More flexible duration matching - podcasts often have different durations
+      // between platforms due to ads, intros, etc.
+      if (durationPercent < 0.05) {  // Within 5%
+        durationScore = 0.3;
+      } else if (durationPercent < 0.1) {  // Within 10%
+        durationScore = 0.2;
+      } else if (durationPercent < 0.2) {  // Within 20%
+        durationScore = 0.1;
+      }
+    }
 
     // Calculate channel similarity
+    const normalizedChannel = this.normalizeText(video.channel);
+    const normalizedShowName = this.normalizeText(spotify.showName);
+    
     const channelSimilarity = this.calculateStringSimilarity(
-      video.channel.toLowerCase(),
-      spotify.showName.toLowerCase()
+      normalizedChannel,
+      normalizedShowName
     );
+    
+    // Apply channel bonus if the channel includes the show name
+    let channelBonus = 0;
+    if (normalizedChannel.includes(normalizedShowName) || normalizedShowName.includes(normalizedChannel)) {
+      channelBonus = 0.1;
+    }
 
-    // Base score calculation
-    const baseScore = (titleSimilarity * 0.6) + durationScore + (channelSimilarity * 0.1);
+    // Base score calculation with updated weights
+    const baseScore = (titleSimilarity * 0.5) + titleBonus + durationScore + (channelSimilarity * 0.1) + channelBonus;
 
     // Incorporate viewCount into score if available
     let viewScore = 0;
@@ -157,16 +276,23 @@ export class PlatformMatcher {
       videoId: video.id,
       videoTitle: video.title,
       spotifyTitle: spotify.title,
+      normalizedVideoTitle,
+      normalizedSpotifyTitle,
       titleSimilarity,
+      titleBonus,
       videoDuration,
       spotifyDuration,
-      durationDiff,
       durationScore,
       channelSimilarity,
+      channelBonus,
       viewCount: video.viewCount || 0,
       viewScore,
       baseScore,
-      totalScore
+      totalScore,
+      videoEpNumber,
+      spotifyEpNumber,
+      possibleVideoGuest,
+      possibleSpotifyGuest
     });
 
     return totalScore;
@@ -212,5 +338,235 @@ export class PlatformMatcher {
   ): Promise<void> {
     logger.warn('Logging failed YouTube search for Spotify link', { spotifyUrl, spotifyMetadata });
     // Optionally, persist this failed search to the database or analytics system if needed
+  }
+
+  /**
+   * Helper method to normalize text for better comparison
+   */
+  private static normalizeText(text: string): string {
+    if (!text) return '';
+    
+    return text.toLowerCase()
+              .replace(/[^\w\s]/g, ' ')  // Replace non-alphanumeric with spaces
+              .replace(/\s+/g, ' ')      // Replace multiple spaces with single space
+              .trim();                   // Remove leading/trailing spaces
+  }
+  
+  /**
+   * Helper method to clean podcast title for search
+   */
+  private cleanTitleForSearch(title: string): string {
+    // Remove common podcast suffixes
+    let cleaned = title.replace(/ podcast$/i, '')
+                        .replace(/ with .*$/i, '')  // "with host name"
+                        .replace(/ ep\.? \d+$/i, '')  // "ep 123"
+                        .replace(/ episode \d+$/i, '');  // "episode 123"
+    
+    // Remove special characters
+    cleaned = cleaned.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    return cleaned;
+  }
+
+  public async searchForPodcastEpisode(spotifyId: string): Promise<string | null> {
+    try {
+      logger.info('Starting match process for Spotify ID', { spotifyId });
+
+      // Fetch podcast metadata from Spotify - using getEpisodeInfo which already exists
+      const spotifyUrl = `https://open.spotify.com/episode/${spotifyId}`;
+      const spotifyMetadata = await this.spotify.getEpisodeInfo(spotifyUrl);
+      if (!spotifyMetadata) return null;
+
+      // Normalize the title and show name for better search
+      const normalizedTitle = PlatformMatcher.normalizeText(spotifyMetadata.title);
+      const normalizedShowName = PlatformMatcher.normalizeText(spotifyMetadata.showName);
+      
+      // Try to extract episode number if present - expanded pattern to catch more variants
+      const episodeMatch = normalizedTitle.match(/ep\.?\s*(\d+)|episode\s*(\d+)|#(\d+)|(\d+)\s*:/i);
+      const episodeNumber = episodeMatch ? 
+        (episodeMatch[1] || episodeMatch[2] || episodeMatch[3] || episodeMatch[4]) : null;
+
+      // Generate multiple search queries for better results
+      const searchQueries: string[] = [];
+      
+      // Prioritize episode number queries if available
+      if (episodeNumber) {
+        // Add episode number specific searches as the highest priority
+        searchQueries.push(
+          `${spotifyMetadata.showName} EP.${episodeNumber}`, // With period
+          `${spotifyMetadata.showName} EP ${episodeNumber}`, // Without period
+          `${spotifyMetadata.showName} episode ${episodeNumber}`,
+          `${spotifyMetadata.showName} #${episodeNumber}`,
+          `${spotifyMetadata.showName} ${episodeNumber}`, // Just the number
+          `EP.${episodeNumber} ${spotifyMetadata.showName}`, // Episode first
+          `Episode ${episodeNumber} ${spotifyMetadata.showName}`
+        );
+      }
+      
+      // Then add the general search queries
+      searchQueries.push(
+        // Primary search queries
+        `${spotifyMetadata.showName} ${spotifyMetadata.title}`, // Full show name and title
+        `${spotifyMetadata.title} ${spotifyMetadata.showName}`, // Title first, then show name
+        
+        // Try with quotes for exact phrase matching
+        `"${spotifyMetadata.title}"`  // Exact title in quotes
+      );
+      
+      // Try a more focused search without the word "podcast" if it's in the show name
+      if (normalizedShowName.includes('podcast')) {
+        const cleanedShowName = normalizedShowName.replace(/podcast/gi, '').trim();
+        searchQueries.push(`${cleanedShowName} ${normalizedTitle}`);
+      }
+      
+      // Log all search queries being used
+      logger.info('Search queries for YouTube', { 
+        spotifyId,
+        queries: searchQueries,
+        normalizedTitle,
+        normalizedShowName,
+        episodeNumber
+      });
+      
+      // Try each search query in order
+      let bestMatchAcrossQueries: { video: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata, score: number, query: string } | null = null;
+      let bestScoreAcrossQueries = 0;
+
+      for (const query of searchQueries) {
+        // Search for YouTube videos based on metadata - using static method
+        const results = await YouTubeService.search(query);
+        
+        // Fetch full video details for each search result
+        const enrichedResults = await Promise.all(
+          results.map(async (video: { id: string }) => {
+            try {
+              // Create URL from ID and use getVideoInfo instead of getVideoMetadata
+              const videoUrl = YouTubeService.buildUrl(video.id);
+              return await this.youtube.getVideoInfo(videoUrl);
+            } catch (error) {
+              logger.error('Error fetching video metadata', { videoId: video.id, error });
+              return null;
+            }
+          })
+        );
+        
+        // Filter out failed fetches
+        const validVideos = enrichedResults.filter((v: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata | null): v is import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata => !!v);
+        
+        // Compute match scores for each enriched video
+        const matches = validVideos.map((video: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata) => ({
+          video,
+          score: PlatformMatcher.calculateMatchScore(video, spotifyMetadata),
+          query
+        }));
+        
+        // Look for valid matches with this query
+        // Lower the threshold from 0.5 to 0.4 for more matches
+        const validMatches = matches.filter((m: { score: number }) => m.score >= 0.4);
+        
+        if (validMatches.length > 0) {
+          const bestQueryMatch = validMatches.reduce((prev: typeof validMatches[0], curr: typeof validMatches[0]) => 
+            prev.score > curr.score ? prev : curr);
+          
+          // Track the best match across all queries
+          if (bestQueryMatch.score > bestScoreAcrossQueries) {
+            bestMatchAcrossQueries = bestQueryMatch;
+            bestScoreAcrossQueries = bestQueryMatch.score;
+          }
+          
+          // If we found a high confidence match, return it immediately
+          if (bestQueryMatch.score >= 0.7) {
+            const youtubeUrl = YouTubeService.buildUrl(bestQueryMatch.video.id);
+            logger.info('Found high-confidence YouTube match', { 
+              spotifyId: spotifyMetadata.id, 
+              youtubeUrl, 
+              score: bestQueryMatch.score,
+              query: bestQueryMatch.query
+            });
+            return youtubeUrl;
+          }
+        }
+      }
+      
+      // If we have a decent match from any query, return it
+      if (bestMatchAcrossQueries && bestScoreAcrossQueries >= 0.4) {
+        const youtubeUrl = YouTubeService.buildUrl(bestMatchAcrossQueries.video.id);
+        logger.info('Found YouTube match after trying multiple queries', { 
+          spotifyId: spotifyMetadata.id, 
+          youtubeUrl, 
+          score: bestScoreAcrossQueries,
+          query: bestMatchAcrossQueries.query
+        });
+        return youtubeUrl;
+      }
+      
+      // If initial search failed, try fallback strategies
+      logger.info('No good match found with initial searches, trying fallback approaches', { spotifyId });
+      
+      // Fallback approach 1: Try more creative search queries
+      const fallbackQueries = [
+        // Try with just the title but cleaned up
+        this.cleanTitleForSearch(spotifyMetadata.title),
+        
+        // Try guest name focused search if there seems to be a guest
+        normalizedTitle.includes(':') ? 
+          `${spotifyMetadata.showName} ${normalizedTitle.split(':')[0].trim()}` : null,
+      ].filter(Boolean) as string[];
+      
+      // Log fallback queries
+      logger.info('Trying fallback search queries', { spotifyId, fallbackQueries });
+      
+      // Process fallback queries
+      for (const query of fallbackQueries) {
+        const results = await YouTubeService.search(query);
+        
+        // Fetch full video details for each search result
+        const enrichedResults = await Promise.all(
+          results.map(async (video: { id: string }) => {
+            try {
+              const videoUrl = YouTubeService.buildUrl(video.id);
+              return await this.youtube.getVideoInfo(videoUrl);
+            } catch (error) {
+              logger.error('Error fetching video metadata', { videoId: video.id, error });
+              return null;
+            }
+          })
+        );
+        
+        // Filter out failed fetches
+        const validVideos = enrichedResults.filter((v: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata | null): v is import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata => !!v);
+        
+        // Compute match scores with a more lenient approach
+        const matches = validVideos.map((video: import('@wavenotes-new/shared/src/server/types/metadata').VideoMetadata) => ({
+          video,
+          score: PlatformMatcher.calculateMatchScore(video, spotifyMetadata),
+          query
+        }));
+        
+        // Try with an even lower threshold for fallback
+        const validMatches = matches.filter((m: { score: number }) => m.score >= 0.35);
+        
+        if (validMatches.length > 0) {
+          const bestMatch = validMatches.reduce((prev: typeof validMatches[0], curr: typeof validMatches[0]) => 
+            prev.score > curr.score ? prev : curr);
+          const youtubeUrl = YouTubeService.buildUrl(bestMatch.video.id);
+          
+          logger.info('Found YouTube match via fallback query', { 
+            spotifyId: spotifyMetadata.id, 
+            youtubeUrl, 
+            score: bestMatch.score,
+            query: bestMatch.query
+          });
+          return youtubeUrl;
+        }
+      }
+      
+      // If still no match, give up
+      logger.info('No YouTube match found after exhaustive search', { spotifyId });
+      return null;
+    } catch (error) {
+      logger.error('Error in searchForPodcastEpisode', { spotifyId, error });
+      return null;
+    }
   }
 }
