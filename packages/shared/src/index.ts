@@ -1,57 +1,10 @@
-// Expose ProcessingStatus as part of the public API
+// Status types and utilities
 export { ProcessingStatus } from './server/types/status';
-
-// Expose PodcastSchema for schema validation
-export { PodcastSchema } from './server/schemas/entities/podcast';
-
-// Expose PodcastJobSchema for job validation
-export { PodcastJobSchema } from './server/schemas/jobs/podcast';
-
-/* Updated minimal export for shared package: Only exporting required types */
-export * from './server/types/entities/podcast';
-//export { PodcastJobValue as PodcastJob } from './server/types/jobs/podcast';
-export type { PodcastJob } from './server/types/jobs/podcast';
-
-// Export feedback types
-export type { 
-  FeedbackRecord,
-  FeedbackType,
-  FeedbackStatus,
-  CreateFeedbackParams,
-  UpdateFeedbackParams
-} from './server/types/entities/feedback';
-
-// Export browser-side feedback types
-export type { FeedbackRequest } from './browser/types/feedback';
-
-// Export feedback schemas
-export {
-  FeedbackTypeSchema,
-  FeedbackStatusSchema,
-  CreateFeedbackSchema,
-  UpdateFeedbackSchema
-} from './server/schemas/entities/feedback';
-
-// Re-export additional types from metadata
-export type { Database, SummaryRecord, VideoMetadata, RPCPodcastResponse } from './server/types/metadata';
-
-// Re-export DatabaseError from errors folder using its index
-export { DatabaseError } from './server/errors';
-export { ValidationError } from './server/errors/errors';
-
-export * as types from './server/types';
-export * as schemas from './server/schemas';
-export * as errors from './server/errors';
-
-// Re-export transcript types
-export * from './server/types/transcript';
-
-export * from './types/jobs';
-
-// Export status transforms
-export { formatStatusForDisplay, getStatusColor, mapStatusToClient } from './transforms/status';
-
-// Export status manager utilities
+export { 
+  formatStatusForDisplay, 
+  getStatusColor, 
+  mapStatusToClient 
+} from './transforms/status';
 export { 
   createStatusUpdatePayload, 
   createStatusHistoryEntry, 
@@ -60,12 +13,55 @@ export {
   type StatusHistoryEntry 
 } from './utils/status-manager';
 
-// Export Claude prompts
-export { CLAUDE_PROMPTS } from './common/prompts/claude-prompts';
+// Podcast types and schemas
+export { PodcastSchema } from './server/schemas/entities/podcast';
+export { PodcastJobSchema } from './server/schemas/jobs/podcast';
 
-// Export URL utility functions
+// Entity exports (app-facing records)
+export type { PodcastRecord } from './server/types/entities/podcast';
+export type { PodcastJob } from './server/types/jobs/podcast';
+
+// Database exports (database schema records)
+export type { DatabasePodcastRecord } from './server/types/database';
+export type { Database, SummaryRecord, VideoMetadata, RPCPodcastResponse } from './server/types/metadata';
+
+// Feedback types and schemas
+export type { 
+  FeedbackRecord,
+  FeedbackType,
+  FeedbackStatus,
+  CreateFeedbackParams,
+  UpdateFeedbackParams
+} from './server/types/entities/feedback';
+export type { FeedbackRequest } from './browser/types/feedback';
+export {
+  FeedbackTypeSchema,
+  FeedbackStatusSchema,
+  CreateFeedbackSchema,
+  UpdateFeedbackSchema
+} from './server/schemas/entities/feedback';
+
+// Errors
+export { DatabaseError } from './server/errors';
+export { ValidationError } from './server/errors/errors';
+export * as errors from './server/errors';
+
+// Re-export transcript types
+export * from './server/types/transcript';
+
+// Jobs
+export * from './types/jobs';
+
+// URL utilities
 export { 
   extractYouTubeVideoId,
   isYouTubeUrl,
   buildYouTubeUrl
 } from './utils/url-utils';
+
+// Claude prompts
+export { CLAUDE_PROMPTS } from './common/prompts/claude-prompts';
+
+// Namespace exports (use with caution - these might re-export duplicates)
+export * as types from './server/types';
+export * as schemas from './server/schemas';

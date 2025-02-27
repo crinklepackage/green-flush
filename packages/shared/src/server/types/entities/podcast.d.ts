@@ -1,0 +1,15 @@
+import { ProcessingStatus } from '../status';
+export interface PodcastRecord {
+    id: string;
+    url: string;
+    platform: 'youtube' | 'spotify';
+    status: ProcessingStatus;
+    title: string;
+    show_name: string;
+    platform_specific_id: string;
+    thumbnail_url: string | null;
+    duration: number | null;
+    created_at: string;
+    updated_at: string;
+}
+//# sourceMappingURL=podcast.d.ts.map

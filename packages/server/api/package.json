@@ -16,7 +16,7 @@
   },
   "scripts": {
     "dev": "ts-node-dev ./src/index.ts",
-    "build": "tsc",
+    "build": "tsc --build",
     "start": "node dist/index.js",
     "check-timeouts": "ts-node src/scripts/check-timeouts.ts",
     "fix-summaries": "ts-node src/scripts/fix-summaries.ts"
