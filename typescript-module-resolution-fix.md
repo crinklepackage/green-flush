@@ -13,7 +13,7 @@ And in development mode:
 Error: Cannot find module '/Users/robert/apps/wavenotes-new/packages/server/api/node_modules/@wavenotes-new/shared/dist/index.js'. Please verify that the package.json has a valid "main" entry
 ```
 
-This occurs despite:
+This occurs despite: 
 - Individual package builds working correctly
 - The shared package building successfully
 - The API package building successfully when run directly
