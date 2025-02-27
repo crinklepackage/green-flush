@@ -1,6 +1,6 @@
 // packages/server/api/src/services/podcast.ts
 //import { ProcessingStatus } from '@wavenotes/shared'
-import { ProcessingStatus, PodcastJob } from '@wavenotes-new/shared';
+import { ProcessingStatus, PodcastJob, DatabasePodcastRecord, PodcastRecord } from '@wavenotes-new/shared';
 import { DatabaseService } from '../lib/database';
 import { YouTubeService } from '../platforms/youtube/service';
 import { SpotifyService } from '../platforms/spotify/service';
@@ -19,10 +19,19 @@ export class PodcastService {
     this.queue = queue;
   }
 
-  async createPodcastRequest(url: string, userId: string) {
+  /**
+   * Creates a podcast processing request
+   * @param url The URL of the podcast to process
+   * @param userId The ID of the user requesting the podcast
+   * @returns The ID of the created or existing summary
+   * 
+   * Note: This method works with DatabasePodcastRecord which is the database representation
+   * and includes fields like youtube_url and transcript that aren't in the entity representation.
+   */
+  async createPodcastRequest(url: string, userId: string): Promise<string> {
     // Determine platform type
     const platform: 'youtube' | 'spotify' = url.includes('youtube') ? 'youtube' : 'spotify';
-    let podcast, summary, metadata;
+    let podcast: DatabasePodcastRecord, summary, metadata;
 
     // Check if podcast record already exists
     const existingPodcast = await this.db.findPodcastByUrl(url);

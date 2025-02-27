@@ -2,7 +2,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { 
   Database,
-  PodcastRecord, 
+  DatabasePodcastRecord,
   SummaryRecord as Summary, 
   VideoMetadata,
   RPCPodcastResponse,
@@ -32,7 +32,7 @@ export interface DatabaseService {
     has_transcript?: boolean
     transcript?: string | null
     youtube_url?: string | null
-  }): Promise<PodcastRecord>
+  }): Promise<DatabasePodcastRecord>
   createPodcastWithSummary(
     podcast: VideoMetadata & { 
       url: string
@@ -44,7 +44,7 @@ export interface DatabaseService {
   ): Promise<RPCPodcastResponse>
   getSummaryWithPodcast(summaryId: string): Promise<{
     summary: SummaryRecord
-    podcast: PodcastRecord
+    podcast: DatabasePodcastRecord
   }>
   updateSummaryStatus(
     summaryId: string,
@@ -55,7 +55,7 @@ export interface DatabaseService {
     podcastId: string
     status: ProcessingStatus
   }): Promise<SummaryRecord>
-  findPodcastByUrl(url: string): Promise<PodcastRecord | null>
+  findPodcastByUrl(url: string): Promise<DatabasePodcastRecord | null>
   createUserSummary(data: { user_id: string, summary_id: string }): Promise<any>
   getSummaryForPodcast(podcastId: string): Promise<SummaryRecord | null>
   updatePodcastInfo(podcastId: string, youtubeUrl: string): Promise<void>
@@ -133,7 +133,7 @@ export class DatabaseService {
 
     async getSummaryWithPodcast(summaryId: string): Promise<{ 
       summary: SummaryRecord; 
-      podcast: PodcastRecord 
+      podcast: DatabasePodcastRecord 
     }> {
       const { data: summary, error: summaryError } = await this.supabase
         .from('summaries')
@@ -199,7 +199,7 @@ export class DatabaseService {
       has_transcript?: boolean,
       transcript?: string | null,
       youtube_url?: string | null
-    }): Promise<PodcastRecord> {
+    }): Promise<DatabasePodcastRecord> {
       // Normalize URL
       const normalizedUrl = data.url.trim().toLowerCase();
       const insertData = {
@@ -304,7 +304,7 @@ export class DatabaseService {
       }
     }
 
-    async findPodcastByUrl(url: string): Promise<PodcastRecord | null> {
+    async findPodcastByUrl(url: string): Promise<DatabasePodcastRecord | null> {
       const normalizedUrl = url.trim().toLowerCase();
       const { data: podcast, error } = await this.supabase
         .from('podcasts')

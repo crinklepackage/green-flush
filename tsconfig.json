@@ -15,7 +15,7 @@
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
-      "@wavenotes-new/*": ["packages/*/src"]
+      "@wavenotes-new/*": ["packages/*/dist", "packages/*/src"]
     }
   },
   "exclude": ["node_modules", "dist"]

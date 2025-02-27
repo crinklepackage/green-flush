@@ -57,7 +57,7 @@ export class ContentProcessorService {
       if (type === 'spotify') {
         // Retrieve the podcast record by URL
         const podcastRecord = await db.findPodcastByUrl(url);
-        // Use a type cast to access youtube_url since it may not be defined on PodcastRecord
+        // Use a type cast to access youtube_url property
         const existingYoutubeUrl = podcastRecord ? (podcastRecord as any).youtube_url : null;
         if (podcastRecord && !existingYoutubeUrl) {
           console.info('No YouTube URL found. Triggering matching logic for Spotify link.');

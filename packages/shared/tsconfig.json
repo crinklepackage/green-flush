@@ -11,7 +11,10 @@
       "baseUrl": ".",
       "paths": {
         "@/*": ["src/*"]
-      }
+      },
+      "composite": true,
+      "noEmit": false,
+      "emitDeclarationOnly": false
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules", "dist", "**/*.test.ts"]

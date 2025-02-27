@@ -79,7 +79,7 @@ For Podcasts:
   1. Overview (2-3 sentences about the episode)
   2. Key Topics (bullet points of main subjects discussed)
   3. Main Insights (3-5 key takeaways)
-  4. Notable Quotes (1-3 standout quotes, counting words for each)
+  4. Notable Quotes (1-3 standout quotes, counting words for each, and timestamp; do not wrap quotes in markdown quotes)
   5. Resources Mentioned (any books, articles, or resources discussed) — Search the web for links, and if the right link is found, hyperlink it, otherwise leave it unlinked.
 
 

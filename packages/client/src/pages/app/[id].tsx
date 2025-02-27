@@ -10,6 +10,34 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { PlatformLinks } from '../../components/PlatformLinks'
 import withAuth from '../../components/withAuth'
 
+// Function to clean up double quotes in markdown content
+const cleanMarkdownQuotes = (markdownContent: string | null): string => {
+  if (!markdownContent) return '';
+  
+  // Log the raw content to see what we're dealing with
+  console.log('Raw markdown content near quotes:');
+  
+  // Find sections that look like quotes and log them
+  const notableQuotesSection = markdownContent.match(/## Notable Quotes[\s\S]*?(##|$)/);
+  if (notableQuotesSection) {
+    console.log('Notable Quotes section:', notableQuotesSection[0]);
+  }
+  
+  // Find and modify only the quotes in the "Notable Quotes" section
+  // This pattern looks for:
+  // 1. The "## Notable Quotes" heading
+  // 2. Followed by content until the next heading or end of string
+  // 3. And replaces quotes with proper formatting
+  return markdownContent.replace(
+    /(## Notable Quotes\n)([\s\S]*?)(?=##|$)/g,
+    (match, heading, content) => {
+      // Clean up quotes only in the content part, preserving the heading
+      const cleanedContent = content.replace(/- [""](.+?)[""](\s*\([^)]*\))?/g, '- "$1"$2');
+      return heading + cleanedContent;
+    }
+  );
+}
+
 interface SummaryWithPodcast extends SummaryRecord {
   podcast?: {
     title: string;
@@ -176,7 +204,7 @@ export default withAuth(function SummaryPage() {
         <CardContent>
           <div className="prose prose-indigo max-w-none">
             {summary?.summary_text ? (
-              <ReactMarkdown>{summary.summary_text}</ReactMarkdown>
+              <ReactMarkdown>{cleanMarkdownQuotes(summary.summary_text)}</ReactMarkdown>
             ) : (
               <p className="text-gray-500 italic">Your summary will appear here as it is generated.</p>
             )}
