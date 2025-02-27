@@ -10,7 +10,10 @@
       "outDir": "dist",
       "rootDir": "src",
       "types": ["node"],
-      "baseUrl": "."
+      "baseUrl": ".",
+      "paths": {
+        "@wavenotes-new/shared": ["../../shared/src"]
+      }
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules", "dist"],
