@@ -132,8 +132,8 @@ export class PlatformMatcher {
           query
         }));
 
-        // Lower the threshold from 0.5 to 0.4 for more matches
-        const validMatches = matches.filter((m: { score: number }) => m.score >= 0.4);
+        // Increase the threshold from 0.4 to 0.5 for more reliable matches
+        const validMatches = matches.filter((m: { score: number }) => m.score >= 0.5);
 
         if (validMatches.length > 0) {
           const bestMatch = validMatches.reduce(
@@ -142,8 +142,8 @@ export class PlatformMatcher {
           );
           const youtubeUrl = YouTubeService.buildUrl(bestMatch.video.id);
           
-          // Lower the high confidence threshold from 0.8 to 0.7
-          if (bestMatch.score >= 0.7) {
+          // Increase high confidence threshold from 0.7 to 0.75
+          if (bestMatch.score >= 0.75) {
             logger.info('Found high-confidence YouTube match', { 
               spotifyId: spotifyMetadata.id, 
               youtubeUrl, 
@@ -203,7 +203,7 @@ export class PlatformMatcher {
     // Calculate similarity bonuses
     let titleBonus = 0;
     
-    // Exact episode number match is a very strong signal - increased from 0.3 to 0.4
+    // Exact episode number match is a very strong signal
     if (videoEpNumber && spotifyEpNumber && videoEpNumber === spotifyEpNumber) {
       titleBonus += 0.4;
       
@@ -229,6 +229,7 @@ export class PlatformMatcher {
     const spotifyDuration = spotify.duration || 0;
     
     let durationScore = 0;
+    let durationPenalty = 0;
     if (spotifyDuration > 0 && videoDuration > 0) {
       // If either duration is 0, we can't compare
       const durationDiff = Math.abs(videoDuration - spotifyDuration);
@@ -242,6 +243,9 @@ export class PlatformMatcher {
         durationScore = 0.2;
       } else if (durationPercent < 0.2) {  // Within 20%
         durationScore = 0.1;
+      } else if (durationPercent > 0.5) { // More than 50% different
+        // Apply a penalty for very different durations
+        durationPenalty = 0.2;
       }
     }
 
@@ -254,22 +258,46 @@ export class PlatformMatcher {
       normalizedShowName
     );
     
-    // Apply channel bonus if the channel includes the show name
+    // Apply channel bonus if the channel includes the show name or vice versa
     let channelBonus = 0;
-    if (normalizedChannel.includes(normalizedShowName) || normalizedShowName.includes(normalizedChannel)) {
-      channelBonus = 0.1;
+    
+    // Increase the importance of channel matching significantly
+    if (normalizedChannel === normalizedShowName) {
+      // Perfect match between channel and show name
+      channelBonus = 0.4;
+    } else if (normalizedChannel.includes(normalizedShowName) || normalizedShowName.includes(normalizedChannel)) {
+      // One contains the other (partial match)
+      channelBonus = 0.2;
+    } else if (channelSimilarity < 0.3) {
+      // Apply penalty if channel and show name have almost nothing in common
+      channelBonus = -0.3;
     }
 
     // Base score calculation with updated weights
-    const baseScore = (titleSimilarity * 0.5) + titleBonus + durationScore + (channelSimilarity * 0.1) + channelBonus;
+    // Reduce title weight from 0.5 to 0.4, increase channel weight from 0.1 to 0.25
+    const baseScore = (titleSimilarity * 0.4) + titleBonus + durationScore - durationPenalty + (channelSimilarity * 0.25) + channelBonus;
 
-    // Incorporate viewCount into score if available
+    // Incorporate viewCount into score if available, but with less weight
     let viewScore = 0;
     if (video.viewCount && video.viewCount > 0) {
-      // Normalize the viewCount using log scale; cap at 0.1
-      viewScore = Math.min(0.1, 0.1 * (Math.log10(video.viewCount + 1)) / 3);
+      // Normalize the viewCount using log scale; cap at 0.05 (half the previous value)
+      viewScore = Math.min(0.05, 0.05 * (Math.log10(video.viewCount + 1)) / 3);
     }
-    const totalScore = baseScore + viewScore;
+    
+    // Additional matching criteria - check for key phrases that must match
+    // If these are major signals that the content is different, apply penalties
+    let contentMismatchPenalty = 0;
+    
+    // If titles contain specific date/year markers, they should match
+    const videoYearMatch = normalizedVideoTitle.match(/\b(20\d\d)\b/);
+    const spotifyYearMatch = normalizedSpotifyTitle.match(/\b(20\d\d)\b/);
+    
+    if (videoYearMatch && spotifyYearMatch && videoYearMatch[1] !== spotifyYearMatch[1]) {
+      // Different years in title suggests different content
+      contentMismatchPenalty += 0.2;
+    }
+    
+    const totalScore = Math.max(0, baseScore + viewScore - contentMismatchPenalty);
 
     // Log detailed match score information
     logger.info('Match score details', {
@@ -283,8 +311,10 @@ export class PlatformMatcher {
       videoDuration,
       spotifyDuration,
       durationScore,
+      durationPenalty,
       channelSimilarity,
       channelBonus,
+      contentMismatchPenalty,
       viewCount: video.viewCount || 0,
       viewScore,
       baseScore,
@@ -461,8 +491,8 @@ export class PlatformMatcher {
         }));
         
         // Look for valid matches with this query
-        // Lower the threshold from 0.5 to 0.4 for more matches
-        const validMatches = matches.filter((m: { score: number }) => m.score >= 0.4);
+        // Increase the threshold from 0.4 to 0.5 for more reliable matches
+        const validMatches = matches.filter((m: { score: number }) => m.score >= 0.5);
         
         if (validMatches.length > 0) {
           const bestQueryMatch = validMatches.reduce((prev: typeof validMatches[0], curr: typeof validMatches[0]) => 
@@ -474,8 +504,8 @@ export class PlatformMatcher {
             bestScoreAcrossQueries = bestQueryMatch.score;
           }
           
-          // If we found a high confidence match, return it immediately
-          if (bestQueryMatch.score >= 0.7) {
+          // Increase high confidence threshold from 0.7 to 0.75
+          if (bestQueryMatch.score >= 0.75) {
             const youtubeUrl = YouTubeService.buildUrl(bestQueryMatch.video.id);
             logger.info('Found high-confidence YouTube match', { 
               spotifyId: spotifyMetadata.id, 
@@ -489,7 +519,8 @@ export class PlatformMatcher {
       }
       
       // If we have a decent match from any query, return it
-      if (bestMatchAcrossQueries && bestScoreAcrossQueries >= 0.4) {
+      // Increase the threshold from 0.4 to 0.5 for more reliable matches
+      if (bestMatchAcrossQueries && bestScoreAcrossQueries >= 0.5) {
         const youtubeUrl = YouTubeService.buildUrl(bestMatchAcrossQueries.video.id);
         logger.info('Found YouTube match after trying multiple queries', { 
           spotifyId: spotifyMetadata.id, 
@@ -543,8 +574,9 @@ export class PlatformMatcher {
           query
         }));
         
-        // Try with an even lower threshold for fallback
-        const validMatches = matches.filter((m: { score: number }) => m.score >= 0.35);
+        // Try with a higher threshold for fallback than before
+        // Increase from 0.35 to 0.45
+        const validMatches = matches.filter((m: { score: number }) => m.score >= 0.45);
         
         if (validMatches.length > 0) {
           const bestMatch = validMatches.reduce((prev: typeof validMatches[0], curr: typeof validMatches[0]) => 

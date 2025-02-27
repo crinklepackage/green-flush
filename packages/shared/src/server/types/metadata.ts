@@ -1,5 +1,5 @@
 import { ProcessingStatus } from './status'
-import { PodcastRecord } from './entities/podcast'
+import { PodcastRecord as EntityPodcastRecord } from './entities/podcast'
 
 export interface VideoMetadata {
   id: string
@@ -21,9 +21,9 @@ export interface Database {
   public: {
     Tables: {
       podcasts: {
-        Row: PodcastRecord
-        Insert: Omit<PodcastRecord, 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Omit<PodcastRecord, 'id'>>
+        Row: EntityPodcastRecord
+        Insert: Omit<EntityPodcastRecord, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<EntityPodcastRecord, 'id'>>
       }
       summaries: {
         Row: SummaryRecord
