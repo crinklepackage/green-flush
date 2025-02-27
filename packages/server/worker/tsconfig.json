@@ -11,7 +11,8 @@
       "types": ["node"],
       "baseUrl": ".",
       "paths": {
-        "@wavenotes-new/shared": ["../../shared/src"]
+        "@wavenotes-new/shared": ["../../shared/src"],
+        "@wavenotes-new/api/*": ["../api/src/*"]
       },
       "composite": true
     },
