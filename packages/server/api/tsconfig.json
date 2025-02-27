@@ -2,19 +2,21 @@
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
     "module": "commonjs",
+    "lib": ["ES2020"],
+    "target": "ES2020",
     "moduleResolution": "node",
     "outDir": "dist",
-    "rootDir": "src",
+    "esModuleInterop": true,
     "baseUrl": ".",
     "paths": {
       "@wavenotes-new/shared": ["../../shared/src"]
     },
-    "lib": ["ES2020"],
     "types": ["node", "express"],
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
     "composite": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    { "path": "../../shared" }
+  ]
 }
