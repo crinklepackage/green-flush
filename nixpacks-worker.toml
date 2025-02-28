@@ -23,18 +23,20 @@ cmds = [
   # Run the prebuild script directly for shared package
   "echo '=== Building shared package ==='",
   "cd /app/packages/shared && node prebuild.js",
-  "mkdir -p /app/packages/shared/dist",
+  
+  # Run the test script to verify TranscriptSource is available
+  "echo '=== Testing TranscriptSource enum ==='",
+  "cd /app/packages/shared && node test-enum.js",
   
   # Verify TranscriptSource enum was generated
-  "echo '=== Verifying TranscriptSource enum ==='",
+  "echo '=== Verifying TranscriptSource files ==='",
   "cat /app/packages/shared/dist/server/types/transcript.js",
+  "cat /app/packages/shared/dist/index.js | grep TranscriptSource",
   "ls -la /app/packages/shared/dist/server/types/",
-  "ls -la /app/packages/shared/dist/",
   
   # Build the API package more carefully
   "echo '=== Building API package ==='", 
   "cd /app/packages/server/api && yarn build || (echo 'API build failed, using fallback' && mkdir -p dist && cd /app && yarn add -D @babel/cli @babel/core @babel/preset-env @babel/preset-typescript && cd /app/packages/server/api && echo '{\"presets\": [\"@babel/preset-env\", \"@babel/preset-typescript\"]}' > babel.config.json && npx babel src --extensions '.ts,.js' --out-dir dist)",
-  "ls -la /app/packages/server/api/dist || echo 'API dist directory not found'",
   
   # Build the worker package with fallback
   "echo '=== Building worker package ==='",
@@ -60,16 +62,19 @@ cmds = [
   "cp -r /app/packages/shared/dist/* /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist/",
   "cp /app/packages/shared/package.json /app/packages/server/worker/node_modules/@wavenotes-new/shared/",
   
-  # 4. Verify file structure
-  "echo 'Verifying module structure...'",
-  "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/api/dist/lib/ || echo 'API lib directory not found'",
-  "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist/server/types/ || echo 'Shared types directory not found'",
-  "cat /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist/server/types/transcript.js || echo 'TranscriptSource not found'",
+  # 4. Create a direct link for TranscriptSource in case of import issues
+  "echo 'Creating direct export for TranscriptSource...'",
+  "echo 'exports.TranscriptSource = { SUPADATA: \"supadata\", YOUTUBE_TRANSCRIPT: \"youtube-transcript\", YOUTUBE_API: \"YouTube API\" };' > /app/packages/server/worker/node_modules/@wavenotes-new/shared/TranscriptSource.js",
+  "echo 'module.exports = require(\"./TranscriptSource\");' >> /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist/server/types/transcript.js",
   
-  # 5. Test the TranscriptSource enum import
-  "echo 'Testing TranscriptSource enum import...'",
-  "cd /app/packages/server/worker && echo 'console.log(\"TranscriptSource test:\", require(\"@wavenotes-new/shared\").TranscriptSource);' > test-import.js",
-  "cd /app/packages/server/worker && node test-import.js || echo 'Import test failed'"
+  # 5. Verify the worker can access TranscriptSource
+  "echo 'Testing TranscriptSource in worker context...'",
+  "cd /app/packages/server/worker && echo 'try { const shared = require(\"@wavenotes-new/shared\"); console.log(\"TranscriptSource:\", shared.TranscriptSource); } catch(e) { console.error(\"Error:\", e); }' > test.js",
+  "cd /app/packages/server/worker && node test.js",
+  
+  # 6. Patch the worker code if needed
+  "echo 'Patching worker transcript processor if needed...'",
+  "cd /app/packages/server/worker/dist/processors && grep -q 'TranscriptSource.SUPADATA' transcript.js && echo 'Fixing TranscriptSource reference in transcript.js' && sed -i 's/_shared.TranscriptSource.SUPADATA/\"supadata\"/g; s/_shared.TranscriptSource.YOUTUBE_TRANSCRIPT/\"youtube-transcript\"/g; s/_shared.TranscriptSource.YOUTUBE_API/\"YouTube API\"/g' transcript.js || echo 'No TranscriptSource references found or already fixed'"
 ]
 
 # Ensure the start command is correct

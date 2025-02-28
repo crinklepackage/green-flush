@@ -49,12 +49,12 @@ dirs.forEach(dir => {
 
 // Add the TranscriptSource enum
 const transcriptSourceContent = {
-  js: `var TranscriptSource;
-(function (TranscriptSource) {
-    TranscriptSource["SUPADATA"] = "supadata";
-    TranscriptSource["YOUTUBE_TRANSCRIPT"] = "youtube-transcript";
-    TranscriptSource["YOUTUBE_API"] = "YouTube API";
-})(TranscriptSource || (exports.TranscriptSource = TranscriptSource = {}));
+  js: `// TranscriptSource enum definition
+exports.TranscriptSource = {
+  SUPADATA: "supadata",
+  YOUTUBE_TRANSCRIPT: "youtube-transcript",
+  YOUTUBE_API: "YouTube API"
+};
 `,
   dts: `export enum TranscriptSource {
     SUPADATA = "supadata",
@@ -438,5 +438,14 @@ fs.writeFileSync(indexFile, indexJsContent);
 
 console.log('Creating placeholder index.d.ts...');
 fs.writeFileSync(dtsFile, indexDtsContent);
+
+// Explicitly export TranscriptSource at the root level
+console.log('Ensuring TranscriptSource is directly exported...');
+fs.appendFileSync(indexFile, `
+// Ensure TranscriptSource is directly exported
+const transcriptModule = require('./server/types/transcript');
+exports.TranscriptSource = transcriptModule.TranscriptSource;
+console.log('TranscriptSource available:', exports.TranscriptSource);
+`);
 
 console.log('Prebuild completed successfully.'); 
