@@ -51,7 +51,7 @@ export function FeedbackModal({
     try {
       setIsSubmitting(true);
       
-      // Get the authentication token
+      // Get the authentication token 
       const session = await getSession();
       if (!session) {
         throw new Error('You must be logged in to submit feedback');
