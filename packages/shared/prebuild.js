@@ -34,11 +34,15 @@ dirs.forEach(dir => {
     
     // Create a basic index.js in each directory
     const indexJs = path.join(fullPath, 'index.js');
-    fs.writeFileSync(indexJs, '// Auto-generated directory index\nmodule.exports = {};\n');
+    if (!fs.existsSync(indexJs)) {
+      fs.writeFileSync(indexJs, '// Auto-generated directory index\nmodule.exports = {};\n');
+    }
     
     // Create a basic index.d.ts in each directory
     const indexDts = path.join(fullPath, 'index.d.ts');
-    fs.writeFileSync(indexDts, '// Auto-generated directory index\n');
+    if (!fs.existsSync(indexDts)) {
+      fs.writeFileSync(indexDts, '// Auto-generated directory index\n');
+    }
   }
 });
 
@@ -82,8 +86,10 @@ const specificFiles = [
 
 specificFiles.forEach(file => {
   const fullPath = path.join(distDir, file.path);
-  console.log(`Creating file: ${file.path}`);
-  fs.writeFileSync(fullPath, file.content);
+  if (!fs.existsSync(fullPath)) {
+    console.log(`Creating file: ${file.path}`);
+    fs.writeFileSync(fullPath, file.content);
+  }
 });
 
 // Create valid placeholder files with proper exports
@@ -184,14 +190,10 @@ export * as errors from './server/errors';
 const indexFile = path.join(distDir, 'index.js');
 const dtsFile = path.join(distDir, 'index.d.ts');
 
-if (!fs.existsSync(indexFile)) {
-  console.log('Creating placeholder index.js...');
-  fs.writeFileSync(indexFile, indexJsContent);
-}
+console.log('Creating placeholder index.js...');
+fs.writeFileSync(indexFile, indexJsContent);
 
-if (!fs.existsSync(dtsFile)) {
-  console.log('Creating placeholder index.d.ts...');
-  fs.writeFileSync(dtsFile, indexDtsContent);
-}
+console.log('Creating placeholder index.d.ts...');
+fs.writeFileSync(dtsFile, indexDtsContent);
 
 console.log('Prebuild completed successfully.'); 
