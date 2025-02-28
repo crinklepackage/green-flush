@@ -18,6 +18,7 @@ const dirs = [
   'server/types/jobs',
   'server/schemas/entities',
   'server/schemas/jobs',
+  'server/constants',
   'browser/types',
   'browser/types/feedback',
   'transforms',
