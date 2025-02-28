@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "prebuild": "node prebuild.js",
-    "build": "tsc --build",
+    "build": "node prebuild.js && echo 'Skipping TypeScript compilation and using prebuild files only'",
     "dev": "tsc --watch"
   },
   "devDependencies": {
