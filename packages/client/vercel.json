@@ -1,6 +1,6 @@
 {
     "$schema": "https://openapi.vercel.sh/vercel.json",
-    "buildCommand": "cd ../.. && yarn turbo run build --filter=@wavenotes-new/client...",
+    "buildCommand": "cd ../.. && echo 'Starting turbo build process' && cd packages/shared && echo 'Building shared package' && yarn build && echo 'Shared built successfully' && cd ../client && echo 'Building client now' && next build",
     "outputDirectory": ".next",
     "framework": "nextjs"
   }
