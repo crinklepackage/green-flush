@@ -1,6 +1,7 @@
 {
     "$schema": "https://openapi.vercel.sh/vercel.json",
-    "buildCommand": "cd ../.. && echo 'Starting turbo build process' && cd packages/shared && echo 'Building shared package' && yarn build && echo 'Shared built successfully' && cd ../client && echo 'Building client now' && next build",
+    "buildCommand": "next build",
     "outputDirectory": ".next",
-    "framework": "nextjs"
-  }
+    "framework": "nextjs",
+    "installCommand": "cd ../.. && yarn install"
+}
