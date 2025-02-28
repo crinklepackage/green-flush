@@ -1,7 +1,7 @@
 import { Queue } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
-import { ProcessingStatus } from '@wavenotes-new/shared'
-import { PodcastJob } from '@wavenotes-new/shared';
+import { ProcessingStatus } from '../../../../shared/src'
+import { PodcastJob } from '../../../../shared/src'
 import { YouTubeService } from '../platforms/youtube/service'
 import { SpotifyService } from '../platforms/spotify/service'
 import { config } from '../config/environment'

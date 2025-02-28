@@ -1,6 +1,6 @@
 // packages/server/api/src/services/podcast.ts
 //import { ProcessingStatus } from '@wavenotes/shared'
-import { ProcessingStatus, PodcastJob, DatabasePodcastRecord, PodcastRecord } from '@wavenotes-new/shared';
+import { ProcessingStatus, PodcastJob, DatabasePodcastRecord, PodcastRecord } from '../../../../shared/src';
 import { DatabaseService } from '../lib/database';
 import { YouTubeService } from '../platforms/youtube/service';
 import { SpotifyService } from '../platforms/spotify/service';

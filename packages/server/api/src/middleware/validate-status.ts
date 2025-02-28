@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { isValidStatus } from '@wavenotes-new/shared';
-import { ProcessingStatus } from '@wavenotes-new/shared';
+import { isValidStatus } from '../../../../shared/src';
+import { ProcessingStatus } from '../../../../shared/src';
 
 /**
  * Middleware to validate status values in request bodies

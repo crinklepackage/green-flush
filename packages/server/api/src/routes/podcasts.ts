@@ -1,7 +1,7 @@
 import express, { Router } from 'express';
 import { z } from 'zod';
 import { validateRequest } from '../middleware/validate';
-import { PodcastSchema, ProcessingStatus, PodcastJob } from '@wavenotes-new/shared';
+import { PodcastSchema, ProcessingStatus, PodcastJob } from '../../../../shared/src';
 import { DatabaseService } from '../lib/database';
 import { QueueService } from '../services/queue';
 import { authMiddleware } from '../middleware/auth';
