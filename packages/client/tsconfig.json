@@ -12,7 +12,12 @@
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "jsx": "preserve",
-    "incremental": true
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@wavenotes-new/shared": ["../shared/src", "../shared/dist"],
+      "@wavenotes-new/shared/*": ["../shared/src/*", "../shared/dist/*"]
+    }
   },
   "include": [
     "next-env.d.ts",

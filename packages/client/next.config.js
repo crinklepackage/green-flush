@@ -35,6 +35,19 @@ const nextConfig = {
       },
     ];
   },
+  
+  // Explicitly configure webpack to handle the shared package
+  webpack: (config, { isServer }) => {
+    // Allows importing from outside of the client directory (monorepo setup)
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@wavenotes-new/shared': isServer 
+        ? require('path').resolve(__dirname, '../shared/dist')
+        : require('path').resolve(__dirname, '../shared/src'),
+    };
+    
+    return config;
+  },
 }
 
 module.exports = nextConfig 
