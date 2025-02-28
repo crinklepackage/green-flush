@@ -1,13 +1,8 @@
-// Expose ProcessingStatus as part of the public API
+// Export types from their correct locations
 export { ProcessingStatus } from './server/types/status';
-
-// Expose PodcastSchema for schema validation
 export { PodcastSchema } from './server/schemas/entities/podcast';
-
-// Expose PodcastJobSchema for job validation
 export { PodcastJobSchema } from './server/schemas/jobs/podcast';
 
-/* Updated minimal export for shared package: Only exporting required types */
 /**
  * PodcastRecord - Entity representation for podcasts with status field
  * This is the default version used in most application code for type safety.
@@ -59,6 +54,7 @@ export * as errors from './server/errors';
 // Re-export transcript types
 export * from './server/types/transcript';
 
+// Export from jobs directory
 export * from './types/jobs';
 
 // Export status transforms
@@ -83,58 +79,9 @@ export {
   buildYouTubeUrl
 } from './utils/url-utils';
 
-// Re-export everything to match the compiled output structure
-export * from './node/schemas';
+// Export browser types
 export * from './browser/types';
-export * from './types/errors';
-export * from './types/metadata';
-export * from './types/status';
-export * from './types/database';
 
-// Add missing exports that the API is trying to use
-export type { 
-  PodcastRecord, 
-  SummaryRecord, 
-  Database,
-  DatabasePodcastRecord 
-} from './types/database';
-
-export type {
-  FeedbackRecord,
-  CreateFeedbackParams,
-  UpdateFeedbackParams
-} from './node/schemas';
-
-export {
-  CreateFeedbackSchema,
-  UpdateFeedbackSchema
-} from './node/schemas';
-
-export type { PodcastJob } from './types/metadata';
-
-// Export utility functions
-export { 
-  extractYouTubeVideoId,
-  isYouTubeUrl,
-  buildYouTubeUrl
-} from './transforms/url';
-
-export { 
-  formatStatusForDisplay, 
-  getStatusColor, 
-  mapStatusToClient 
-} from './transforms/status';
-
-export { 
-  createStatusUpdatePayload, 
-  createStatusHistoryEntry, 
-  isValidStatus, 
-  getTimestampFieldForStatus,
-  ProcessingStatus 
-} from './types/status';
-
-// Export Claude prompts
-export { CLAUDE_PROMPTS } from './common/prompts/claude-prompts';
-
-// Export errors
-export * as errors from './types/errors';
+// This is to maintain exports for the API and worker
+// We'll just re-export from the server locations instead
+// of the old paths that don't exist anymore
