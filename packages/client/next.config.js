@@ -19,7 +19,13 @@ const nextConfig = {
   
   // Add API routes rewrites to forward requests to the Express API server
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    
+    // Ensure URL has a protocol (http:// or https://)
+    if (apiUrl && !apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
+      apiUrl = `https://${apiUrl}`;
+    }
+    
     console.log('API URL for rewrites:', apiUrl);
     
     return [
