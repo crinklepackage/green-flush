@@ -70,7 +70,7 @@ const processingStatusContent = {
   }`
 };
 
-// Updated VideoMetadata with all required properties
+// Updated VideoMetadata with all required properties including platform
 const videoMetadataContent = {
   js: `exports.VideoMetadata = { 
     id: "", 
@@ -78,7 +78,9 @@ const videoMetadataContent = {
     channel: "", 
     showName: "", 
     thumbnailUrl: "", 
-    duration: 0
+    duration: 0,
+    platform: "youtube",
+    viewCount: 0
   };
   exports.PlatformMetadata = { 
     title: "", 
@@ -90,7 +92,8 @@ const videoMetadataContent = {
     title: "", 
     showName: "", 
     thumbnailUrl: "", 
-    duration: 0 
+    duration: 0,
+    platform: "spotify"
   };`,
   dts: `export interface VideoMetadata { 
     id: string; 
@@ -99,6 +102,8 @@ const videoMetadataContent = {
     showName: string; 
     thumbnailUrl: string; 
     duration: number;
+    platform: string;
+    viewCount?: number;
   }
   export interface PlatformMetadata {
     title: string;
@@ -111,6 +116,7 @@ const videoMetadataContent = {
     showName: string;
     thumbnailUrl: string;
     duration: number;
+    platform: string;
   }`
 };
 
@@ -164,8 +170,8 @@ const specificFiles = [
   { path: 'server/types/status.d.ts', content: processingStatusContent.dts },
   { path: 'transforms/status.js', content: 'exports.formatStatusForDisplay = (status) => status; exports.getStatusColor = () => "#000"; exports.mapStatusToClient = (s) => s;' },
   { path: 'transforms/status.d.ts', content: 'export function formatStatusForDisplay(status: string): string; export function getStatusColor(status: string): string; export function mapStatusToClient(status: string): string;' },
-  { path: 'utils/status-manager.js', content: 'exports.createStatusUpdatePayload = () => ({}); exports.createStatusHistoryEntry = () => ({}); exports.isValidStatus = () => true; exports.getTimestampFieldForStatus = () => "created_at";' },
-  { path: 'utils/status-manager.d.ts', content: 'export function createStatusUpdatePayload(status: string): any; export interface StatusHistoryEntry { status: string; timestamp: Date; } export function createStatusHistoryEntry(status: string): StatusHistoryEntry; export function isValidStatus(status: string): boolean; export function getTimestampFieldForStatus(status: string): string;' },
+  { path: 'utils/status-manager.js', content: 'exports.createStatusUpdatePayload = (status, message, existingHistory = []) => ({ status, status_history: existingHistory, updated_at: new Date().toISOString() }); exports.createStatusHistoryEntry = (status, message) => ({ status, timestamp: new Date() }); exports.isValidStatus = () => true; exports.getTimestampFieldForStatus = () => "created_at";' },
+  { path: 'utils/status-manager.d.ts', content: 'export interface StatusHistoryEntry { status: string; timestamp: string; message?: string; } export function createStatusUpdatePayload(status: string, message?: string, existingHistory?: StatusHistoryEntry[]): any; export function createStatusHistoryEntry(status: string, message?: string): StatusHistoryEntry; export function isValidStatus(status: string): boolean; export function getTimestampFieldForStatus(status: string): string;' },
   { path: 'server/types/database.js', content: 'exports.DatabasePodcastRecord = {};' },
   { path: 'server/types/database.d.ts', content: 'export interface DatabasePodcastRecord { id: string; title: string; url: string; }' },
   { path: 'server/types/metadata.js', content: `exports.Database = {}; exports.SummaryRecord = {}; ${videoMetadataContent.js}; exports.RPCPodcastResponse = {};` },
