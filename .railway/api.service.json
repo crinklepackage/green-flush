@@ -1,0 +1,17 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "watchPatterns": [
+      "packages/shared/**",
+      "packages/server/api/**"
+    ],
+    "buildCommand": "yarn workspaces focus @wavenotes-new/shared @wavenotes-new/api && yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/api build"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "startCommand": "node packages/server/api/dist/index.js",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+} 
