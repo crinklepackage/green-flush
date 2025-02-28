@@ -1,0 +1,8 @@
+Delete the .env file
+Current: if user adds url again, it reprocesses
+We need to add the "reprocessing" feature (code or instructions may have been lost)
+
+Launch Crit
+Login
+RLS
+Up

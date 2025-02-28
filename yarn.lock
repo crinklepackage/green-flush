@@ -1398,7 +1398,7 @@ __metadata:
 
 "@wavenotes-new/api@file:../api::locator=%40wavenotes-new%2Fworker%40workspace%3Apackages%2Fserver%2Fworker":
   version: 0.0.1
-  resolution: "@wavenotes-new/api@file:../api#../api::hash=5655ab&locator=%40wavenotes-new%2Fworker%40workspace%3Apackages%2Fserver%2Fworker"
+  resolution: "@wavenotes-new/api@file:../api#../api::hash=4ba274&locator=%40wavenotes-new%2Fworker%40workspace%3Apackages%2Fserver%2Fworker"
   dependencies:
     "@anthropic-ai/sdk": "npm:^0.36.3"
     "@supabase/supabase-js": "npm:^2.48.1"
@@ -1412,7 +1412,7 @@ __metadata:
     googleapis: "npm:^144.0.0"
     spotify-web-api-node: "npm:^5.0.2"
     zod: "npm:^3.24.2"
-  checksum: 10c0/1e84d895b768a42aeab67ee13438f6502a3fda85052e31ad4a9778e9a2b1b1c4a1d8458ff655bdf504d0bf4940c32795d880745e18f60ff12b4a8e3c64479801
+  checksum: 10c0/5763fd51cbbb234600f0ab8d8408d65b433dbf34c11e707e02b0ad357380439f9fc57154bad74bcfd86a1960b40365217ecf542449ee979734f2fadeab66532e
   languageName: node
   linkType: hard
 
@@ -1430,6 +1430,7 @@ __metadata:
     axios: "npm:^1.7.9"
     bullmq: "npm:^5.1.1"
     cors: "npm:^2.8.5"
+    cross-env: "npm:^7.0.3"
     dotenv: "npm:^16.4.7"
     express: "npm:^4.17.21"
     googleapis: "npm:^144.0.0"
@@ -1475,39 +1476,39 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@wavenotes-new/shared@file:../../shared::locator=%40wavenotes-new%2Fapi%40file%3A..%2Fapi%23..%2Fapi%3A%3Ahash%3D5655ab%26locator%3D%2540wavenotes-new%252Fworker%2540workspace%253Apackages%252Fserver%252Fworker":
+"@wavenotes-new/shared@file:../../shared::locator=%40wavenotes-new%2Fapi%40file%3A..%2Fapi%23..%2Fapi%3A%3Ahash%3D4ba274%26locator%3D%2540wavenotes-new%252Fworker%2540workspace%253Apackages%252Fserver%252Fworker":
   version: 0.0.1
-  resolution: "@wavenotes-new/shared@file:../../shared#../../shared::hash=15a277&locator=%40wavenotes-new%2Fapi%40file%3A..%2Fapi%23..%2Fapi%3A%3Ahash%3D5655ab%26locator%3D%2540wavenotes-new%252Fworker%2540workspace%253Apackages%252Fserver%252Fworker"
+  resolution: "@wavenotes-new/shared@file:../../shared#../../shared::hash=6a6582&locator=%40wavenotes-new%2Fapi%40file%3A..%2Fapi%23..%2Fapi%3A%3Ahash%3D4ba274%26locator%3D%2540wavenotes-new%252Fworker%2540workspace%253Apackages%252Fserver%252Fworker"
   dependencies:
     zod: "npm:^3.24.2"
-  checksum: 10c0/884379c157ac902220e06397efb9f9d61bf0dc15695de72e56d4b48e451e9989125cb09bdacf80d513fc9f274bda3218dc87c452c270579e46dd2a644f84d7f1
+  checksum: 10c0/aa60766f74008805990205872aebc0945d62a783c2a9bd4782fd3ff7b612a742247599e8c19fa8e7a380edc070f1c71f59fdcdf761799d3ef77483d311516403
   languageName: node
   linkType: hard
 
 "@wavenotes-new/shared@file:../../shared::locator=%40wavenotes-new%2Fapi%40workspace%3Apackages%2Fserver%2Fapi":
   version: 0.0.1
-  resolution: "@wavenotes-new/shared@file:../../shared#../../shared::hash=15a277&locator=%40wavenotes-new%2Fapi%40workspace%3Apackages%2Fserver%2Fapi"
+  resolution: "@wavenotes-new/shared@file:../../shared#../../shared::hash=6a6582&locator=%40wavenotes-new%2Fapi%40workspace%3Apackages%2Fserver%2Fapi"
   dependencies:
     zod: "npm:^3.24.2"
-  checksum: 10c0/884379c157ac902220e06397efb9f9d61bf0dc15695de72e56d4b48e451e9989125cb09bdacf80d513fc9f274bda3218dc87c452c270579e46dd2a644f84d7f1
+  checksum: 10c0/aa60766f74008805990205872aebc0945d62a783c2a9bd4782fd3ff7b612a742247599e8c19fa8e7a380edc070f1c71f59fdcdf761799d3ef77483d311516403
   languageName: node
   linkType: hard
 
 "@wavenotes-new/shared@file:../../shared::locator=%40wavenotes-new%2Fworker%40workspace%3Apackages%2Fserver%2Fworker":
   version: 0.0.1
-  resolution: "@wavenotes-new/shared@file:../../shared#../../shared::hash=15a277&locator=%40wavenotes-new%2Fworker%40workspace%3Apackages%2Fserver%2Fworker"
+  resolution: "@wavenotes-new/shared@file:../../shared#../../shared::hash=6a6582&locator=%40wavenotes-new%2Fworker%40workspace%3Apackages%2Fserver%2Fworker"
   dependencies:
     zod: "npm:^3.24.2"
-  checksum: 10c0/884379c157ac902220e06397efb9f9d61bf0dc15695de72e56d4b48e451e9989125cb09bdacf80d513fc9f274bda3218dc87c452c270579e46dd2a644f84d7f1
+  checksum: 10c0/aa60766f74008805990205872aebc0945d62a783c2a9bd4782fd3ff7b612a742247599e8c19fa8e7a380edc070f1c71f59fdcdf761799d3ef77483d311516403
   languageName: node
   linkType: hard
 
 "@wavenotes-new/shared@file:../shared::locator=%40wavenotes-new%2Fclient%40workspace%3Apackages%2Fclient":
   version: 0.0.1
-  resolution: "@wavenotes-new/shared@file:../shared#../shared::hash=15a277&locator=%40wavenotes-new%2Fclient%40workspace%3Apackages%2Fclient"
+  resolution: "@wavenotes-new/shared@file:../shared#../shared::hash=6a6582&locator=%40wavenotes-new%2Fclient%40workspace%3Apackages%2Fclient"
   dependencies:
     zod: "npm:^3.24.2"
-  checksum: 10c0/884379c157ac902220e06397efb9f9d61bf0dc15695de72e56d4b48e451e9989125cb09bdacf80d513fc9f274bda3218dc87c452c270579e46dd2a644f84d7f1
+  checksum: 10c0/aa60766f74008805990205872aebc0945d62a783c2a9bd4782fd3ff7b612a742247599e8c19fa8e7a380edc070f1c71f59fdcdf761799d3ef77483d311516403
   languageName: node
   linkType: hard
 
@@ -2262,7 +2263,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cross-spawn@npm:^7.0.3, cross-spawn@npm:^7.0.6":
+"cross-env@npm:^7.0.3":
+  version: 7.0.3
+  resolution: "cross-env@npm:7.0.3"
+  dependencies:
+    cross-spawn: "npm:^7.0.1"
+  bin:
+    cross-env: src/bin/cross-env.js
+    cross-env-shell: src/bin/cross-env-shell.js
+  checksum: 10c0/f3765c25746c69fcca369655c442c6c886e54ccf3ab8c16847d5ad0e91e2f337d36eedc6599c1227904bf2a228d721e690324446876115bc8e7b32a866735ecf
+  languageName: node
+  linkType: hard
+
+"cross-spawn@npm:^7.0.1, cross-spawn@npm:^7.0.3, cross-spawn@npm:^7.0.6":
   version: 7.0.6
   resolution: "cross-spawn@npm:7.0.6"
   dependencies:

@@ -1,5 +1,22 @@
 // packages/server/api/src/index.ts
 import { Router } from 'express';
+import { existsSync } from 'fs';
+import path from 'path';
+
+// Check for conflicting .env files
+const envPath = path.resolve(__dirname, '../../.env');
+const envLocalPath = path.resolve(__dirname, '../../.env.local');
+
+if (existsSync(envPath)) {
+  if (existsSync(envLocalPath)) {
+    console.warn('⚠️ WARNING: Both .env and .env.local exist in the API directory.');
+    console.warn('⚠️ This can cause environment variable conflicts. Consider removing .env.');
+    console.warn('⚠️ Using: ', envLocalPath);
+  } else {
+    console.warn('⚠️ Using .env file instead of recommended .env.local');
+  }
+}
+
 import { config } from './config/environment'
 import { ApiService } from './services/api-service'
 import { DatabaseService } from './lib/database'
