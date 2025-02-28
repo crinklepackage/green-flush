@@ -1,0 +1,6 @@
+{
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "buildCommand": "cd ../.. && yarn turbo run build --filter=@wavenotes-new/client...",
+    "outputDirectory": ".next",
+    "framework": "nextjs"
+  }
