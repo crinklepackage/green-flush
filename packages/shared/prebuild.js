@@ -102,7 +102,7 @@ const videoMetadataContent = {
     showName: string; 
     thumbnailUrl: string; 
     duration: number;
-    platform: string;
+    platform: "youtube" | "spotify";
     viewCount?: number;
   }
   export interface PlatformMetadata {
@@ -116,7 +116,7 @@ const videoMetadataContent = {
     showName: string;
     thumbnailUrl: string;
     duration: number;
-    platform: string;
+    platform: "youtube" | "spotify";
   }`
 };
 
@@ -145,9 +145,12 @@ const podcastJobContent = {
 // Update error classes
 const errorContent = {
   js: `exports.DatabaseError = class DatabaseError extends Error {
-    constructor(message) {
+    constructor(message, code, operation, context) {
       super(message);
       this.name = "DatabaseError";
+      this.code = code;
+      this.operation = operation;
+      this.context = context;
     }
   };
   exports.ValidationError = class ValidationError extends Error {
@@ -157,7 +160,10 @@ const errorContent = {
     }
   };`,
   dts: `export class DatabaseError extends Error {
-    constructor(message: string);
+    constructor(message: string, code: string, operation: string, context: Record<string, any>);
+    code: string;
+    operation: string;
+    context: Record<string, any>;
   }
   export class ValidationError extends Error {
     constructor(message: string);
