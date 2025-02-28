@@ -46,36 +46,148 @@ dirs.forEach(dir => {
   }
 });
 
+// Updated ProcessingStatus with all required values
+const processingStatusContent = {
+  js: `exports.ProcessingStatus = { 
+    PROCESSING: "PROCESSING", 
+    COMPLETED: "COMPLETED", 
+    FAILED: "FAILED", 
+    PENDING: "PENDING",
+    IN_QUEUE: "IN_QUEUE",
+    FETCHING_TRANSCRIPT: "FETCHING_TRANSCRIPT",
+    GENERATING_SUMMARY: "GENERATING_SUMMARY",
+    SUMMARY_STREAMING: "SUMMARY_STREAMING"
+  };`,
+  dts: `export enum ProcessingStatus { 
+    PROCESSING = "PROCESSING", 
+    COMPLETED = "COMPLETED", 
+    FAILED = "FAILED", 
+    PENDING = "PENDING",
+    IN_QUEUE = "IN_QUEUE",
+    FETCHING_TRANSCRIPT = "FETCHING_TRANSCRIPT",
+    GENERATING_SUMMARY = "GENERATING_SUMMARY",
+    SUMMARY_STREAMING = "SUMMARY_STREAMING"
+  }`
+};
+
+// Updated VideoMetadata with all required properties
+const videoMetadataContent = {
+  js: `exports.VideoMetadata = { 
+    id: "", 
+    title: "", 
+    channel: "", 
+    showName: "", 
+    thumbnailUrl: "", 
+    duration: 0
+  };
+  exports.PlatformMetadata = { 
+    title: "", 
+    thumbnailUrl: "", 
+    duration: 0 
+  };
+  exports.SpotifyMetadata = { 
+    id: "", 
+    title: "", 
+    showName: "", 
+    thumbnailUrl: "", 
+    duration: 0 
+  };`,
+  dts: `export interface VideoMetadata { 
+    id: string; 
+    title: string; 
+    channel: string; 
+    showName: string; 
+    thumbnailUrl: string; 
+    duration: number;
+  }
+  export interface PlatformMetadata {
+    title: string;
+    thumbnailUrl: string;
+    duration: number;
+  }
+  export interface SpotifyMetadata {
+    id: string;
+    title: string;
+    showName: string;
+    thumbnailUrl: string;
+    duration: number;
+  }`
+};
+
+// Updated PodcastJob with all required properties
+const podcastJobContent = {
+  js: `exports.PodcastJob = { 
+    id: "", 
+    podcastId: "", 
+    status: "", 
+    url: "",
+    type: "",
+    userId: "",
+    summaryId: ""
+  };`,
+  dts: `export interface PodcastJob { 
+    id: string; 
+    podcastId: string; 
+    status: string;
+    url?: string;
+    type?: "youtube" | "spotify";
+    userId?: string;
+    summaryId?: string;
+  }`
+};
+
+// Update error classes
+const errorContent = {
+  js: `exports.DatabaseError = class DatabaseError extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "DatabaseError";
+    }
+  };
+  exports.ValidationError = class ValidationError extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "ValidationError";
+    }
+  };`,
+  dts: `export class DatabaseError extends Error {
+    constructor(message: string);
+  }
+  export class ValidationError extends Error {
+    constructor(message: string);
+  }`
+};
+
 // Create some specific module files that are directly imported
 const specificFiles = [
-  { path: 'server/types/status.js', content: 'exports.ProcessingStatus = { PROCESSING: "PROCESSING", COMPLETED: "COMPLETED", FAILED: "FAILED", PENDING: "PENDING" };' },
-  { path: 'server/types/status.d.ts', content: 'export enum ProcessingStatus { PROCESSING = "PROCESSING", COMPLETED = "COMPLETED", FAILED = "FAILED", PENDING = "PENDING" }' },
+  { path: 'server/types/status.js', content: processingStatusContent.js },
+  { path: 'server/types/status.d.ts', content: processingStatusContent.dts },
   { path: 'transforms/status.js', content: 'exports.formatStatusForDisplay = (status) => status; exports.getStatusColor = () => "#000"; exports.mapStatusToClient = (s) => s;' },
   { path: 'transforms/status.d.ts', content: 'export function formatStatusForDisplay(status: string): string; export function getStatusColor(status: string): string; export function mapStatusToClient(status: string): string;' },
   { path: 'utils/status-manager.js', content: 'exports.createStatusUpdatePayload = () => ({}); exports.createStatusHistoryEntry = () => ({}); exports.isValidStatus = () => true; exports.getTimestampFieldForStatus = () => "created_at";' },
   { path: 'utils/status-manager.d.ts', content: 'export function createStatusUpdatePayload(status: string): any; export interface StatusHistoryEntry { status: string; timestamp: Date; } export function createStatusHistoryEntry(status: string): StatusHistoryEntry; export function isValidStatus(status: string): boolean; export function getTimestampFieldForStatus(status: string): string;' },
   { path: 'server/types/database.js', content: 'exports.DatabasePodcastRecord = {};' },
   { path: 'server/types/database.d.ts', content: 'export interface DatabasePodcastRecord { id: string; title: string; url: string; }' },
-  { path: 'server/types/metadata.js', content: 'exports.Database = {}; exports.SummaryRecord = {}; exports.VideoMetadata = {}; exports.RPCPodcastResponse = {};' },
-  { path: 'server/types/metadata.d.ts', content: 'export interface Database { public: { Tables: { podcasts: any } } }; export interface SummaryRecord { id: string; }; export interface VideoMetadata { id: string; }; export interface RPCPodcastResponse { id: string; };' },
+  { path: 'server/types/metadata.js', content: `exports.Database = {}; exports.SummaryRecord = {}; ${videoMetadataContent.js}; exports.RPCPodcastResponse = {};` },
+  { path: 'server/types/metadata.d.ts', content: `export interface Database { public: { Tables: { podcasts: any } } }; export interface SummaryRecord { id: string; }; ${videoMetadataContent.dts}; export interface RPCPodcastResponse { id: string; };` },
   { path: 'server/types/transcript.js', content: 'exports.TranscriptSegment = {};' },
   { path: 'server/types/transcript.d.ts', content: 'export interface TranscriptSegment { start: number; end: number; text: string; }' },
   { path: 'server/types/entities/podcast.js', content: 'exports.PodcastRecord = {};' },
   { path: 'server/types/entities/podcast.d.ts', content: 'export interface PodcastRecord { id: string; title: string; url: string; }' },
-  { path: 'server/types/jobs/podcast.js', content: 'exports.PodcastJob = {};' },
-  { path: 'server/types/jobs/podcast.d.ts', content: 'export interface PodcastJob { id: string; podcastId: string; status: string; }' },
+  { path: 'server/types/jobs/podcast.js', content: podcastJobContent.js },
+  { path: 'server/types/jobs/podcast.d.ts', content: podcastJobContent.dts },
   { path: 'server/schemas/entities/podcast.js', content: 'exports.PodcastSchema = { parse: (data) => data };' },
   { path: 'server/schemas/entities/podcast.d.ts', content: 'export const PodcastSchema: { parse: (data: any) => any };' },
   { path: 'server/schemas/jobs/podcast.js', content: 'exports.PodcastJobSchema = { parse: (data) => data };' },
   { path: 'server/schemas/jobs/podcast.d.ts', content: 'export const PodcastJobSchema: { parse: (data: any) => any };' },
   { path: 'server/schemas/entities/feedback.js', content: 'exports.FeedbackTypeSchema = { parse: (data) => data }; exports.FeedbackStatusSchema = { parse: (data) => data }; exports.CreateFeedbackSchema = { parse: (data) => data }; exports.UpdateFeedbackSchema = { parse: (data) => data };' },
   { path: 'server/schemas/entities/feedback.d.ts', content: 'export const FeedbackTypeSchema: { parse: (data: any) => any }; export const FeedbackStatusSchema: { parse: (data: any) => any }; export const CreateFeedbackSchema: { parse: (data: any) => any }; export const UpdateFeedbackSchema: { parse: (data: any) => any };' },
-  { path: 'server/types/entities/feedback.js', content: 'exports.FeedbackRecord = {}; exports.FeedbackType = { ISSUE: "ISSUE", FEATURE: "FEATURE", OTHER: "OTHER" }; exports.FeedbackStatus = { OPEN: "OPEN", CLOSED: "CLOSED", IN_PROGRESS: "IN_PROGRESS" }; exports.CreateFeedbackParams = {}; exports.UpdateFeedbackParams = {};' },
-  { path: 'server/types/entities/feedback.d.ts', content: 'export interface FeedbackRecord { id: string; type: string; status: string; }; export type FeedbackType = "ISSUE" | "FEATURE" | "OTHER"; export type FeedbackStatus = "OPEN" | "CLOSED" | "IN_PROGRESS"; export interface CreateFeedbackParams { type: FeedbackType; message: string; }; export interface UpdateFeedbackParams { status?: FeedbackStatus; };' },
+  { path: 'server/types/entities/feedback.js', content: 'exports.FeedbackRecord = {}; exports.FeedbackType = { ISSUE: "ISSUE", FEATURE: "FEATURE", OTHER: "OTHER" }; exports.FeedbackStatus = { OPEN: "OPEN", CLOSED: "CLOSED", IN_PROGRESS: "IN_PROGRESS" }; exports.CreateFeedbackParams = {}; exports.UpdateFeedbackParams = { admin_notes: "" };' },
+  { path: 'server/types/entities/feedback.d.ts', content: 'export interface FeedbackRecord { id: string; type: string; status: string; }; export type FeedbackType = "ISSUE" | "FEATURE" | "OTHER"; export type FeedbackStatus = "OPEN" | "CLOSED" | "IN_PROGRESS"; export interface CreateFeedbackParams { type: FeedbackType; message: string; }; export interface UpdateFeedbackParams { status?: FeedbackStatus; admin_notes?: string; };' },
   { path: 'browser/types/feedback.js', content: 'exports.FeedbackRequest = {};' },
   { path: 'browser/types/feedback.d.ts', content: 'export interface FeedbackRequest { type: string; message: string; }' },
-  { path: 'server/errors/index.js', content: 'exports.DatabaseError = class DatabaseError extends Error {}; exports.ValidationError = class ValidationError extends Error {};' },
-  { path: 'server/errors/index.d.ts', content: 'export class DatabaseError extends Error {}; export class ValidationError extends Error {};' },
+  { path: 'server/errors/index.js', content: errorContent.js },
+  { path: 'server/errors/index.d.ts', content: errorContent.dts },
   { path: 'server/errors/errors.js', content: 'exports.ValidationError = class ValidationError extends Error {};' },
   { path: 'server/errors/errors.d.ts', content: 'export class ValidationError extends Error {};' },
   { path: 'utils/url-utils.js', content: 'exports.extractYouTubeVideoId = () => ""; exports.isYouTubeUrl = () => false; exports.buildYouTubeUrl = () => "";' },
@@ -86,10 +198,8 @@ const specificFiles = [
 
 specificFiles.forEach(file => {
   const fullPath = path.join(distDir, file.path);
-  if (!fs.existsSync(fullPath)) {
-    console.log(`Creating file: ${file.path}`);
-    fs.writeFileSync(fullPath, file.content);
-  }
+  console.log(`Creating file: ${file.path}`);
+  fs.writeFileSync(fullPath, file.content);
 });
 
 // Create valid placeholder files with proper exports
@@ -155,6 +265,9 @@ exports.schemas = {
 
 // Make sure errors is exported as a namespace too
 exports.errors = errors;
+
+// Make sure DatabaseError is directly exported
+exports.DatabaseError = errors.DatabaseError;
 `;
 
 const indexDtsContent = `
@@ -184,6 +297,10 @@ export * from './common/prompts/claude-prompts';
 export * as types from './server/types';
 export * as schemas from './server/schemas';
 export * as errors from './server/errors';
+
+// Direct error exports
+export { DatabaseError } from './server/errors';
+export { ValidationError } from './server/errors/errors';
 `;
 
 // Create an empty index.js and index.d.ts files if they don't exist

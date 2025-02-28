@@ -6,7 +6,7 @@
       "packages/shared/**",
       "packages/server/api/**"
     ],
-    "buildCommand": "echo 'Installing dependencies...' && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install && echo 'Building shared package (prebuild only)...' && cd packages/shared && node prebuild.js && echo 'Checking shared output...' && ls -la dist && cd ../../packages/server/api && echo 'Building API package...' && yarn build || { echo 'API package build failed!'; exit 1; } && echo 'Build completed successfully.'"
+    "buildCommand": "echo 'Installing dependencies...' && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install && echo 'Building shared package (prebuild only)...' && cd packages/shared && node prebuild.js && echo 'Created shared dist:' && ls -la dist && echo 'Building API package...' && cd ../../packages/server/api && yarn build || { echo 'API package build failed! Checking for errors:'; grep -A 5 'error ' yarn-debug.log || echo 'No yarn-debug.log found'; exit 1; } && echo 'Build completed successfully - checking API output:' && ls -la dist"
   },
   "deploy": {
     "numReplicas": 1,
