@@ -7,14 +7,12 @@
       "packages/server/api/**",
       "packages/server/worker/**"
     ],
-    "buildCommand": "echo 'Installing dependencies...' && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install && echo 'Building shared package...' && cd packages/shared && node prebuild.js && echo 'Created shared dist:' && ls -la dist && echo 'Building worker package...' && cd ../../packages/server/worker && echo 'Installing babel deps...' && yarn add --dev @babel/cli @babel/core @babel/preset-env @babel/preset-typescript && echo 'Running worker build with permissive options...' && (tsc --skipLibCheck --allowJs --declaration false --noEmitOnError || echo 'TypeScript errors detected, using fallback build') && if [ ! -f 'dist/index.js' ]; then echo 'Creating babel config...' && echo '{\"presets\": [\"@babel/preset-env\", \"@babel/preset-typescript\"]}' > babel.config.json && echo 'Transpiling with babel as fallback' && npx babel src --extensions '.ts,.js' --out-dir dist --copy-files && echo 'Babel build completed'; fi && echo 'Build completed - checking worker output:' && ls -la dist"
+    "buildCommand": "set -e; echo '==== STEP 1: Installing dependencies ===='; YARN_CACHE_FOLDER=/tmp/yarn-cache YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --prefer-offline && echo '==== STEP 2: Building shared package ===='; cd packages/shared && node prebuild.js && echo '==== STEP 3: Building worker package ===='; cd ../../packages/server/worker && echo 'Running worker build...' && (tsc --skipLibCheck --allowJs --declaration false --noEmitOnError || echo 'TypeScript errors detected, using fallback build') && if [ ! -f 'dist/index.js' ]; then echo 'Using babel for transpilation'; yarn add --dev @babel/cli @babel/core @babel/preset-env @babel/preset-typescript && echo '{\"presets\": [\"@babel/preset-env\", \"@babel/preset-typescript\"]}' > babel.config.json && npx babel src --extensions '.ts,.js' --out-dir dist --copy-files; fi && echo '==== FINAL STEP: Checking output ===='; ls -la dist"
   },
   "deploy": {
     "numReplicas": 1,
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 3,
     "startCommand": "node packages/server/worker/dist/index.js",
-    "healthcheckPath": "/",
-    "healthcheckTimeout": 100
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
   }
 } 
