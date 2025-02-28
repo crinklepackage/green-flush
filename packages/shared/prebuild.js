@@ -387,7 +387,7 @@ export { DatabaseError } from './server/errors';
 export { ValidationError } from './server/errors/errors';
 `;
 
-// Create an empty index.js and index.d.ts files if they don't exist 
+// Create an empty index.js and index.d.ts files if they don't exist  
 const indexFile = path.join(distDir, 'index.js');
 const dtsFile = path.join(distDir, 'index.d.ts');
 
