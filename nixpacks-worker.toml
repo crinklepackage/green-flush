@@ -25,6 +25,12 @@ cmds = [
   "cd /app/packages/shared && node prebuild.js",
   "mkdir -p /app/packages/shared/dist",
   
+  # Verify TranscriptSource enum was generated
+  "echo '=== Verifying TranscriptSource enum ==='",
+  "cat /app/packages/shared/dist/server/types/transcript.js",
+  "ls -la /app/packages/shared/dist/server/types/",
+  "ls -la /app/packages/shared/dist/",
+  
   # Build the API package more carefully
   "echo '=== Building API package ==='", 
   "cd /app/packages/server/api && yarn build || (echo 'API build failed, using fallback' && mkdir -p dist && cd /app && yarn add -D @babel/cli @babel/core @babel/preset-env @babel/preset-typescript && cd /app/packages/server/api && echo '{\"presets\": [\"@babel/preset-env\", \"@babel/preset-typescript\"]}' > babel.config.json && npx babel src --extensions '.ts,.js' --out-dir dist)",
@@ -42,7 +48,7 @@ cmds = [
   "echo '=== Setting up proper module structure ==='",
   # 1. Create needed directories
   "mkdir -p /app/packages/server/worker/node_modules/@wavenotes-new/api/dist/lib",
-  "mkdir -p /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist",
+  "mkdir -p /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist/server/types",
   
   # 2. Copy the API package to worker node_modules
   "echo 'Copying API package to worker node_modules...'",
@@ -57,7 +63,13 @@ cmds = [
   # 4. Verify file structure
   "echo 'Verifying module structure...'",
   "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/api/dist/lib/ || echo 'API lib directory not found'",
-  "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist/ || echo 'Shared dist directory not found'"
+  "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist/server/types/ || echo 'Shared types directory not found'",
+  "cat /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist/server/types/transcript.js || echo 'TranscriptSource not found'",
+  
+  # 5. Test the TranscriptSource enum import
+  "echo 'Testing TranscriptSource enum import...'",
+  "cd /app/packages/server/worker && echo 'console.log(\"TranscriptSource test:\", require(\"@wavenotes-new/shared\").TranscriptSource);' > test-import.js",
+  "cd /app/packages/server/worker && node test-import.js || echo 'Import test failed'"
 ]
 
 # Ensure the start command is correct

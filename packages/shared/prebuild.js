@@ -47,6 +47,48 @@ dirs.forEach(dir => {
   }
 });
 
+// Add the TranscriptSource enum
+const transcriptSourceContent = {
+  js: `var TranscriptSource;
+(function (TranscriptSource) {
+    TranscriptSource["SUPADATA"] = "supadata";
+    TranscriptSource["YOUTUBE_TRANSCRIPT"] = "youtube-transcript";
+    TranscriptSource["YOUTUBE_API"] = "YouTube API";
+})(TranscriptSource || (exports.TranscriptSource = TranscriptSource = {}));
+`,
+  dts: `export enum TranscriptSource {
+    SUPADATA = "supadata",
+    YOUTUBE_TRANSCRIPT = "youtube-transcript",
+    YOUTUBE_API = "YouTube API"
+}`
+};
+
+// Write the TranscriptSource files
+const serverTypesDir = path.join(distDir, 'server/types');
+fs.writeFileSync(path.join(serverTypesDir, 'transcript.js'), transcriptSourceContent.js);
+fs.writeFileSync(path.join(serverTypesDir, 'transcript.d.ts'), transcriptSourceContent.dts);
+
+// Make sure to export TranscriptSource from the server/types/index.js
+const serverTypesIndexJs = path.join(serverTypesDir, 'index.js');
+const serverTypesIndexContent = `// Auto-generated directory index
+const transcript = require('./transcript');
+module.exports = {
+  ...transcript
+};\n`;
+fs.writeFileSync(serverTypesIndexJs, serverTypesIndexContent);
+
+// Updated server/types/index.d.ts too
+const serverTypesIndexDts = path.join(serverTypesDir, 'index.d.ts');
+const serverTypesIndexDtsContent = `// Auto-generated directory index
+export * from './transcript';\n`;
+fs.writeFileSync(serverTypesIndexDts, serverTypesIndexDtsContent);
+
+// Also export from root index file
+fs.appendFileSync(path.join(distDir, 'index.js'), 
+  'Object.assign(exports, require("./server/types"));\n');
+fs.appendFileSync(path.join(distDir, 'index.d.ts'), 
+  'export * from "./server/types";\n');
+
 // Updated ProcessingStatus with all required values
 const processingStatusContent = {
   js: `exports.ProcessingStatus = { 
