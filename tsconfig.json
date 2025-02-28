@@ -22,7 +22,6 @@
   "references": [
     { "path": "packages/shared" },
     { "path": "packages/server/api" },
-    { "path": "packages/server/worker" },
-    { "path": "packages/client" }
+    { "path": "packages/server/worker" }
   ]
 }
