@@ -16,7 +16,8 @@
     "src"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc --build",
+    "prebuild": "node prebuild.js",
+    "build": "npm run prebuild && rm -rf dist && tsc --build",
     "dev": "tsc --watch"
   },
   "devDependencies": {

@@ -6,7 +6,7 @@
       "packages/shared/**",
       "packages/server/api/**"
     ],
-    "buildCommand": "yarn workspaces focus @wavenotes-new/shared @wavenotes-new/api && cd packages/shared && yarn build && cd ../../packages/server/api && yarn build && echo 'Build completed'"
+    "buildCommand": "echo 'Installing dependencies...' && yarn install && echo 'Building shared package...' && cd packages/shared && node prebuild.js && npx tsc && echo 'Checking shared output...' && ls -la dist && cd ../../packages/server/api && echo 'Building API package...' && npx tsc && echo 'Checking API output...' && ls -la dist"
   },
   "deploy": {
     "numReplicas": 1,
