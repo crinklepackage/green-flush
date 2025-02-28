@@ -1,0 +1,19 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "nixpacksConfigPath": "nixpacks-worker.toml",
+    "watchPatterns": [
+      "packages/shared/**",
+      "packages/server/worker/**",
+      "nixpacks-worker.toml"
+    ],
+    "buildCommand": ""
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "startCommand": "cd packages/server/worker && node dist/index.js",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+} 

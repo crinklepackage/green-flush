@@ -1398,7 +1398,7 @@ __metadata:
 
 "@wavenotes-new/api@file:../api::locator=%40wavenotes-new%2Fworker%40workspace%3Apackages%2Fserver%2Fworker":
   version: 0.0.1
-  resolution: "@wavenotes-new/api@file:../api#../api::hash=d86d2c&locator=%40wavenotes-new%2Fworker%40workspace%3Apackages%2Fserver%2Fworker"
+  resolution: "@wavenotes-new/api@file:../api#../api::hash=4ba274&locator=%40wavenotes-new%2Fworker%40workspace%3Apackages%2Fserver%2Fworker"
   dependencies:
     "@anthropic-ai/sdk": "npm:^0.36.3"
     "@supabase/supabase-js": "npm:^2.48.1"
@@ -1412,7 +1412,7 @@ __metadata:
     googleapis: "npm:^144.0.0"
     spotify-web-api-node: "npm:^5.0.2"
     zod: "npm:^3.24.2"
-  checksum: 10c0/21697890359f7d1f697a006f0ca5b195287a41cf5f22bc7da6d264087f5b1ef30bb5b9f8f0df837685f895295017ef7bd7cf180479c06cc3b32c0e07b8bc1056
+  checksum: 10c0/5763fd51cbbb234600f0ab8d8408d65b433dbf34c11e707e02b0ad357380439f9fc57154bad74bcfd86a1960b40365217ecf542449ee979734f2fadeab66532e
   languageName: node
   linkType: hard
 
@@ -1430,12 +1430,14 @@ __metadata:
     axios: "npm:^1.7.9"
     bullmq: "npm:^5.1.1"
     cors: "npm:^2.8.5"
+    cross-env: "npm:^7.0.3"
     dotenv: "npm:^16.4.7"
     express: "npm:^4.17.21"
     googleapis: "npm:^144.0.0"
     spotify-web-api-node: "npm:^5.0.2"
     ts-node: "npm:^10.9.2"
     ts-node-dev: "npm:^2.0.0"
+    tsconfig-paths: "npm:^4.2.0"
     typescript: "npm:^5.3.3"
     zod: "npm:^3.24.2"
   languageName: unknown
@@ -1474,39 +1476,39 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@wavenotes-new/shared@file:../../shared::locator=%40wavenotes-new%2Fapi%40file%3A..%2Fapi%23..%2Fapi%3A%3Ahash%3Dd86d2c%26locator%3D%2540wavenotes-new%252Fworker%2540workspace%253Apackages%252Fserver%252Fworker":
+"@wavenotes-new/shared@file:../../shared::locator=%40wavenotes-new%2Fapi%40file%3A..%2Fapi%23..%2Fapi%3A%3Ahash%3D4ba274%26locator%3D%2540wavenotes-new%252Fworker%2540workspace%253Apackages%252Fserver%252Fworker":
   version: 0.0.1
-  resolution: "@wavenotes-new/shared@file:../../shared#../../shared::hash=820097&locator=%40wavenotes-new%2Fapi%40file%3A..%2Fapi%23..%2Fapi%3A%3Ahash%3Dd86d2c%26locator%3D%2540wavenotes-new%252Fworker%2540workspace%253Apackages%252Fserver%252Fworker"
+  resolution: "@wavenotes-new/shared@file:../../shared#../../shared::hash=6a6582&locator=%40wavenotes-new%2Fapi%40file%3A..%2Fapi%23..%2Fapi%3A%3Ahash%3D4ba274%26locator%3D%2540wavenotes-new%252Fworker%2540workspace%253Apackages%252Fserver%252Fworker"
   dependencies:
     zod: "npm:^3.24.2"
-  checksum: 10c0/02f10720d5a4dc4dd125037a0e1ae39d7be13b3ba5f1d69a4b1bec37c24b220be1a064330fa447f99a23f1b118e89882451ad34f60dacfc5b57e44daa7f374a7
+  checksum: 10c0/aa60766f74008805990205872aebc0945d62a783c2a9bd4782fd3ff7b612a742247599e8c19fa8e7a380edc070f1c71f59fdcdf761799d3ef77483d311516403
   languageName: node
   linkType: hard
 
 "@wavenotes-new/shared@file:../../shared::locator=%40wavenotes-new%2Fapi%40workspace%3Apackages%2Fserver%2Fapi":
   version: 0.0.1
-  resolution: "@wavenotes-new/shared@file:../../shared#../../shared::hash=820097&locator=%40wavenotes-new%2Fapi%40workspace%3Apackages%2Fserver%2Fapi"
+  resolution: "@wavenotes-new/shared@file:../../shared#../../shared::hash=6a6582&locator=%40wavenotes-new%2Fapi%40workspace%3Apackages%2Fserver%2Fapi"
   dependencies:
     zod: "npm:^3.24.2"
-  checksum: 10c0/02f10720d5a4dc4dd125037a0e1ae39d7be13b3ba5f1d69a4b1bec37c24b220be1a064330fa447f99a23f1b118e89882451ad34f60dacfc5b57e44daa7f374a7
+  checksum: 10c0/aa60766f74008805990205872aebc0945d62a783c2a9bd4782fd3ff7b612a742247599e8c19fa8e7a380edc070f1c71f59fdcdf761799d3ef77483d311516403
   languageName: node
   linkType: hard
 
 "@wavenotes-new/shared@file:../../shared::locator=%40wavenotes-new%2Fworker%40workspace%3Apackages%2Fserver%2Fworker":
   version: 0.0.1
-  resolution: "@wavenotes-new/shared@file:../../shared#../../shared::hash=820097&locator=%40wavenotes-new%2Fworker%40workspace%3Apackages%2Fserver%2Fworker"
+  resolution: "@wavenotes-new/shared@file:../../shared#../../shared::hash=6a6582&locator=%40wavenotes-new%2Fworker%40workspace%3Apackages%2Fserver%2Fworker"
   dependencies:
     zod: "npm:^3.24.2"
-  checksum: 10c0/02f10720d5a4dc4dd125037a0e1ae39d7be13b3ba5f1d69a4b1bec37c24b220be1a064330fa447f99a23f1b118e89882451ad34f60dacfc5b57e44daa7f374a7
+  checksum: 10c0/aa60766f74008805990205872aebc0945d62a783c2a9bd4782fd3ff7b612a742247599e8c19fa8e7a380edc070f1c71f59fdcdf761799d3ef77483d311516403
   languageName: node
   linkType: hard
 
 "@wavenotes-new/shared@file:../shared::locator=%40wavenotes-new%2Fclient%40workspace%3Apackages%2Fclient":
   version: 0.0.1
-  resolution: "@wavenotes-new/shared@file:../shared#../shared::hash=820097&locator=%40wavenotes-new%2Fclient%40workspace%3Apackages%2Fclient"
+  resolution: "@wavenotes-new/shared@file:../shared#../shared::hash=6a6582&locator=%40wavenotes-new%2Fclient%40workspace%3Apackages%2Fclient"
   dependencies:
     zod: "npm:^3.24.2"
-  checksum: 10c0/02f10720d5a4dc4dd125037a0e1ae39d7be13b3ba5f1d69a4b1bec37c24b220be1a064330fa447f99a23f1b118e89882451ad34f60dacfc5b57e44daa7f374a7
+  checksum: 10c0/aa60766f74008805990205872aebc0945d62a783c2a9bd4782fd3ff7b612a742247599e8c19fa8e7a380edc070f1c71f59fdcdf761799d3ef77483d311516403
   languageName: node
   linkType: hard
 
@@ -1536,6 +1538,7 @@ __metadata:
     dotenv: "npm:^16.4.7"
     googleapis: "npm:^131.0.0"
     ts-node-dev: "npm:^2.0.0"
+    tsconfig-paths: "npm:^4.2.0"
     typescript: "npm:^5.3.3"
     winston: "npm:^3.11.0"
     youtube-transcript: "npm:^1.0.6"
@@ -2260,7 +2263,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cross-spawn@npm:^7.0.3, cross-spawn@npm:^7.0.6":
+"cross-env@npm:^7.0.3":
+  version: 7.0.3
+  resolution: "cross-env@npm:7.0.3"
+  dependencies:
+    cross-spawn: "npm:^7.0.1"
+  bin:
+    cross-env: src/bin/cross-env.js
+    cross-env-shell: src/bin/cross-env-shell.js
+  checksum: 10c0/f3765c25746c69fcca369655c442c6c886e54ccf3ab8c16847d5ad0e91e2f337d36eedc6599c1227904bf2a228d721e690324446876115bc8e7b32a866735ecf
+  languageName: node
+  linkType: hard
+
+"cross-spawn@npm:^7.0.1, cross-spawn@npm:^7.0.3, cross-spawn@npm:^7.0.6":
   version: 7.0.6
   resolution: "cross-spawn@npm:7.0.6"
   dependencies:
@@ -3505,6 +3520,15 @@ __metadata:
   dependencies:
     bignumber.js: "npm:^9.0.0"
   checksum: 10c0/e3f34e43be3284b573ea150a3890c92f06d54d8ded72894556357946aeed9877fd795f62f37fe16509af189fd314ab1104d0fd0f163746ad231b9f378f5b33f4
+  languageName: node
+  linkType: hard
+
+"json5@npm:^2.2.2":
+  version: 2.2.3
+  resolution: "json5@npm:2.2.3"
+  bin:
+    json5: lib/cli.js
+  checksum: 10c0/5a04eed94810fa55c5ea138b2f7a5c12b97c3750bc63d11e511dcecbfef758003861522a070c2272764ee0f4e3e323862f386945aeb5b85b87ee43f084ba586c
   languageName: node
   linkType: hard
 
@@ -5997,6 +6021,17 @@ __metadata:
     ts-node-transpile-only: dist/bin-transpile.js
     ts-script: dist/bin-script-deprecated.js
   checksum: 10c0/5f29938489f96982a25ba650b64218e83a3357d76f7bede80195c65ab44ad279c8357264639b7abdd5d7e75fc269a83daa0e9c62fd8637a3def67254ecc9ddc2
+  languageName: node
+  linkType: hard
+
+"tsconfig-paths@npm:^4.2.0":
+  version: 4.2.0
+  resolution: "tsconfig-paths@npm:4.2.0"
+  dependencies:
+    json5: "npm:^2.2.2"
+    minimist: "npm:^1.2.6"
+    strip-bom: "npm:^3.0.0"
+  checksum: 10c0/09a5877402d082bb1134930c10249edeebc0211f36150c35e1c542e5b91f1047b1ccf7da1e59babca1ef1f014c525510f4f870de7c9bda470c73bb4e2721b3ea
   languageName: node
   linkType: hard
 

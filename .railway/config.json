@@ -1,0 +1,9 @@
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "",
+    "cache": {
+      "enable": false
+    }
+  }
+} 

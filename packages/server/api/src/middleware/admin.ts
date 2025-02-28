@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 
 /**
  * Middleware to ensure that the authenticated user has admin privileges
- * This middleware should be used after the authMiddleware
+ * This middleware should be used after the authMiddleware 
  */
 export function adminMiddleware(req: Request, res: Response, next: NextFunction) {
   // Check if user exists (should be added by authMiddleware)

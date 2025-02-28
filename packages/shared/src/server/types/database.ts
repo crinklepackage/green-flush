@@ -9,7 +9,12 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface PodcastRecord {
+/**
+ * DatabasePodcastRecord represents the full database structure of a podcast
+ * including fields that are not exposed in the regular PodcastRecord like
+ * youtube_url, transcript, and has_transcript.
+ */
+export interface DatabasePodcastRecord {
   id: string
   url: string
   platform: 'spotify' | 'youtube'
@@ -42,9 +47,9 @@ export interface Database {
   public: {
     Tables: {
       podcasts: {
-        Row: PodcastRecord
-        Insert: Omit<PodcastRecord, 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Omit<PodcastRecord, 'id'>>
+        Row: DatabasePodcastRecord
+        Insert: Omit<DatabasePodcastRecord, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<DatabasePodcastRecord, 'id'>>
       }
       summaries: {
         Row: SummaryRecord
