@@ -97,25 +97,25 @@ const videoMetadataContent = {
   };`,
   dts: `export interface VideoMetadata { 
     id: string; 
-    title: string; 
+    title: string | null; 
     channel: string; 
     showName: string; 
-    thumbnailUrl: string; 
-    duration: number;
+    thumbnailUrl: string | null; 
+    duration: number | null;
     platform: "youtube" | "spotify";
     viewCount?: number;
   }
   export interface PlatformMetadata {
-    title: string;
-    thumbnailUrl: string;
-    duration: number;
+    title: string | null;
+    thumbnailUrl: string | null;
+    duration: number | null;
   }
   export interface SpotifyMetadata {
     id: string;
-    title: string;
+    title: string | null;
     showName: string;
-    thumbnailUrl: string;
-    duration: number;
+    thumbnailUrl: string | null;
+    duration: number | null;
     platform: "youtube" | "spotify";
   }`
 };
@@ -158,6 +158,14 @@ const errorContent = {
       super(message);
       this.name = "ValidationError";
     }
+  };
+  exports.PlatformError = class PlatformError extends Error {
+    constructor(message, platform, details) {
+      super(message);
+      this.name = "PlatformError";
+      this.platform = platform;
+      this.details = details;
+    }
   };`,
   dts: `export class DatabaseError extends Error {
     constructor(message: string, code: string, operation: string, context: Record<string, any>);
@@ -167,7 +175,66 @@ const errorContent = {
   }
   export class ValidationError extends Error {
     constructor(message: string);
+  }
+  export class PlatformError extends Error {
+    constructor(message: string, platform: string, details?: any);
+    platform: string;
+    details: any;
   }`
+};
+
+// Update ZodType mock
+const zodTypeContent = {
+  js: `exports.ZodType = class ZodType {
+    constructor() {
+      this._type = {};
+      this._output = {};
+      this._input = {};
+      this._def = {};
+    }
+    parse(data) { return data; }
+  };`,
+  dts: `export class ZodType<Output = any, Def = any, Input = Output> {
+    _type: Output;
+    _output: Output;
+    _input: Input;
+    _def: Def;
+    parse(data: any): Output;
+  }`
+};
+
+// Updated feedback params with additional properties
+const feedbackTypesContent = {
+  js: `exports.FeedbackRecord = {}; 
+  exports.FeedbackType = { ISSUE: "ISSUE", FEATURE: "FEATURE", OTHER: "OTHER" }; 
+  exports.FeedbackStatus = { OPEN: "OPEN", CLOSED: "CLOSED", IN_PROGRESS: "IN_PROGRESS" }; 
+  exports.CreateFeedbackParams = { user_id: "", type: "", message: "" }; 
+  exports.UpdateFeedbackParams = { admin_notes: "", status: "", priority: "" };`,
+  dts: `export interface FeedbackRecord { 
+    id: string; 
+    type: string; 
+    status: string; 
+  }; 
+  export type FeedbackType = "ISSUE" | "FEATURE" | "OTHER"; 
+  export type FeedbackStatus = "OPEN" | "CLOSED" | "IN_PROGRESS"; 
+  export interface CreateFeedbackParams { 
+    type: FeedbackType; 
+    message: string; 
+    user_id?: string;
+  }; 
+  export interface UpdateFeedbackParams { 
+    status?: FeedbackStatus; 
+    admin_notes?: string;
+    priority?: string;
+  };`
+};
+
+// Add types and constants that are related to summaries
+const summaryConstants = {
+  js: `exports.SUMMARY_TYPES = { BULLET: "BULLET", PARAGRAPH: "PARAGRAPH" }; 
+exports.SUMMARY_STREAMING = "STREAMING";`,
+  dts: `export enum SUMMARY_TYPES { BULLET = "BULLET", PARAGRAPH = "PARAGRAPH" };
+export const SUMMARY_STREAMING: "STREAMING";`
 };
 
 // Create some specific module files that are directly imported
@@ -188,22 +255,26 @@ const specificFiles = [
   { path: 'server/types/entities/podcast.d.ts', content: 'export interface PodcastRecord { id: string; title: string; url: string; }' },
   { path: 'server/types/jobs/podcast.js', content: podcastJobContent.js },
   { path: 'server/types/jobs/podcast.d.ts', content: podcastJobContent.dts },
-  { path: 'server/schemas/entities/podcast.js', content: 'exports.PodcastSchema = { parse: (data) => data };' },
-  { path: 'server/schemas/entities/podcast.d.ts', content: 'export const PodcastSchema: { parse: (data: any) => any };' },
-  { path: 'server/schemas/jobs/podcast.js', content: 'exports.PodcastJobSchema = { parse: (data) => data };' },
-  { path: 'server/schemas/jobs/podcast.d.ts', content: 'export const PodcastJobSchema: { parse: (data: any) => any };' },
-  { path: 'server/schemas/entities/feedback.js', content: 'exports.FeedbackTypeSchema = { parse: (data) => data }; exports.FeedbackStatusSchema = { parse: (data) => data }; exports.CreateFeedbackSchema = { parse: (data) => data }; exports.UpdateFeedbackSchema = { parse: (data) => data };' },
-  { path: 'server/schemas/entities/feedback.d.ts', content: 'export const FeedbackTypeSchema: { parse: (data: any) => any }; export const FeedbackStatusSchema: { parse: (data: any) => any }; export const CreateFeedbackSchema: { parse: (data: any) => any }; export const UpdateFeedbackSchema: { parse: (data: any) => any };' },
-  { path: 'server/types/entities/feedback.js', content: 'exports.FeedbackRecord = {}; exports.FeedbackType = { ISSUE: "ISSUE", FEATURE: "FEATURE", OTHER: "OTHER" }; exports.FeedbackStatus = { OPEN: "OPEN", CLOSED: "CLOSED", IN_PROGRESS: "IN_PROGRESS" }; exports.CreateFeedbackParams = {}; exports.UpdateFeedbackParams = { admin_notes: "" };' },
-  { path: 'server/types/entities/feedback.d.ts', content: 'export interface FeedbackRecord { id: string; type: string; status: string; }; export type FeedbackType = "ISSUE" | "FEATURE" | "OTHER"; export type FeedbackStatus = "OPEN" | "CLOSED" | "IN_PROGRESS"; export interface CreateFeedbackParams { type: FeedbackType; message: string; }; export interface UpdateFeedbackParams { status?: FeedbackStatus; admin_notes?: string; };' },
+  { path: 'server/schemas/entities/podcast.js', content: 'exports.PodcastSchema = { parse: (data) => data, _type: {}, _output: {}, _input: {}, _def: {} };' },
+  { path: 'server/schemas/entities/podcast.d.ts', content: `export const PodcastSchema: ${zodTypeContent.dts};` },
+  { path: 'server/schemas/jobs/podcast.js', content: 'exports.PodcastJobSchema = { parse: (data) => data, _type: {}, _output: {}, _input: {}, _def: {} };' },
+  { path: 'server/schemas/jobs/podcast.d.ts', content: `export const PodcastJobSchema: ${zodTypeContent.dts};` },
+  { path: 'server/schemas/entities/feedback.js', content: 'exports.FeedbackTypeSchema = { parse: (data) => data, _type: {}, _output: {}, _input: {}, _def: {} }; exports.FeedbackStatusSchema = { parse: (data) => data, _type: {}, _output: {}, _input: {}, _def: {} }; exports.CreateFeedbackSchema = { parse: (data) => data, _type: {}, _output: {}, _input: {}, _def: {} }; exports.UpdateFeedbackSchema = { parse: (data) => data, _type: {}, _output: {}, _input: {}, _def: {} };' },
+  { path: 'server/schemas/entities/feedback.d.ts', content: `export const FeedbackTypeSchema: ${zodTypeContent.dts}; export const FeedbackStatusSchema: ${zodTypeContent.dts}; export const CreateFeedbackSchema: ${zodTypeContent.dts}; export const UpdateFeedbackSchema: ${zodTypeContent.dts};` },
+  { path: 'server/types/entities/feedback.js', content: feedbackTypesContent.js },
+  { path: 'server/types/entities/feedback.d.ts', content: feedbackTypesContent.dts },
   { path: 'browser/types/feedback.js', content: 'exports.FeedbackRequest = {};' },
   { path: 'browser/types/feedback.d.ts', content: 'export interface FeedbackRequest { type: string; message: string; }' },
   { path: 'server/errors/index.js', content: errorContent.js },
   { path: 'server/errors/index.d.ts', content: errorContent.dts },
-  { path: 'server/errors/errors.js', content: 'exports.ValidationError = class ValidationError extends Error {};' },
-  { path: 'server/errors/errors.d.ts', content: 'export class ValidationError extends Error {};' },
+  { path: 'server/errors/errors.js', content: 'exports.ValidationError = class ValidationError extends Error {}; exports.PlatformError = class PlatformError extends Error {};' },
+  { path: 'server/errors/errors.d.ts', content: 'export class ValidationError extends Error {}; export class PlatformError extends Error {};' },
+  { path: 'server/schemas/zod.js', content: zodTypeContent.js },
+  { path: 'server/schemas/zod.d.ts', content: zodTypeContent.dts },
   { path: 'utils/url-utils.js', content: 'exports.extractYouTubeVideoId = () => ""; exports.isYouTubeUrl = () => false; exports.buildYouTubeUrl = () => "";' },
   { path: 'utils/url-utils.d.ts', content: 'export function extractYouTubeVideoId(url: string): string; export function isYouTubeUrl(url: string): boolean; export function buildYouTubeUrl(id: string): string;' },
+  { path: 'server/constants/summary.js', content: summaryConstants.js },
+  { path: 'server/constants/summary.d.ts', content: summaryConstants.dts },
   { path: 'common/prompts/claude-prompts.js', content: 'exports.CLAUDE_PROMPTS = {};' },
   { path: 'common/prompts/claude-prompts.d.ts', content: 'export const CLAUDE_PROMPTS: Record<string, string>;' }
 ];
