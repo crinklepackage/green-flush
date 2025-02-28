@@ -20,31 +20,49 @@ cmds = [
 [phases.build]
 dependsOn = ["install"]
 cmds = [
-  # Run the prebuild script directly 
+  # Run the prebuild script directly for shared package
   "echo '=== Building shared package ==='",
   "cd /app/packages/shared && node prebuild.js",
   "mkdir -p /app/packages/shared/dist",
   
-  # Build the API package
+  # Build the API package more carefully
   "echo '=== Building API package ==='", 
-  "cd /app/packages/server/api && yarn build || echo 'API build failed but continuing'",
+  "cd /app/packages/server/api && yarn build || (echo 'API build failed, using fallback' && mkdir -p dist && cd /app && yarn add -D @babel/cli @babel/core @babel/preset-env @babel/preset-typescript && cd /app/packages/server/api && echo '{\"presets\": [\"@babel/preset-env\", \"@babel/preset-typescript\"]}' > babel.config.json && npx babel src --extensions '.ts,.js' --out-dir dist)",
+  "ls -la /app/packages/server/api/dist || echo 'API dist directory not found'",
   
-  # Build the worker package with fallback - ensuring we have JavaScript files
+  # Build the worker package with fallback
   "echo '=== Building worker package ==='",
-  "cd /app/packages/server/worker && yarn build || (echo 'Worker build failed, using fallback' && mkdir -p dist && echo 'Installing Babel for TypeScript transpilation...' && cd /app && yarn add -D @babel/cli @babel/core @babel/preset-env @babel/preset-typescript && cd /app/packages/server/worker && echo '{\"presets\": [\"@babel/preset-env\", \"@babel/preset-typescript\"]}' > babel.config.json && echo 'Transpiling TypeScript files...' && npx babel src --extensions '.ts,.js' --out-dir dist && echo 'Successfully transpiled TypeScript to JavaScript')",
+  "cd /app/packages/server/worker && yarn build || (echo 'Worker build failed, using fallback' && mkdir -p dist && cd /app && yarn add -D @babel/cli @babel/core @babel/preset-env @babel/preset-typescript && cd /app/packages/server/worker && echo '{\"presets\": [\"@babel/preset-env\", \"@babel/preset-typescript\"]}' > babel.config.json && npx babel src --extensions '.ts,.js' --out-dir dist)",
   
   # Debug: list the contents of the dist directory
   "echo '=== Checking worker dist directory ==='",
   "ls -la /app/packages/server/worker/dist || echo 'Worker dist directory not found'",
-  "ls -la /app/packages/server/worker/dist/index.js || echo 'Worker index.js not found'",
   
-  # Debug: check index.js content if it exists
-  "if [ -f '/app/packages/server/worker/dist/index.js' ]; then head -10 /app/packages/server/worker/dist/index.js; else echo 'Cannot display index.js content - file does not exist'; fi"
+  # Create proper workspace module structure for deployment
+  "echo '=== Setting up proper module structure ==='",
+  # 1. Create needed directories
+  "mkdir -p /app/packages/server/worker/node_modules/@wavenotes-new/api/dist/lib",
+  "mkdir -p /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist",
+  
+  # 2. Copy the API package to worker node_modules
+  "echo 'Copying API package to worker node_modules...'",
+  "cp -r /app/packages/server/api/dist/* /app/packages/server/worker/node_modules/@wavenotes-new/api/dist/",
+  "cp /app/packages/server/api/package.json /app/packages/server/worker/node_modules/@wavenotes-new/api/",
+  
+  # 3. Copy the shared package to worker node_modules
+  "echo 'Copying shared package to worker node_modules...'",
+  "cp -r /app/packages/shared/dist/* /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist/",
+  "cp /app/packages/shared/package.json /app/packages/server/worker/node_modules/@wavenotes-new/shared/",
+  
+  # 4. Verify file structure
+  "echo 'Verifying module structure...'",
+  "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/api/dist/lib/ || echo 'API lib directory not found'",
+  "ls -la /app/packages/server/worker/node_modules/@wavenotes-new/shared/dist/ || echo 'Shared dist directory not found'"
 ]
 
 # Ensure the start command is correct
 [start]
-cmd = "cd /app/packages/server/worker && node dist/index.js"
+cmd = "cd /app/packages/server/worker && NODE_PATH=/app node dist/index.js"
 
 # Explicitly disable Railway's automatic package detection
 [detect]
