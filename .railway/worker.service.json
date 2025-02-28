@@ -7,7 +7,7 @@
       "packages/server/api/**",
       "packages/server/worker/**"
     ],
-    "buildCommand": "yarn workspaces focus @wavenotes-new/shared @wavenotes-new/api @wavenotes-new/worker && yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/api build && yarn workspace @wavenotes-new/worker build"
+    "buildCommand": "yarn workspaces focus @wavenotes-new/shared @wavenotes-new/api @wavenotes-new/worker && cd packages/shared && yarn build && cd ../../packages/server/api && yarn build && cd ../worker && yarn build && echo 'Build completed'"
   },
   "deploy": {
     "numReplicas": 1,

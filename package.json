@@ -9,7 +9,9 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "build:api": "cd packages/shared && yarn build && cd ../../packages/server/api && yarn build",
+    "build:worker": "cd packages/shared && yarn build && cd ../../packages/server/api && yarn build && cd ../worker && yarn build"
   },
   "devDependencies": {
     "@railway/cli": "^3.21.0",
