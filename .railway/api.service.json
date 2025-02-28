@@ -6,7 +6,7 @@
       "packages/shared/**",
       "packages/server/api/**"
     ],
-    "buildCommand": "yarn workspaces focus @wavenotes-new/shared @wavenotes-new/api && echo 'Building from root with project references...' && yarn tsc --build --verbose && ls -la packages/shared/dist && ls -la packages/server/api/dist"
+    "buildCommand": "yarn workspaces focus @wavenotes-new/shared @wavenotes-new/api && echo 'Building from root with project references...' && yarn exec tsc --build --verbose && ls -la packages/shared/dist && ls -la packages/server/api/dist"
   },
   "deploy": {
     "numReplicas": 1,
