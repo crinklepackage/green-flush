@@ -9,7 +9,7 @@ if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir, { recursive: true });
 }
 
-// Create required directory structure
+// Create required directory structure 
 const dirs = [
   'server/types',
   'server/schemas',
