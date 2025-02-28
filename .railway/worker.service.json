@@ -2,15 +2,17 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
+    "nixpacksConfigPath": "nixpacks-worker.toml",
     "watchPatterns": [
       "packages/shared/**",
-      "packages/server/worker/**" 
+      "packages/server/worker/**",
+      "nixpacks-worker.toml"
     ],
-    "buildCommand": "echo 'Installing dependencies...' && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install && echo 'Building shared package (prebuild only)...' && cd packages/shared && node prebuild.js && echo 'Created shared dist:' && ls -la dist && echo 'Building worker package...' && cd ../../packages/server/worker && echo 'Running worker build with permissive options...' && (tsc --skipLibCheck --allowJs --declaration false --noEmitOnError || echo 'TypeScript errors detected, using fallback build') && if [ ! -f 'dist/index.js' ]; then echo 'Creating babel config...' && echo '{\"presets\": [\"@babel/preset-env\", \"@babel/preset-typescript\"]}' > babel.config.json && echo 'Transpiling with babel as fallback' && yarn add --dev @babel/cli @babel/core @babel/preset-env @babel/preset-typescript && npx babel src --extensions '.ts,.js' --out-dir dist --copy-files && echo 'Babel build completed'; fi && echo 'Build completed - checking worker output:' && ls -la dist"
+    "buildCommand": ""
   },
   "deploy": {
     "numReplicas": 1,
-    "startCommand": "node packages/server/worker/dist/index.js",
+    "startCommand": "cd packages/server/worker && node dist/index.js",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
