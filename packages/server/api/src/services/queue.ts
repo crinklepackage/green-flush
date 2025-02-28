@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq'
-import { PodcastJobSchema, PodcastJob } from '@wavenotes-new/shared'
+import { PodcastJobSchema, PodcastJob } from '../../../../shared/src'
 
 export class QueueService {
   private queue: Queue
