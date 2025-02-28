@@ -29,10 +29,17 @@ cmds = [
   "echo '=== Building API package ==='", 
   "cd /app/packages/server/api && yarn build || echo 'API build failed but continuing'",
   
-  # Build the worker package with fallback - ultra-simple approach
+  # Build the worker package with fallback - ensuring we have JavaScript files
   "echo '=== Building worker package ==='",
-  "cd /app/packages/server/worker && yarn build || (echo 'Worker build failed, using fallback' && mkdir -p dist && cp -r src/* dist/ && echo 'Skipped TypeScript processing')",
-  "ls -la /app/packages/server/worker/dist || echo 'Worker dist directory not found'"
+  "cd /app/packages/server/worker && yarn build || (echo 'Worker build failed, using fallback' && mkdir -p dist && echo 'Installing Babel for TypeScript transpilation...' && cd /app && yarn add -D @babel/cli @babel/core @babel/preset-env @babel/preset-typescript && cd /app/packages/server/worker && echo '{\"presets\": [\"@babel/preset-env\", \"@babel/preset-typescript\"]}' > babel.config.json && echo 'Transpiling TypeScript files...' && npx babel src --extensions '.ts,.js' --out-dir dist && echo 'Successfully transpiled TypeScript to JavaScript')",
+  
+  # Debug: list the contents of the dist directory
+  "echo '=== Checking worker dist directory ==='",
+  "ls -la /app/packages/server/worker/dist || echo 'Worker dist directory not found'",
+  "ls -la /app/packages/server/worker/dist/index.js || echo 'Worker index.js not found'",
+  
+  # Debug: check index.js content if it exists
+  "if [ -f '/app/packages/server/worker/dist/index.js' ]; then head -10 /app/packages/server/worker/dist/index.js; else echo 'Cannot display index.js content - file does not exist'; fi"
 ]
 
 # Ensure the start command is correct
