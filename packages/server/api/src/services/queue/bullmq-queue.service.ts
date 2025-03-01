@@ -74,22 +74,12 @@ export class BullMQQueueService implements QueueServiceInterface {
             type: 'exponential',
             delay: 1000
           }
-        },
-        // CRITICAL: Force family:0 even for internal connections BullMQ might create
-        redis: {
-          family: 0, // This ensures any new connections also use family:0
-          maxRetriesPerRequest: null
         }
       });
       
       // Initialize queue events using the same shared client
       this.queueEvents = new QueueEvents(this.queueName, {
-        connection: this.sharedRedisClient as any, // Force BullMQ to use our client
-        // CRITICAL: Force family:0 even for internal connections QueueEvents might create
-        redis: {
-          family: 0, // This ensures any new connections also use family:0
-          maxRetriesPerRequest: null
-        }
+        connection: this.sharedRedisClient as any // Force BullMQ to use our client
       });
       
       // Set up queue event listeners

@@ -112,8 +112,7 @@ export function createRedisConfig(): RedisConnectionConfig {
     const config = {
       url: redisUrl,
       tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production',
-      family: 0, // CRITICAL: Explicitly set family to 0 for Railway DNS resolution
-      ...commonOptions
+      ...commonOptions // Contains family: 0
     };
     
     // Log family setting to confirm it's set to 0
@@ -143,8 +142,7 @@ export function createRedisConfig(): RedisConnectionConfig {
       password: process.env.REDIS_PASSWORD || process.env.REDISPASSWORD || undefined,
       tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production',
       db: process.env.REDIS_DB ? parseInt(process.env.REDIS_DB, 10) : 0,
-      family: 0, // CRITICAL: Explicitly set family to 0 for Railway DNS resolution
-      ...commonOptions
+      ...commonOptions // Contains family: 0
     };
     
     // Log family setting to confirm it's set to 0
@@ -160,8 +158,7 @@ export function createRedisConfig(): RedisConnectionConfig {
   const config = {
     host: 'localhost',
     port: 6379,
-    family: 0, // CRITICAL: Explicitly set family to 0 for compatibility
-    ...commonOptions
+    ...commonOptions // Contains family: 0
   };
   
   // Log family setting to confirm it's set to 0

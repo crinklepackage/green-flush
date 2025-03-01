@@ -73,14 +73,13 @@ const SummaryCard = ({ summary, onDelete, onRetry }: {
     e.preventDefault();
     e.stopPropagation();
     
-    if (window.confirm('Are you sure you want to remove this summary?')) {
-      setIsDeleting(true);
-      try {
-        await onDelete(summary.id);
-      } catch (error) {
-        console.error('Failed to delete summary:', error);
-        setIsDeleting(false);
-      }
+    // Remove confirmation dialog and proceed directly
+    setIsDeleting(true);
+    try {
+      await onDelete(summary.id);
+    } catch (error) {
+      console.error('Failed to delete summary:', error);
+      setIsDeleting(false);
     }
   };
 
@@ -88,16 +87,15 @@ const SummaryCard = ({ summary, onDelete, onRetry }: {
     e.preventDefault();
     e.stopPropagation();
     
-    if (window.confirm('Are you sure you want to retry this summary?')) {
-      setIsRetrying(true);
-      try {
-        // Call the retry function provided by the parent component
-        await onRetry(summary.id);
-      } catch (error) {
-        console.error('Failed to retry summary:', error);
-      } finally {
-        setIsRetrying(false);
-      }
+    // Remove confirmation dialog and proceed directly
+    setIsRetrying(true);
+    try {
+      // Call the retry function provided by the parent component
+      await onRetry(summary.id);
+    } catch (error) {
+      console.error('Failed to retry summary:', error);
+    } finally {
+      setIsRetrying(false);
     }
   };
   
