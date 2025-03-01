@@ -28,6 +28,7 @@ import { supabase } from './lib/supabase';
 import adminRouter from './routes/admin';
 import { validateStatusMiddleware } from './middleware/validate-status';
 import { checkStalledSummaries } from './services/timeout-service';
+import { healthRouter } from './routes/health';
 
 export const db = new DatabaseService(supabase)
 export { DatabaseService }
@@ -52,6 +53,7 @@ async function main() {
   rootRouter.use('/summaries', summariesRouter);
   rootRouter.use('/feedback', feedbackRouter);
   rootRouter.use('/admin', adminRouter);
+  rootRouter.use('/health', healthRouter);
   
   // Start API with the root router
   await api.start(Number(config.PORT), rootRouter)

@@ -1,21 +1,59 @@
-import { Queue } from 'bullmq'
 import { PodcastJobSchema, PodcastJob } from '@wavenotes-new/shared'
+import { createQueueService } from './queue/index'
+import { QueueServiceInterface } from './queue/queue-service.interface'
+import { createRedisConfig } from '../config/redis-config'
 
+/**
+ * Main queue service for the API
+ * 
+ * This service wraps our queue implementation and provides domain-specific
+ * methods for adding jobs to the queue with proper validation.
+ */
 export class QueueService {
-  private queue: Queue
+  private queueService: QueueServiceInterface
 
-  constructor(private redisUrl: string) {
-    this.queue = new Queue('podcast', {
-      connection: { url: redisUrl }
-    })
+  constructor(redisUrl?: string) {
+    const config = redisUrl ? { url: redisUrl } : createRedisConfig()
+    
+    // Create the queue service with our standard configuration
+    this.queueService = createQueueService('podcast', config)
   }
 
-  async add(type: 'PROCESS_PODCAST', data: PodcastJob): Promise<void> {
+  /**
+   * Add a podcast processing job to the queue
+   * 
+   * @param type The job type
+   * @param data The job data (will be validated)
+   * @returns Promise that resolves when the job has been added
+   */
+  async add(type: 'PROCESS_PODCAST', data: PodcastJob): Promise<{ id: string }> {
+    // Validate the job data
     const validated = PodcastJobSchema.parse(data)
-    await this.queue.add(type, validated)
+    
+    // Add the job to the queue
+    const job = await this.queueService.addJob(type, validated)
+    
+    return { id: job.id }
   }
 
-  async close() {
-    await this.queue.close()
+  /**
+   * Check if the queue is connected to Redis
+   */
+  isConnected(): boolean {
+    return this.queueService.isConnected()
+  }
+
+  /**
+   * Perform a health check on the queue
+   */
+  async healthCheck(): Promise<{ status: string; details?: any }> {
+    return this.queueService.healthCheck()
+  }
+
+  /**
+   * Close the queue connection
+   */
+  async close(): Promise<void> {
+    await this.queueService.close()
   }
 } 
