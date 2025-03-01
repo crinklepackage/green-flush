@@ -7,11 +7,13 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
-    "build": "turbo run build",
+    "build": "yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/api build && yarn workspace @wavenotes-new/worker build",
     "test": "turbo run test",
     "lint": "turbo run lint",
     "build:api": "cd packages/shared && yarn build && cd ../../packages/server/api && yarn build",
-    "build:worker": "cd packages/shared && yarn build && cd ../../packages/server/api && yarn build && cd ../worker && yarn build"
+    "build:worker": "cd packages/shared && yarn build && cd ../../packages/server/api && yarn build && cd ../worker && yarn build",
+    "clean": "rm -rf packages/*/dist dist dist-root",
+    "build:all": "bash scripts/build-all.sh"
   },
   "devDependencies": {
     "@railway/cli": "^3.21.0",

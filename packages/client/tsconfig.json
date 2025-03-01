@@ -15,9 +15,16 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@wavenotes-new/shared": ["../shared/src", "../shared/dist"],
-      "@wavenotes-new/shared/*": ["../shared/src/*", "../shared/dist/*"]
-    }
+      "@wavenotes-new/shared": [
+        "../shared/src",
+        "../shared/dist"
+      ],
+      "@wavenotes-new/shared/*": [
+        "../shared/src/*",
+        "../shared/dist/*"
+      ]
+    },
+    "resolveJsonModule": true
   },
   "include": [
     "next-env.d.ts",

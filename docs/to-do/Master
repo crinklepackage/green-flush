@@ -1,8 +1,18 @@
-Delete the .env file
-Current: if user adds url again, it reprocesses
-We need to add the "reprocessing" feature (code or instructions may have been lost)
+
+
+
 
 Launch Crit
+Frontend up
 Login
+Sign Up
+Forgot pw
 RLS
-Up
+SPotify matching
+
+
+FUn Up
+- Tests
+- Current: if user adds url again, it reprocesses
+- We need to add the "reprocessing" feature (code or instructions may have been lost)
+- Tailwind 4
