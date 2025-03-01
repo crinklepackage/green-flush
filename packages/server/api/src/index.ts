@@ -3,6 +3,54 @@ import { Router } from 'express';
 import { existsSync } from 'fs';
 import path from 'path';
 
+// CRITICAL: Sanitize Redis environment variables at the very beginning
+// This must come before ANY imports that might use Redis directly or indirectly
+function sanitizeRedisEnvironmentVariables() {
+  console.log('Sanitizing Redis environment variables at application startup');
+  
+  if (process.env.REDIS_URL && process.env.REDIS_URL.includes('redis.railway.internal')) {
+    try {
+      // Parse the URL to extract components
+      const parsedUrl = new URL(process.env.REDIS_URL);
+      
+      // Replace the hostname with the public endpoint
+      const publicHost = 'roundhouse.proxy.rlwy.net';
+      const publicPort = process.env.REDIS_PUBLIC_PORT ? parseInt(process.env.REDIS_PUBLIC_PORT, 10) : 30105;
+      
+      // Build the new URL with the same authentication but different host/port
+      parsedUrl.hostname = publicHost;
+      parsedUrl.port = publicPort.toString();
+      
+      // Set the sanitized URL back to the environment
+      const sanitizedUrl = parsedUrl.toString();
+      console.log(`Replaced REDIS_URL internal hostname with public endpoint (credentials hidden)`);
+      
+      // Set multiple formats to ensure all code paths are covered
+      process.env.REDIS_URL = sanitizedUrl;
+      
+      // Also set individual components for code that might use them directly
+      process.env.REDIS_HOST = publicHost;
+      process.env.REDISHOST = publicHost;
+      process.env.REDIS_PORT = publicPort.toString();
+      process.env.REDISPORT = publicPort.toString();
+      
+      // Set global flag to indicate we've sanitized the environment
+      process.env.REDIS_ENV_SANITIZED = 'true';
+      
+      // Set a public URL environment variable for code that might check for it
+      process.env.REDIS_PUBLIC_URL = sanitizedUrl;
+      
+    } catch (error) {
+      console.error('Error sanitizing Redis environment variables:', error);
+    }
+  } else {
+    console.log('No internal Redis hostname detected in environment variables');
+  }
+}
+
+// Run sanitization before any other code executes
+sanitizeRedisEnvironmentVariables();
+
 // Check for conflicting .env files
 const envPath = path.resolve(__dirname, '../../.env');
 const envLocalPath = path.resolve(__dirname, '../../.env.local');
