@@ -23,7 +23,7 @@ export interface RedisConnectionConfig {
   tls?: boolean;
   family?: number;
   url?: string;
-  maxRetriesPerRequest?: number;
+  maxRetriesPerRequest?: number | null;
   enableAutoPipelining?: boolean;
   enableReadyCheck?: boolean;
   connectTimeout?: number;
@@ -56,7 +56,7 @@ export function createRedisConfig(): RedisConnectionConfig {
   const commonOptions = {
     family: 0, // Critical: Enable dual-stack IPv4/IPv6 lookup for all environments
     connectTimeout: 10000, // Match the working implementation's value for connection timeout
-    maxRetriesPerRequest: 3,
+    maxRetriesPerRequest: null, // BullMQ requires this to be null, not a number
     enableAutoPipelining: true,
     enableReadyCheck: true,
     retryStrategy: (times: number) => {
@@ -67,9 +67,11 @@ export function createRedisConfig(): RedisConnectionConfig {
     }
   };
   
-  // First priority: Use REDIS_URL if available
+  // First priority: Use REDIS_URL for Railway 
+  // Let the BullMQ service handle URL parsing since BullMQ and ioredis
+  // have different connection parameter requirements
   if (process.env.REDIS_URL) {
-    console.log(`Using REDIS_URL with family: 0 for dual-stack resolution: ${process.env.REDIS_URL.replace(/redis:\/\/(.*):(.*)@/, 'redis://$1:***@')}`);
+    console.log(`Using REDIS_URL with family: 0 for dual-stack resolution (will be parsed in service)`);
     return {
       url: process.env.REDIS_URL,
       tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production',
