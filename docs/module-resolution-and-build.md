@@ -2,7 +2,21 @@
 
 This document explains our approach to module resolution and the build process in this monorepo. Understanding these concepts is crucial for maintaining a consistent and reliable development environment.
 
-## Module Resolution Approach
+## Key Takeaways
+
+These are the most important points for maintaining this project's architecture:
+
+1. **Source-first module resolution**: We prioritize source files over built files in TypeScript path configurations, ensuring both development and build modes work seamlessly.
+
+2. **Explicit package exports**: The shared package's `package.json` uses explicit exports configuration to clearly define how the package exposes its modules.
+
+3. **Robust build process**: Enhanced error handling in build scripts catches issues early and prevents cascading failures.
+
+4. **Easy environment reset**: When things get weird, the reset script provides a clean way to start fresh without debugging complex configuration issues.
+
+5. **Maintenance of separation of concerns**: Our configuration respects the module boundaries in the architecture design without requiring kludgy hacks or patches.
+
+## Module Resolution Approach 
 
 We've implemented a consistent approach to TypeScript module resolution that ensures:
 
@@ -123,6 +137,20 @@ For TypeScript path resolution to work correctly across builds and dev mode:
 
 1. Always maintain symmetry between package.json dependencies and tsconfig.json path references
 2. When adding a new import path, update all relevant tsconfig.json files
+
+## Best Practices for Maintaining Clean Architecture
+
+To keep the codebase maintainable and avoid future issues:
+
+1. **Package boundaries**: When adding new inter-package dependencies, update both TypeScript configuration and package.json files consistently.
+
+2. **Shared code management**: Keep the shared package focused on truly shared code. If you notice code being duplicated across services, that's a sign it might belong in shared.
+
+3. **Early detection**: If module resolution errors appear, try the reset script before making piecemeal fixes.
+
+4. **Documentation**: Keep this documentation updated as the project evolves so new team members understand the architecture.
+
+5. **Source control**: Consider creating a baseline branch after fixing major architectural issues, to provide a clean rollback point if needed.
 
 ## Conclusion
 
