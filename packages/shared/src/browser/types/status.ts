@@ -1,11 +1,11 @@
-export type ClientStatus = 'IN_QUEUE' | 'GENERATING_SUMMARY' | 'COMPLETED' | 'FAILED'
+export type ClientStatus = 'in_queue' | 'generating_summary' | 'completed' | 'failed'
 
 export const mapStatusToClient = (status: string): ClientStatus => {
   const statusMap: Record<string, ClientStatus> = {
-    'IN_QUEUE': 'IN_QUEUE',
-    'GENERATING_SUMMARY': 'GENERATING_SUMMARY',
-    'COMPLETED': 'COMPLETED',
-    'FAILED': 'FAILED'
+    'in_queue': 'in_queue',
+    'generating_summary': 'generating_summary',
+    'completed': 'completed',
+    'failed': 'failed'
   }
-  return statusMap[status] || 'FAILED'
+  return statusMap[status] || 'failed'
 }

@@ -3,11 +3,11 @@ import { ProcessingStatus } from '../server/types/status'
 export const mapStatusToClient = (serverStatus: ProcessingStatus): string => {
   // Map server statuses to client statuses
   const statusMap: Record<ProcessingStatus, string> = {
-    [ProcessingStatus.IN_QUEUE]: 'IN_QUEUE',
-    [ProcessingStatus.FETCHING_TRANSCRIPT]: 'FETCHING_TRANSCRIPT',
-    [ProcessingStatus.GENERATING_SUMMARY]: 'GENERATING_SUMMARY',
-    [ProcessingStatus.COMPLETED]: 'COMPLETED',
-    [ProcessingStatus.FAILED]: 'FAILED'
+    [ProcessingStatus.IN_QUEUE]: 'in_queue',
+    [ProcessingStatus.FETCHING_TRANSCRIPT]: 'fetching_transcript',
+    [ProcessingStatus.GENERATING_SUMMARY]: 'generating_summary',
+    [ProcessingStatus.COMPLETED]: 'completed',
+    [ProcessingStatus.FAILED]: 'failed'
   };
   return statusMap[serverStatus] || serverStatus;
 };

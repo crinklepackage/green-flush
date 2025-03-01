@@ -9,8 +9,8 @@ export enum ProcessingStatus {
 
 // Client-side status (what UI shows)
 export type ClientStatus = 
-  | 'IN_QUEUE'
-  | 'FETCHING_TRANSCRIPT'
-  | 'GENERATING_SUMMARY'
-  | 'COMPLETED'
-  | 'FAILED' 
+  | 'in_queue'
+  | 'fetching_transcript'
+  | 'generating_summary'
+  | 'completed'
+  | 'failed' 

@@ -1,6 +1,6 @@
 export enum ProcessingStatus {
-  IN_QUEUE = 'IN_QUEUE',
-  GENERATING_SUMMARY = 'GENERATING_SUMMARY',
-  COMPLETED = 'COMPLETED',
-  FAILED = 'FAILED'
+  IN_QUEUE = 'in_queue',
+  GENERATING_SUMMARY = 'generating_summary',
+  COMPLETED = 'completed',
+  FAILED = 'failed'
 } 

@@ -13,10 +13,10 @@ export const SummarySchema = z.object({
   podcastId: z.string().uuid(),
   content: z.string().nullable(),
   status: z.enum([
-    'IN_QUEUE',
-    'FETCHING_TRANSCRIPT',
-    'GENERATING_SUMMARY',
-    'COMPLETED',
-    'FAILED'
+    'in_queue',
+    'fetching_transcript',
+    'generating_summary',
+    'completed',
+    'failed'
   ])
 }) 

@@ -41,7 +41,10 @@ export {
 } from './server/schemas/entities/feedback';
 
 // Re-export additional types from metadata
-export type { Database, SummaryRecord, VideoMetadata, RPCPodcastResponse } from './server/types/metadata';
+export type { Database, VideoMetadata, RPCPodcastResponse } from './server/types/metadata';
+
+// Re-export SummaryRecord from database
+export type { SummaryRecord } from './server/types/database';
 
 // Re-export DatabaseError from errors folder using its index
 export { DatabaseError } from './server/errors';

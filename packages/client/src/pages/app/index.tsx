@@ -106,14 +106,15 @@ const SummaryCard = ({ summary, onDelete, onRetry }: {
   };
   
   // Force buttons to be visible for any failed items regardless of exact status
-  const isFailed = summary.status === 'failed';
-  const isInQueue = summary.status === 'in_queue';
+  const isFailed = String(summary.status).toLowerCase() === 'failed';
+  const isInQueue = String(summary.status).toLowerCase() === 'in_queue';
   
   const showDeleteButton = isFailed || isInQueue;
   const showRetryButton = isFailed;
   
   console.log('Button visibility check:', {
     status: summary.status,
+    statusLower: String(summary.status).toLowerCase(),
     isFailed,
     isInQueue,
     showDeleteButton,
@@ -329,7 +330,9 @@ export default withAuth(function AppDashboard() {
     setHasMoreCompleted(true);
     
     // Check if we need to set hasMoreCompleted to false initially
-    const completedSummaries = summaries.filter(s => s.status === 'completed');
+    const completedSummaries = summaries.filter(s => 
+      String(s.status).toLowerCase() === 'completed'
+    );
     if (completedSummaries.length <= 10) {
       setHasMoreCompleted(false);
     }
@@ -368,7 +371,9 @@ export default withAuth(function AppDashboard() {
     
     // Simulate a delay to prevent rapid loading
     setTimeout(() => {
-      const completedSummaries = summaries.filter(s => s.status === 'completed');
+      const completedSummaries = summaries.filter(s => 
+        String(s.status).toLowerCase() === 'completed'
+      );
       const newVisibleCount = visibleCompletedCount + 10;
       
       setVisibleCompletedCount(newVisibleCount);
@@ -605,7 +610,7 @@ export default withAuth(function AppDashboard() {
       // Update the status of this summary in the UI
       setSummaries(prevSummaries => prevSummaries.map(s => 
         s.id === id 
-          ? { ...s, status: 'pending' }
+          ? { ...s, status: 'in_queue' }
           : s
       ));
       
@@ -621,8 +626,12 @@ export default withAuth(function AppDashboard() {
   };
 
   // Filter summaries based on status
-  const inProgressSummaries = summaries.filter(s => s.status !== 'completed' && s.status !== 'failed');
-  const completedSummaries = summaries.filter(s => s.status === 'completed');
+  const inProgressSummaries = summaries.filter(s => 
+    String(s.status).toLowerCase() !== 'completed'
+  );
+  const completedSummaries = summaries.filter(s => 
+    String(s.status).toLowerCase() === 'completed'
+  );
   // Get only the visible completed summaries
   const visibleCompletedSummaries = completedSummaries.slice(0, visibleCompletedCount);
 

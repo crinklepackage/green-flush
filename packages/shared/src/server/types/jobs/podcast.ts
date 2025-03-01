@@ -1,4 +1,6 @@
 export interface PodcastJob {
+  id: string;
+  status: string;
   summaryId: string;
   podcastId: string;
   url: string;

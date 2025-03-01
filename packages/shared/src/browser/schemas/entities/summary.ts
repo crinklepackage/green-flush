@@ -3,5 +3,5 @@ export type Summary = {
     id: string
     podcastId: string
     content: string | null
-    status: 'IN_QUEUE' | 'FETCHING_TRANSCRIPT' | 'GENERATING_SUMMARY' | 'COMPLETED' | 'FAILED'
+    status: 'in_queue' | 'fetching_transcript' | 'generating_summary' | 'completed' | 'failed'
   }

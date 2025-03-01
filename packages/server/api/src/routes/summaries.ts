@@ -1,12 +1,42 @@
 // packages/server/api/src/routes/summaries.ts
 import { Router, Request, Response } from 'express'
 import { SummaryService } from '../services/summary'
-import { mapStatusToClient, ProcessingStatus } from '@wavenotes-new/shared'
+import { mapStatusToClient, ProcessingStatus, PodcastJob } from '@wavenotes-new/shared'
 import { DatabaseService } from '../lib/database'
 import { config } from '../config/environment'
 import { authMiddleware } from '../middleware/auth'
 import { DatabaseError } from '@wavenotes-new/shared'
 import { QueueService } from '../services/queue'
+
+// Define the types locally to match the database structure
+interface SummaryRecord {
+  id: string;
+  podcast_id: string;
+  status: string;
+  summary_text: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  failed_at: string | null;
+}
+
+interface DatabasePodcastRecord {
+  id: string;
+  url: string;
+  platform: 'spotify' | 'youtube';
+  youtube_url: string | null;
+  title: string;
+  show_name: string;
+  transcript: string | null;
+  has_transcript: boolean;
+  created_at: string;
+  updated_at: string;
+  thumbnail_url: string | null;
+  duration: number | null;
+  platform_specific_id: string | null;
+  created_by: string;
+}
 
 // Create router with database service injection
 export function createSummariesRouter(db: DatabaseService, queue?: QueueService): Router {
@@ -142,7 +172,7 @@ export function createSummariesRouter(db: DatabaseService, queue?: QueueService)
       console.log(`RETRY request received for summary ${summaryId} by user ${userId}`);
 
       // Get the summary to retry
-      const summary = await db.getSummary(summaryId);
+      const summary = await db.getSummary(summaryId) as SummaryRecord;
       if (!summary) {
         return res.status(404).json({ error: 'Summary not found' });
       }
@@ -161,7 +191,7 @@ export function createSummariesRouter(db: DatabaseService, queue?: QueueService)
       }
 
       // Get the podcast associated with the summary
-      const podcast = await db.getPodcast(summary.podcast_id);
+      const podcast = await db.getPodcast(summary.podcast_id) as DatabasePodcastRecord;
       if (!podcast) {
         return res.status(404).json({ error: 'Associated podcast not found' });
       }
@@ -175,12 +205,14 @@ export function createSummariesRouter(db: DatabaseService, queue?: QueueService)
       }
       
       await queue.add('PROCESS_PODCAST', {
+        id: `retry_${summaryId}_${Date.now()}`,
+        status: 'in_queue',
         summaryId,
         podcastId: summary.podcast_id,
         url: podcast.url,
         type: podcast.platform,
         userId
-      });
+      } as PodcastJob);
 
       console.log(`Summary retry successful: summaryId=${summaryId}, userId=${userId}`);
       return res.status(200).json({ message: 'Summary queued for retry' });

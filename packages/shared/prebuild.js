@@ -92,24 +92,24 @@ fs.appendFileSync(path.join(distDir, 'index.d.ts'),
 // Updated ProcessingStatus with all required values
 const processingStatusContent = {
   js: `exports.ProcessingStatus = { 
-    PROCESSING: "PROCESSING", 
-    COMPLETED: "COMPLETED", 
-    FAILED: "FAILED", 
-    PENDING: "PENDING",
-    IN_QUEUE: "IN_QUEUE",
-    FETCHING_TRANSCRIPT: "FETCHING_TRANSCRIPT",
-    GENERATING_SUMMARY: "GENERATING_SUMMARY",
-    SUMMARY_STREAMING: "SUMMARY_STREAMING"
+    PROCESSING: "processing", 
+    COMPLETED: "completed", 
+    FAILED: "failed", 
+    PENDING: "pending",
+    IN_QUEUE: "in_queue",
+    FETCHING_TRANSCRIPT: "fetching_transcript",
+    GENERATING_SUMMARY: "generating_summary",
+    SUMMARY_STREAMING: "summary_streaming"
   };`,
   dts: `export enum ProcessingStatus { 
-    PROCESSING = "PROCESSING", 
-    COMPLETED = "COMPLETED", 
-    FAILED = "FAILED", 
-    PENDING = "PENDING",
-    IN_QUEUE = "IN_QUEUE",
-    FETCHING_TRANSCRIPT = "FETCHING_TRANSCRIPT",
-    GENERATING_SUMMARY = "GENERATING_SUMMARY",
-    SUMMARY_STREAMING = "SUMMARY_STREAMING"
+    PROCESSING = "processing", 
+    COMPLETED = "completed", 
+    FAILED = "failed", 
+    PENDING = "pending",
+    IN_QUEUE = "in_queue",
+    FETCHING_TRANSCRIPT = "fetching_transcript",
+    GENERATING_SUMMARY = "generating_summary",
+    SUMMARY_STREAMING = "summary_streaming"
   }`
 };
 

@@ -37,4 +37,13 @@ if [ $? -ne 0 ]; then
 fi
 echo "✅ Worker package built successfully!"
 
+# After building worker
+echo "📦 Building client package..."
+yarn workspace @wavenotes-new/client build
+if [ $? -ne 0 ]; then
+  echo "❌ Client package build failed! See errors above."
+  exit 1
+fi
+echo "✅ Client package built successfully!"
+
 echo "🎉 All packages built successfully!" 
