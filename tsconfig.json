@@ -1,24 +1,23 @@
 {
   "compilerOptions": {
-    "target": "es2020",
+    "target": "ES2020",
     "module": "commonjs",
-    "lib": ["es2020"],
+    "moduleResolution": "node",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@wavenotes-new/*": ["packages/*/dist", "packages/*/src"]
-    }
+      "@wavenotes-new/shared": ["./packages/shared/src", "./packages/shared/dist"],
+      "@wavenotes-new/api/*": ["./packages/server/api/src/*", "./packages/server/api/dist/*"],
+      "@wavenotes-new/worker/*": ["./packages/server/worker/src/*", "./packages/server/worker/dist/*"]
+    },
+    "composite": true,
+    "declaration": true,
+    "outDir": "dist-root"
   },
-  "exclude": ["node_modules", "dist"],
+  "exclude": ["node_modules", "dist", "dist-root"],
   "references": [
     { "path": "packages/shared" },
     { "path": "packages/server/api" },

@@ -27,4 +27,4 @@ export type { Database, Json, SummaryRecord } from './metadata';
  * but does not include the status field used in the entity representation.
  * Use this type when working with direct database operations.
  */
-export type { DatabasePodcastRecord } from './database';
+export { DatabasePodcastRecord } from './database';

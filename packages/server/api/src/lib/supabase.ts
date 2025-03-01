@@ -3,7 +3,13 @@ import { createClient } from '@supabase/supabase-js'
 import { Database } from '../../../../shared/src'
 import { config } from '../config/environment'
 
+// Create Supabase client
 export const supabase = createClient<Database>(
   config.SUPABASE_URL,
-  config.SUPABASE_SERVICE_ROLE_KEY
+  config.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      persistSession: false
+    }
+  }
 )

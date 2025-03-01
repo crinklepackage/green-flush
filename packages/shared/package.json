@@ -4,10 +4,23 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./server/*": {
+      "types": "./dist/server/*.d.ts",
+      "require": "./dist/server/*.js",
+      "default": "./dist/server/*.js"
+    }
+  },
   "scripts": {
-    "build": "rm -rf dist && tsc --outDir ./dist",
+    "build": "rm -rf dist && tsc --outDir ./dist && node prebuild.js",
     "dev": "tsc --watch"
   },
   "devDependencies": {

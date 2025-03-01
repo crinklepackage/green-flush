@@ -140,7 +140,7 @@ const videoMetadataContent = {
   };`,
   dts: `export interface VideoMetadata { 
     id: string; 
-    title: string; 
+    title: string | null; 
     channel: string; 
     showName: string; 
     thumbnailUrl: string | null; 
@@ -149,13 +149,13 @@ const videoMetadataContent = {
     viewCount?: number;
   }
   export interface PlatformMetadata {
-    title: string; 
+    title: string | null;
     thumbnailUrl: string | null;
     duration: number | null;
   }
   export interface SpotifyMetadata {
     id: string;
-    title: string;
+    title: string | null;
     showName: string;
     thumbnailUrl: string | null;
     duration: number | null;
@@ -203,9 +203,10 @@ const errorContent = {
     }
   };
   exports.PlatformError = class PlatformError extends Error {
-    constructor(details) {
-      super(details.message);
+    constructor(message, platform, details) {
+      super(message);
       this.name = "PlatformError";
+      this.platform = platform;
       this.details = details;
     }
   };`,
@@ -219,18 +220,9 @@ const errorContent = {
     constructor(message: string);
   }
   export class PlatformError extends Error {
-    constructor(details: {
-      platform: 'youtube' | 'spotify';
-      code: string;
-      message: string;
-      context: Record<string, any>;
-    });
-    details: {
-      platform: 'youtube' | 'spotify';
-      code: string;
-      message: string;
-      context: Record<string, any>;
-    };
+    constructor(message: string, platform: string, details?: any);
+    platform: string;
+    details: any;
   }`
 };
 
@@ -266,76 +258,26 @@ declare namespace z {
 // Updated feedback params with additional properties
 const feedbackTypesContent = {
   js: `exports.FeedbackRecord = {}; 
-  exports.FeedbackType = { 
-    GENERAL: "general",
-    BUG: "bug",
-    FEATURE_REQUEST: "feature_request",
-    SUMMARY_QUALITY: "summary_quality",
-    SUMMARY_RETRY_LIMIT: "summary_retry_limit"
-  }; 
-  exports.FeedbackStatus = { 
-    NEW: "new",
-    REVIEWED: "reviewed",
-    IMPLEMENTED: "implemented",
-    CLOSED: "closed"
-  }; 
-  exports.CreateFeedbackParams = { 
-    user_id: "",
-    feedback_type: "",
-    feedback_text: "",
-    summary_id: "",
-    podcast_id: "",
-    page_url: "",
-    browser_info: {},
-    tags: []
-  }; 
-  exports.UpdateFeedbackParams = { 
-    status: "",
-    admin_notes: "",
-    priority: 0,
-    tags: []
-  };`,
+  exports.FeedbackType = { ISSUE: "ISSUE", FEATURE: "FEATURE", OTHER: "OTHER" }; 
+  exports.FeedbackStatus = { OPEN: "OPEN", CLOSED: "CLOSED", IN_PROGRESS: "IN_PROGRESS" }; 
+  exports.CreateFeedbackParams = { user_id: "", type: "", message: "" }; 
+  exports.UpdateFeedbackParams = { admin_notes: "", status: "", priority: "" };`,
   dts: `export interface FeedbackRecord { 
-    id: string;
-    user_id: string;
-    feedback_type: FeedbackType;
-    feedback_text: string;
-    submitted_at: string;
-    summary_id?: string | null;
-    podcast_id?: string | null;
-    page_url?: string | null;
-    browser_info?: Record<string, any> | null;
-    status: FeedbackStatus;
-    admin_notes?: string | null;
-    priority: number;
-    tags?: string[] | null;
+    id: string; 
+    type: string; 
+    status: string; 
   }; 
-  export type FeedbackType = 
-    | 'general'
-    | 'bug' 
-    | 'feature_request'
-    | 'summary_quality'
-    | 'summary_retry_limit';
-  export type FeedbackStatus = 
-    | 'new'
-    | 'reviewed'
-    | 'implemented'
-    | 'closed';
+  export type FeedbackType = "ISSUE" | "FEATURE" | "OTHER"; 
+  export type FeedbackStatus = "OPEN" | "CLOSED" | "IN_PROGRESS"; 
   export interface CreateFeedbackParams { 
-    user_id: string;
-    feedback_type: FeedbackType;
-    feedback_text: string;
-    summary_id?: string;
-    podcast_id?: string;
-    page_url?: string;
-    browser_info?: Record<string, any>;
-    tags?: string[];
+    type: FeedbackType; 
+    message: string; 
+    user_id?: string;
   }; 
   export interface UpdateFeedbackParams { 
-    status?: FeedbackStatus;
+    status?: FeedbackStatus; 
     admin_notes?: string;
-    priority?: number;
-    tags?: string[];
+    priority?: string;
   };`
 };
 
@@ -381,107 +323,12 @@ const specificFiles = [
   { path: 'server/errors/errors.d.ts', content: 'export class ValidationError extends Error {}; export class PlatformError extends Error {};' },
   { path: 'server/schemas/zod.js', content: zodTypeContent.js },
   { path: 'server/schemas/zod.d.ts', content: zodTypeContent.dts },
-  { path: 'utils/url-utils.js', content: `exports.extractYouTubeVideoId = (url) => { 
-    try {
-      // Extract video ID from YouTube URL
-      const urlObj = new URL(url);
-      if (urlObj.hostname === "youtu.be") {
-        return urlObj.pathname.slice(1);
-      }
-      if (urlObj.hostname.includes("youtube.com")) {
-        if (urlObj.pathname.startsWith("/shorts/")) {
-          return urlObj.pathname.split("/")[2];
-        }
-        const videoId = urlObj.searchParams.get("v");
-        if (videoId) return videoId;
-        if (urlObj.pathname.startsWith("/embed/") || urlObj.pathname.startsWith("/v/")) {
-          return urlObj.pathname.split("/")[2];
-        }
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }; 
-  exports.isYouTubeUrl = (url) => extractYouTubeVideoId(url) !== null; 
-  exports.buildYouTubeUrl = (id) => \`https://www.youtube.com/watch?v=\${id}\`;` },
-  { path: 'utils/url-utils.d.ts', content: 'export function extractYouTubeVideoId(url: string): string | null; export function isYouTubeUrl(url: string): boolean; export function buildYouTubeUrl(id: string): string;' },
+  { path: 'utils/url-utils.js', content: 'exports.extractYouTubeVideoId = () => ""; exports.isYouTubeUrl = () => false; exports.buildYouTubeUrl = () => "";' },
+  { path: 'utils/url-utils.d.ts', content: 'export function extractYouTubeVideoId(url: string): string; export function isYouTubeUrl(url: string): boolean; export function buildYouTubeUrl(id: string): string;' },
   { path: 'server/constants/summary.js', content: summaryConstants.js },
   { path: 'server/constants/summary.d.ts', content: summaryConstants.dts },
-  { path: 'common/prompts/claude-prompts.js', content: `exports.CLAUDE_PROMPTS = {
-    MODELS: {
-      DEFAULT: 'claude-3-7-sonnet-20250219',
-      HAIKU: 'claude-3-haiku-20240307',
-      SONNET: 'claude-3-7-sonnet-20250219',
-      OPUS: 'claude-3-opus-20240229'
-    },
-    TOKEN_LIMITS: {
-      SUMMARY_STREAMING: 4096,
-      SUMMARY_GENERATOR: 4096,
-      DEFAULT: 4000
-    },
-    PODCAST_SUMMARY: {
-      SYSTEM: '',
-      USER_TEMPLATE: ''
-    }
-  };` },
-  { path: 'common/prompts/claude-prompts.d.ts', content: `export const CLAUDE_PROMPTS: {
-    MODELS: {
-      DEFAULT: string;
-      HAIKU: string;
-      SONNET: string;
-      OPUS: string;
-    };
-    TOKEN_LIMITS: {
-      SUMMARY_STREAMING: number;
-      SUMMARY_GENERATOR: number;
-      DEFAULT: number;
-    };
-    PODCAST_SUMMARY: {
-      SYSTEM: string;
-      USER_TEMPLATE: string;
-    };
-  };` },
-  { path: 'server/types/transcript.js', content: `exports.TranscriptSource = {
-    SUPADATA: "supadata",
-    YOUTUBE_TRANSCRIPT: "youtube-transcript",
-    YOUTUBE_API: "YouTube API"
-  };
-
-  exports.TranscriptResult = {
-    text: "",
-    available: false,
-    source: ""
-  };
-
-  exports.TranscriptError = class TranscriptError extends Error {
-    constructor(message, code, context, cause) {
-      super(message);
-      this.code = code;
-      this.context = context;
-      if (cause) {
-        this.cause = cause;
-      }
-      Object.setPrototypeOf(this, TranscriptError.prototype);
-    }
-  };` },
-  { path: 'server/types/transcript.d.ts', content: `export enum TranscriptSource {
-    SUPADATA = "supadata",
-    YOUTUBE_TRANSCRIPT = "youtube-transcript",
-    YOUTUBE_API = "YouTube API"
-  }
-
-  export interface TranscriptResult {
-    text: string;
-    available: boolean;
-    source: TranscriptSource;
-  }
-
-  export class TranscriptError extends Error {
-    code: string;
-    context: any;
-    constructor(message: string, code: string, context: any, cause?: Error);
-  }` }
+  { path: 'common/prompts/claude-prompts.js', content: 'exports.CLAUDE_PROMPTS = {};' },
+  { path: 'common/prompts/claude-prompts.d.ts', content: 'export const CLAUDE_PROMPTS: Record<string, string>;' }
 ];
 
 specificFiles.forEach(file => {
@@ -556,11 +403,6 @@ exports.errors = errors;
 
 // Make sure DatabaseError is directly exported
 exports.DatabaseError = errors.DatabaseError;
-
-// Add these lines
-Object.defineProperty(exports, "TranscriptSource", { enumerable: true, get: function () { return require("./server/types/transcript").TranscriptSource; } });
-Object.defineProperty(exports, "TranscriptResult", { enumerable: true, get: function () { return require("./server/types/transcript").TranscriptResult; } });
-Object.defineProperty(exports, "TranscriptError", { enumerable: true, get: function () { return require("./server/types/transcript").TranscriptError; } });
 `;
 
 const indexDtsContent = `
@@ -594,9 +436,6 @@ export * as errors from './server/errors';
 // Direct error exports
 export { DatabaseError } from './server/errors';
 export { ValidationError } from './server/errors/errors';
-
-// Add these lines
-export { TranscriptSource, TranscriptResult, TranscriptError } from './server/types/transcript';
 `;
 
 // Create an empty index.js and index.d.ts files if they don't exist  

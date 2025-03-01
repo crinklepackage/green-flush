@@ -1,4 +1,22 @@
 // packages/server/api/src/index.ts
+
+// Simple Redis hostname fix - must be before any imports
+if (process.env.REDIS_URL && process.env.REDIS_URL.includes('redis.railway.internal')) {
+  process.env.REDIS_URL = process.env.REDIS_URL.replace('redis.railway.internal', 'roundhouse.proxy.rlwy.net');
+  console.log('Fixed Redis URL to use public endpoint');
+}
+
+// Also fix individual host variables that might be used directly
+if (process.env.REDISHOST === 'redis.railway.internal') {
+  process.env.REDISHOST = 'roundhouse.proxy.rlwy.net';
+  console.log('Fixed REDISHOST to use public endpoint');
+}
+
+if (process.env.REDIS_HOST === 'redis.railway.internal') {
+  process.env.REDIS_HOST = 'roundhouse.proxy.rlwy.net';
+  console.log('Fixed REDIS_HOST to use public endpoint');
+}
+
 import { Router } from 'express';
 import { existsSync } from 'fs';
 import path from 'path';
@@ -28,13 +46,26 @@ import { supabase } from './lib/supabase';
 import adminRouter from './routes/admin';
 import { validateStatusMiddleware } from './middleware/validate-status';
 import { checkStalledSummaries } from './services/timeout-service';
+import { healthRouter } from './routes/health';
 
 export const db = new DatabaseService(supabase)
 export { DatabaseService }
 
 async function main() {
+  // Log some important environment variables for debugging
+  console.log('==== ENVIRONMENT INFO ====');
+  console.log({
+    NODE_ENV: process.env.NODE_ENV,
+    RAILWAY_ENVIRONMENT: process.env.RAILWAY_ENVIRONMENT,
+    PORT: config.PORT
+  });
+  
   const db = new DatabaseService(supabase)
-  const queue = new QueueService(config.REDIS_URL)
+  
+  // Initialize the queue service using our centralized Redis configuration
+  console.log('Creating QueueService with centralized Redis configuration');
+  const queue = new QueueService();
+  
   const api = new ApiService(db, queue)
   
   // Create routers
@@ -52,6 +83,7 @@ async function main() {
   rootRouter.use('/summaries', summariesRouter);
   rootRouter.use('/feedback', feedbackRouter);
   rootRouter.use('/admin', adminRouter);
+  rootRouter.use('/health', healthRouter);
   
   // Start API with the root router
   await api.start(Number(config.PORT), rootRouter)

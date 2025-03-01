@@ -2,8 +2,8 @@
     "extends": "../../../tsconfig.json",
     "compilerOptions": {
       "target": "es2020",
-      "module": "Node16",
-      "moduleResolution": "node16",
+      "module": "commonjs",
+      "moduleResolution": "node",
       "strict": true,
       "esModuleInterop": true,
       "skipLibCheck": true,
@@ -11,15 +11,18 @@
       "types": ["node"],
       "baseUrl": ".",
       "paths": {
-        "@wavenotes-new/shared": ["../../shared/src"],
-        "@wavenotes-new/api/*": ["../api/src/*"]
+        "@wavenotes-new/shared": ["../../shared/src", "../../shared/dist"],
+        "@wavenotes-new/api/*": ["../api/src/*", "../api/dist/*"]
       },
-      "composite": true
+      "composite": true,
+      "declaration": true,
+      "declarationMap": true,
+      "sourceMap": true
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules", "dist"],
     "references": [
       { "path": "../../shared" },
-      { "path": "../api/tsconfig.json" }
+      { "path": "../api" }
     ]
   } 
