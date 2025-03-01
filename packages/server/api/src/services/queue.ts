@@ -13,9 +13,22 @@ export class QueueService {
   private queueService: QueueServiceInterface
 
   constructor(redisUrl?: string) {
-    console.log('Initializing QueueService with centralized Redis configuration');
+    console.log('Creating QueueService with centralized Redis configuration');
+    
     // Use either the provided URL or our centralized configuration
-    const config = redisUrl ? { url: redisUrl, family: 0 } : createRedisConfig();
+    let config;
+    if (redisUrl) {
+      console.log('Using provided Redis URL with family: 0 for dual-stack resolution');
+      config = { 
+        url: redisUrl, 
+        family: 0, // Critical: Enable dual-stack IPv4/IPv6 lookup
+        tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production'
+      };
+    } else {
+      console.log('Using centralized Redis configuration from environment');
+      config = createRedisConfig();
+    }
+    
     this.queueService = createQueueService('podcast', config);
   }
 
