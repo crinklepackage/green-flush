@@ -54,7 +54,7 @@ export function createRedisConfig(): RedisConnectionConfig {
   
   // Common configuration options for all environments
   const commonOptions = {
-    family: 0, // Critical: Enable dual-stack IPv4/IPv6 lookup for all environments
+    family: 0, // CRITICAL: Enable dual-stack IPv4/IPv6 lookup for all environments
     connectTimeout: 10000, // Match the working implementation's value for connection timeout
     maxRetriesPerRequest: null, // BullMQ requires this to be null, not a number
     enableAutoPipelining: true,
@@ -107,11 +107,19 @@ export function createRedisConfig(): RedisConnectionConfig {
     }
     
     console.log(`Using Redis URL with family: 0 for dual-stack resolution`);
-    return {
+    
+    // CRITICAL FIX: Create a config object with family:0 explicitly set
+    const config = {
       url: redisUrl,
       tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production',
+      family: 0, // CRITICAL: Explicitly set family to 0 for Railway DNS resolution
       ...commonOptions
     };
+    
+    // Log family setting to confirm it's set to 0
+    console.log(`CRITICAL: Final family setting for Redis URL config: ${config.family} (should be 0)`);
+    
+    return config;
   }
   
   // Second priority: Use individual connection parameters
@@ -127,24 +135,39 @@ export function createRedisConfig(): RedisConnectionConfig {
     
     console.log(`Using direct Redis connection to ${host}:${port} with family: 0 for dual-stack resolution`);
     
-    return {
+    // CRITICAL FIX: Create a config object with family:0 explicitly set
+    const config = {
       host,
       port,
       username: process.env.REDIS_USERNAME || process.env.REDISUSER || undefined,
       password: process.env.REDIS_PASSWORD || process.env.REDISPASSWORD || undefined,
       tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production',
       db: process.env.REDIS_DB ? parseInt(process.env.REDIS_DB, 10) : 0,
+      family: 0, // CRITICAL: Explicitly set family to 0 for Railway DNS resolution
       ...commonOptions
     };
+    
+    // Log family setting to confirm it's set to 0
+    console.log(`CRITICAL: Final family setting for direct host config: ${config.family} (should be 0)`);
+    
+    return config;
   }
   
   // Fallback for local development
   console.warn('No Redis configuration found in environment, using localhost:6379');
-  return {
+  
+  // CRITICAL FIX: Create a config object with family:0 explicitly set
+  const config = {
     host: 'localhost',
     port: 6379,
+    family: 0, // CRITICAL: Explicitly set family to 0 for compatibility
     ...commonOptions
   };
+  
+  // Log family setting to confirm it's set to 0
+  console.log(`CRITICAL: Final family setting for fallback config: ${config.family} (should be 0)`);
+  
+  return config;
 }
 
 /**

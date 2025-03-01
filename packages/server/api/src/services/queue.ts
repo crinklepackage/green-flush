@@ -23,15 +23,39 @@ export class QueueService {
         console.log('Using provided Redis URL with family: 0 for dual-stack resolution');
         config = { 
           url: redisUrl, 
-          family: 0, // Critical: Enable dual-stack IPv4/IPv6 lookup
+          family: 0, // CRITICAL: Enable dual-stack IPv4/IPv6 lookup for Railway DNS resolution
           tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production'
         };
+        console.log(`CRITICAL: Explicitly setting family:0 for provided Redis URL`);
       } else {
         console.log('Using centralized Redis configuration from environment');
         config = createRedisConfig();
+        
+        // CRITICAL: Explicitly ensure family is set to 0 for Railway DNS resolution
+        // This is a defensive measure to ensure it's never overridden
+        config.family = 0;
+        console.log('CRITICAL: Explicitly setting family:0 for Redis DNS resolution in Railway');
       }
       
+      // CRITICAL VERIFICATION: Final check to ensure family is always 0
+      if (config.family !== 0) {
+        console.error('ERROR: family is not set to 0, forcing it now');
+        config.family = 0;
+      }
+      
+      // Log the configuration for debugging
+      console.log('CRITICAL - Redis configuration check:', {
+        hasUrl: !!config.url,
+        family: config.family, // Should be 0
+        tls: config.tls
+      });
+      
       this.queueService = createQueueService('podcast', config);
+      
+      // After creating the service, let's log Redis connection info
+      console.log('AFTER CREATE: Queue service created with family setting:', {
+        family: config.family, // Should still be 0
+      });
       
       // Set a timeout to check if Redis connected successfully
       setTimeout(() => {

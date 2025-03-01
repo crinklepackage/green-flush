@@ -74,12 +74,22 @@ export class BullMQQueueService implements QueueServiceInterface {
             type: 'exponential',
             delay: 1000
           }
+        },
+        // CRITICAL: Force family:0 even for internal connections BullMQ might create
+        redis: {
+          family: 0, // This ensures any new connections also use family:0
+          maxRetriesPerRequest: null
         }
       });
       
       // Initialize queue events using the same shared client
       this.queueEvents = new QueueEvents(this.queueName, {
         connection: this.sharedRedisClient as any, // Force BullMQ to use our client
+        // CRITICAL: Force family:0 even for internal connections QueueEvents might create
+        redis: {
+          family: 0, // This ensures any new connections also use family:0
+          maxRetriesPerRequest: null
+        }
       });
       
       // Set up queue event listeners
@@ -199,8 +209,19 @@ export class BullMQQueueService implements QueueServiceInterface {
       enableReadyCheck: redisOptions.enableReadyCheck
     });
     
-    // Create the client
-    const client = new Redis(redisUrl, redisOptions);
+    // Create the client - explicitly pass family:0 to ensure it's applied
+    console.log(`Creating Redis client with family:0 for ${clientType}`);
+    
+    // CRITICAL FIX: Explicitly create a new options object to ensure family:0 is set
+    const finalOptions: RedisOptions = {
+      ...redisOptions,
+      family: 0 // Ensure this is explicitly set during client creation
+    };
+    
+    // Log the final family setting to confirm it's correctly set to 0
+    console.log(`FINAL Redis family setting: ${finalOptions.family} (should be 0)`);
+    
+    const client = new Redis(redisUrl, finalOptions);
     
     // Setup listeners
     this.setupRedisClientListeners(client, clientType);

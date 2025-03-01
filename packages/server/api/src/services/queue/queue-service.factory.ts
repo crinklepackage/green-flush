@@ -32,7 +32,31 @@ export class QueueServiceFactory {
       return new MockQueueService(queueName);
     }
     
-    console.log(`Creating BullMQ queue service for "${queueName}"`);
+    // CRITICAL: Ensure config has family:0 set for Railway DNS resolution
+    if (!config) {
+      console.log('CRITICAL: No Redis config provided to factory, creating with family:0');
+      config = {
+        family: 0 // Explicitly set for empty config
+      };
+    } else {
+      // Guarantee family is set to 0 for DNS resolution
+      if (config.family !== 0) {
+        console.log('CRITICAL: Forcing family:0 setting for Redis configuration in factory');
+        config.family = 0;
+      } else {
+        console.log('CRITICAL: Verified family:0 is already set correctly in factory');
+      }
+    }
+    
+    // Final check to ensure it's set
+    if (config.family !== 0) {
+      console.error('ERROR: family is still not 0 after attempts to set it. Forcing again.');
+      config.family = 0;
+    }
+    
+    // Log the final configuration for debugging
+    console.log(`FACTORY FINAL CONFIG: Creating BullMQ queue service for "${queueName}" with family=${config.family}`);
+    
     return new BullMQQueueService(queueName, config);
   }
 }
