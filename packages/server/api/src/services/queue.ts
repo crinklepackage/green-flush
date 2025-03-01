@@ -13,10 +13,15 @@ export class QueueService {
   private queueService: QueueServiceInterface
 
   constructor(redisUrl?: string) {
-    const config = redisUrl ? { url: redisUrl } : createRedisConfig()
-    
-    // Create the queue service with our standard configuration
-    this.queueService = createQueueService('podcast', config)
+    // In Railway environments, always use individual parameters to avoid
+    // the problematic redis.railway.internal hostname
+    if (process.env.RAILWAY_ENVIRONMENT === 'production') {
+      console.log('QueueService: Railway environment detected, using direct connection parameters only');
+      this.queueService = createQueueService('podcast', createRedisConfig(), { forceReal: true });
+    } else {
+      const config = redisUrl ? { url: redisUrl } : createRedisConfig();
+      this.queueService = createQueueService('podcast', config);
+    }
   }
 
   /**

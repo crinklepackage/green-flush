@@ -21,7 +21,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3001),
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string(),
-  REDIS_URL: z.string().url(),
+  REDIS_URL: z.string().url().optional(),
   YOUTUBE_API_KEY: z.string(),
   SPOTIFY_CLIENT_ID: z.string(),
   SPOTIFY_CLIENT_SECRET: z.string(),
