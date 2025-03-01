@@ -2,7 +2,7 @@ import { Queue, QueueEvents, QueueOptions, QueueEventsOptions } from 'bullmq';
 import { QueueServiceInterface, JobOptions, Job } from './queue-service.interface';
 import { RedisConnectionConfig, createRedisConfig, getRedisConnectionString } from '../../config/redis-config';
 // Import IORedis directly to have more control over client creation
-import Redis, { RedisOptions, ClusterOptions } from 'ioredis';
+import Redis, { RedisOptions } from 'ioredis';
 
 // BullMQ expects Redis.Redis type for createClient, so extend QueueOptions
 interface EnhancedQueueOptions extends QueueOptions {
@@ -51,78 +51,68 @@ export class BullMQQueueService implements QueueServiceInterface {
       console.log(`Initializing queue "${this.queueName}" with connection:`, 
                  getRedisConnectionString(this.connectionConfig));
       
-      // Parse URL if available, exactly as recommended by Railway
-      let redisOptions: EnhancedRedisOptions = {
-        maxRetriesPerRequest: null, // BullMQ requires this to be null
-        connectTimeout: this.connectionConfig.connectTimeout,
-        enableAutoPipelining: this.connectionConfig.enableAutoPipelining,
-        enableReadyCheck: this.connectionConfig.enableReadyCheck,
-        retryStrategy: this.connectionConfig.retryStrategy,
-        family: 0, // Critical: Always set family to 0 
+      // Simplified approach based on the working implementation
+      // Let IORedis handle the URL parsing internally
+      const options: EnhancedRedisOptions = {
+        // Critical: Enable dual-stack IPv4/IPv6 lookup for all environments 
+        family: 0,
+        
+        // Match the working implementation's value for connection timeout
+        connectTimeout: 10000,
+        
+        // BullMQ requires this to be null, not a number
+        maxRetriesPerRequest: null,
+        
+        // Reliability options
+        enableAutoPipelining: true,
+        enableReadyCheck: true,
+        
+        // Use the retry strategy from the working implementation
+        retryStrategy: (times: number) => {
+          const delay = Math.min(times * 50, 2000);
+          console.log(`Redis reconnect attempt ${times} with delay ${delay}ms`);
+          return delay;
+        }
       };
       
-      if (this.connectionConfig.url) {
-        console.log('Parsing Redis URL into individual components as recommended by Railway');
-        try {
-          const redisURL = new URL(this.connectionConfig.url);
-          redisOptions = {
-            ...redisOptions,
-            host: redisURL.hostname,
-            port: parseInt(redisURL.port, 10),
-            username: redisURL.username || undefined,
-            password: redisURL.password || undefined,
-            tls: this.connectionConfig.tls ? {} : undefined,
-          };
-          console.log('Parsed connection settings (credentials hidden):', {
-            ...redisOptions,
-            password: redisOptions.password ? '***' : undefined
-          });
-        } catch (parseError) {
-          console.error('Failed to parse Redis URL:', parseError);
-          // Use URL directly if we can't parse it
-          redisOptions.url = this.connectionConfig.url;
-        }
-      } else if (this.connectionConfig.host) {
-        // Use direct parameters if provided
-        redisOptions = {
-          ...redisOptions,
-          host: this.connectionConfig.host,
-          port: this.connectionConfig.port,
-          username: this.connectionConfig.username,
-          password: this.connectionConfig.password,
-          tls: this.connectionConfig.tls ? {} : undefined,
-        };
+      // For Railway production environment, enable TLS
+      if (process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production') {
+        options.tls = {};
       }
       
-      // Add detailed config logging in Railway environment
-      if (process.env.RAILWAY_ENVIRONMENT === 'production') {
-        console.log('BullMQ connection config details:', {
-          host: redisOptions.host,
-          port: redisOptions.port,
-          family: redisOptions.family,
-          connectTimeout: redisOptions.connectTimeout,
-          hasUsername: !!redisOptions.username,
-          hasPassword: !!redisOptions.password,
-          tls: !!redisOptions.tls,
-          maxRetriesPerRequest: redisOptions.maxRetriesPerRequest,
-          enableAutoPipelining: redisOptions.enableAutoPipelining,
-          enableReadyCheck: redisOptions.enableReadyCheck
-        });
-      }
+      // Log connection details for debugging
+      console.log('Redis connection options:', {
+        ...options,
+        family: options.family,
+        connectTimeout: options.connectTimeout,
+        tls: !!options.tls,
+        maxRetriesPerRequest: options.maxRetriesPerRequest,
+        enableAutoPipelining: options.enableAutoPipelining,
+        enableReadyCheck: options.enableReadyCheck
+      });
       
-      // Use createClient option to have full control over Redis client creation
+      // Use createClient option to have full control over client creation
+      // This directly mirrors the approach from your working implementation
       const createClient = (type: string): Redis => {
         console.log(`Creating Redis client for "${type}" in queue "${this.queueName}"`);
-        const client = new Redis(redisOptions);
+        
+        // Critical difference: Use the full REDIS_URL directly like the working implementation did
+        // Don't manually parse or manipulate the URL - let IORedis handle it with family: 0
+        const redisUrl = this.connectionConfig.url || 
+                         `redis://${this.connectionConfig.username || ''}:${this.connectionConfig.password || ''}@${this.connectionConfig.host || 'localhost'}:${this.connectionConfig.port || 6379}`;
+        
+        console.log(`Using direct URL connection approach with family: 0 (credentials hidden)`);
+        
+        const client = new Redis(redisUrl, options);
         this.setupRedisClientListeners(client, `${type}`);
         this.redisClients.push(client);
         return client;
       };
       
       // Initialize the queue with the createClient option
-      // This ensures we have control over client creation
       const queueOptions: EnhancedQueueOptions = {
-        connection: redisOptions,
+        // Using both connection and createClient since BullMQ falls back to connection if needed
+        connection: options,
         createClient,
         defaultJobOptions: {
           attempts: 3,
@@ -137,13 +127,13 @@ export class BullMQQueueService implements QueueServiceInterface {
       
       // Initialize queue events with the same createClient option
       const queueEventsOptions: EnhancedQueueEventsOptions = {
-        connection: redisOptions,
+        connection: options,
         createClient,
       };
       
       this.queueEvents = new QueueEvents(this.queueName, queueEventsOptions);
       
-      // Set up queue event listeners (separate from Redis client events)
+      // Set up queue event listeners
       this.setupQueueEventListeners();
       
       this.connecting = false;

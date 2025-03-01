@@ -68,10 +68,9 @@ export function createRedisConfig(): RedisConnectionConfig {
   };
   
   // First priority: Use REDIS_URL for Railway 
-  // Let the BullMQ service handle URL parsing since BullMQ and ioredis
-  // have different connection parameter requirements
+  // *** SIMPLIFIED APPROACH: Pass the URL directly without parsing ***
   if (process.env.REDIS_URL) {
-    console.log(`Using REDIS_URL with family: 0 for dual-stack resolution (will be parsed in service)`);
+    console.log(`Using REDIS_URL with family: 0 for dual-stack resolution (direct URL approach)`);
     return {
       url: process.env.REDIS_URL,
       tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production',
