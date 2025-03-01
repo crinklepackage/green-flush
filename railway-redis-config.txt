@@ -1,0 +1,171 @@
+
+
+## Issue Description
+
+We're encountering DNS resolution errors (`ENOTFOUND redis.railway.internal`) when our services try to connect to Redis using the internal hostname provided by Railway.
+
+## Environment Setup
+- **Services**: wavenotes-api, wavenotes-worker
+- **Redis Service**: Linked to both services with environment variables
+- **Error**: `getaddrinfo ENOTFOUND redis.railway.internal`
+
+## Code Snippets
+
+### 1. Redis Configuration (packages/server/api/src/config/redis-config.ts)
+
+```typescript
+export function createRedisConfig(): RedisConnectionConfig {
+  // Debug: Log all Redis-related environment variables
+  console.log('==== REDIS ENVIRONMENT VARIABLES ====');
+  console.log(JSON.stringify({
+    REDIS_URL: process.env.REDIS_URL,
+    REDIS_HOST: process.env.REDIS_HOST,
+    REDISHOST: process.env.REDISHOST,
+    REDIS_PORT: process.env.REDIS_PORT,
+    REDISPORT: process.env.REDISPORT,
+    HAS_REDIS_PASSWORD: !!process.env.REDIS_PASSWORD,
+    HAS_REDISPASSWORD: !!process.env.REDISPASSWORD,
+    HAS_REDIS_USERNAME: !!process.env.REDIS_USERNAME,
+    HAS_REDISUSER: !!process.env.REDISUSER,
+    NODE_ENV: process.env.NODE_ENV,
+    RAILWAY_ENVIRONMENT: process.env.RAILWAY_ENVIRONMENT,
+    RAILWAY_PUBLIC_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN
+  }, null, 2));
+  
+  // First priority: Use REDIS_URL for Railway 
+  if (process.env.REDIS_URL) {
+    let redisUrl = process.env.REDIS_URL;
+    
+    // Attempt to handle internal hostname resolution failure
+    if (redisUrl.includes('redis.railway.internal')) {
+      try {
+        // Parse the URL
+        const parsedUrl = new URL(redisUrl);
+        
+        // Replace the hostname with Railway's public endpoint if needed
+        // We keep everything else the same (auth, port, etc.)
+        const publicHost = 'roundhouse.proxy.rlwy.net';
+        const publicPort = process.env.REDIS_PUBLIC_PORT ? parseInt(process.env.REDIS_PUBLIC_PORT, 10) : 30105;
+        
+        console.log(`Replacing internal hostname with public endpoint: ${publicHost}:${publicPort}`);
+        
+        // Create a new URL with the public endpoint
+        parsedUrl.hostname = publicHost;
+        parsedUrl.port = publicPort.toString();
+        
+        // Use the modified URL
+        redisUrl = parsedUrl.toString();
+      } catch (e) {
+        console.error('Failed to replace internal hostname, using original URL:', e);
+      }
+    }
+    
+    return {
+      url: redisUrl,
+      tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production',
+      family: 0, // Enable dual-stack IPv4/IPv6 lookup
+      // other options...
+    };
+  }
+  
+  // Second priority: Use individual connection parameters
+  if (process.env.REDIS_HOST || process.env.REDISHOST) {
+    // configuration using individual parameters
+    // ...
+  }
+}
+```
+
+### 2. BullMQ Queue Initialization (packages/server/api/src/services/queue/bullmq-queue.service.ts)
+
+```typescript
+private createRedisClient(clientType: string): Redis {
+  // Get base URL or connection info
+  let redisUrl: string;
+  
+  // FIRST: Try to use REDIS_PUBLIC_URL if available
+  if (process.env.REDIS_PUBLIC_URL) {
+    redisUrl = process.env.REDIS_PUBLIC_URL;
+    console.log(`Using REDIS_PUBLIC_URL for ${clientType} client`);
+  } else if (this.connectionConfig.url) {
+    redisUrl = this.connectionConfig.url;
+    console.log(`Using Redis URL for ${clientType} client (credentials hidden)`);
+  } else {
+    // For component parameters, construct URL from parts
+    redisUrl = `redis://${this.connectionConfig.username || ''}:${this.connectionConfig.password || ''}@${this.connectionConfig.host || 'localhost'}:${this.connectionConfig.port || 6379}`;
+  }
+  
+  // Log host/port for debugging (sanitized)
+  try {
+    const parsedUrl = new URL(redisUrl);
+    console.log(`Redis connection details: host=${parsedUrl.hostname}, port=${parsedUrl.port}, protocol=${parsedUrl.protocol}`);
+  } catch (e) {
+    console.warn(`Could not parse Redis URL for logging: ${e}`);
+  }
+  
+  // Standardized options for all Redis clients
+  const redisOptions: RedisOptions = {
+    family: 0, // Critical for dual-stack IPv4/IPv6 lookup
+    connectTimeout: 30000, // 30 seconds
+    maxRetriesPerRequest: null, // Required by BullMQ
+    enableAutoPipelining: true,
+    enableReadyCheck: true,
+    // TLS configuration for production
+    // ...
+  };
+  
+  // Create the client
+  const client = new Redis(redisUrl, redisOptions);
+  
+  return client;
+}
+```
+
+### 3. Error Handling and Specific Error Detection
+
+```typescript
+// From bullmq-queue.service.ts - Error event handler
+this.sharedRedisClient.on('error', (error: Error) => {
+  console.error(`Main Redis client error:`, error);
+  if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+    // Handle connection errors - very important: log connection details
+    console.error(`Connection failed with: ${getRedisConnectionString(this.connectionConfig)}`);
+    
+    // If connection failed because of hostname resolution issues, try to reconnect with public endpoint
+    if (error.message.includes('ENOTFOUND redis.railway.internal')) {
+      console.log('Hostname resolution failed for redis.railway.internal - ensure Railway services are properly linked');
+    }
+  }
+});
+```
+
+### 4. Error from Logs
+
+```
+Error: getaddrinfo ENOTFOUND redis.railway.internal
+    at GetAddrInfoReqWrap.onlookup [as oncomplete] (node:dns:107:26) {
+  errno: -3007,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: 'redis.railway.internal'
+}
+```
+
+## Environment Variables (from Railway project)
+
+```
+REDIS_URL: redis://default:prGvBnUlFmPlzSkKMynFnIXVtDErEhuM@redis.railway.internal:6379
+REDISHOST: redis.railway.internal
+REDISPASSWORD: prGvBnUlFmPlzSkKMynFnIXVtDErEhuM
+REDISPORT: 6379
+REDISUSER: default
+```
+
+## Troubleshooting Already Attempted
+
+1. Verified that Redis services are properly linked in Railway (showing environment variables are being passed).
+2. Confirmed that the `REDIS_URL` and individual environment variables are correctly set.
+3. Our code attempts to replace `redis.railway.internal` with the public endpoint, but this doesn't resolve the issue.
+4. Restarted the services multiple times without resolution.
+
+Any assistance in resolving this DNS resolution issue would be greatly appreciated. 
