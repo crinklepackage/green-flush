@@ -26,6 +26,7 @@ export interface RedisConnectionConfig {
   maxRetriesPerRequest?: number;
   enableAutoPipelining?: boolean;
   enableReadyCheck?: boolean;
+  connectTimeout?: number;
   retryStrategy?: (times: number) => number | null;
 }
 
@@ -54,11 +55,13 @@ export function createRedisConfig(): RedisConnectionConfig {
   // Common configuration options for all environments
   const commonOptions = {
     family: 0, // Critical: Enable dual-stack IPv4/IPv6 lookup for all environments
+    connectTimeout: 10000, // Match the working implementation's value for connection timeout
     maxRetriesPerRequest: 3,
     enableAutoPipelining: true,
     enableReadyCheck: true,
     retryStrategy: (times: number) => {
-      const delay = Math.min(times * 100, 3000);
+      // More closely match the working implementation's retry strategy
+      const delay = Math.min(times * 50, 2000);
       console.log(`Redis reconnect attempt ${times} with delay ${delay}ms`);
       return delay;
     }

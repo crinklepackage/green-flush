@@ -1,6 +1,8 @@
-import { Queue, QueueEvents } from 'bullmq';
+import { Queue, QueueEvents, QueueOptions, QueueEventsOptions } from 'bullmq';
 import { QueueServiceInterface, JobOptions, Job } from './queue-service.interface';
 import { RedisConnectionConfig, createRedisConfig, getRedisConnectionString } from '../../config/redis-config';
+// Import IORedis directly to have more control over client creation
+import Redis, { RedisOptions } from 'ioredis';
 
 /**
  * BullMQ implementation of the QueueServiceInterface
@@ -14,6 +16,7 @@ export class BullMQQueueService implements QueueServiceInterface {
   private connected = false;
   private connecting = false;
   private connectionConfig: RedisConnectionConfig;
+  private redisClients: Redis[] = []; // Track Redis clients for proper cleanup
   
   constructor(
     private readonly queueName: string,
@@ -40,6 +43,7 @@ export class BullMQQueueService implements QueueServiceInterface {
           port: this.connectionConfig.port,
           url: this.connectionConfig.url,
           family: this.connectionConfig.family,
+          connectTimeout: this.connectionConfig.connectTimeout,
           hasUsername: !!this.connectionConfig.username,
           hasPassword: !!this.connectionConfig.password,
           tls: this.connectionConfig.tls,
@@ -49,9 +53,50 @@ export class BullMQQueueService implements QueueServiceInterface {
         });
       }
       
-      // Initialize the queue
+      // Initialize the queue with a custom createClient function to have more
+      // direct control over the IORedis client creation and configuration
       this.queue = new Queue(this.queueName, {
         connection: this.connectionConfig,
+        // Override client creation to ensure all options are properly passed
+        // Using any here to bypass BullMQ's incomplete type definitions
+        // @ts-ignore - BullMQ types don't properly expose createClient, but it works
+        createClient: (type: string) => {
+          // Create Redis client with our full configuration
+          console.log(`Creating Redis client for ${type} with family: 0 and connectTimeout: ${this.connectionConfig.connectTimeout}ms`);
+          
+          let client: Redis;
+          
+          const redisOptions: RedisOptions = {
+            family: 0, // Explicitly set family: 0 for all client types
+            connectTimeout: this.connectionConfig.connectTimeout,
+            maxRetriesPerRequest: this.connectionConfig.maxRetriesPerRequest,
+            enableAutoPipelining: this.connectionConfig.enableAutoPipelining,
+            enableReadyCheck: this.connectionConfig.enableReadyCheck,
+            retryStrategy: this.connectionConfig.retryStrategy,
+            tls: this.connectionConfig.tls === true ? {} : undefined,
+          };
+          
+          if (this.connectionConfig.url) {
+            client = new Redis(this.connectionConfig.url, redisOptions);
+          } else {
+            client = new Redis({
+              host: this.connectionConfig.host || 'localhost',
+              port: this.connectionConfig.port || 6379,
+              username: this.connectionConfig.username,
+              password: this.connectionConfig.password,
+              db: this.connectionConfig.db,
+              ...redisOptions
+            });
+          }
+          
+          // Set up client event handlers
+          this.setupRedisClientListeners(client, type);
+          
+          // Track this client for proper cleanup later
+          this.redisClients.push(client);
+          
+          return client;
+        },
         defaultJobOptions: {
           attempts: 3,
           backoff: {
@@ -59,15 +104,52 @@ export class BullMQQueueService implements QueueServiceInterface {
             delay: 1000
           }
         }
-      });
+      } as QueueOptions);
       
-      // Initialize queue events for monitoring
+      // Initialize queue events for monitoring using the same client creation approach
       this.queueEvents = new QueueEvents(this.queueName, {
-        connection: this.connectionConfig
-      });
+        connection: this.connectionConfig,
+        // @ts-ignore - BullMQ types don't properly expose createClient, but it works
+        createClient: (type: string) => {
+          console.log(`Creating Redis client for events ${type}`);
+          
+          const redisOptions: RedisOptions = {
+            family: 0,
+            connectTimeout: this.connectionConfig.connectTimeout,
+            maxRetriesPerRequest: this.connectionConfig.maxRetriesPerRequest,
+            enableAutoPipelining: this.connectionConfig.enableAutoPipelining,
+            enableReadyCheck: this.connectionConfig.enableReadyCheck,
+            retryStrategy: this.connectionConfig.retryStrategy,
+            tls: this.connectionConfig.tls === true ? {} : undefined,
+          };
+          
+          let client: Redis;
+          
+          if (this.connectionConfig.url) {
+            client = new Redis(this.connectionConfig.url, redisOptions);
+          } else {
+            client = new Redis({
+              host: this.connectionConfig.host || 'localhost',
+              port: this.connectionConfig.port || 6379,
+              username: this.connectionConfig.username,
+              password: this.connectionConfig.password,
+              db: this.connectionConfig.db,
+              ...redisOptions
+            });
+          }
+          
+          // Set up event handlers
+          this.setupRedisClientListeners(client, `events:${type}`);
+          
+          // Track this client for proper cleanup
+          this.redisClients.push(client);
+          
+          return client;
+        }
+      } as QueueEventsOptions);
       
-      // Set up event listeners
-      this.setupEventListeners();
+      // Set up queue event listeners
+      this.setupQueueEventListeners();
       
       this.connecting = false;
       this.connected = true;
@@ -79,7 +161,36 @@ export class BullMQQueueService implements QueueServiceInterface {
     }
   }
   
-  private setupEventListeners(): void {
+  // Setup listeners for a Redis client
+  private setupRedisClientListeners(client: Redis, clientType: string): void {
+    client.on('error', (error: Error) => {
+      console.error(`Redis client for ${clientType} error:`, error);
+      this.connected = false;
+    });
+    
+    client.on('connect', () => {
+      console.log(`Redis client for ${clientType} connected`);
+      this.connected = true;
+    });
+    
+    client.on('ready', () => {
+      console.log(`Redis client for ${clientType} ready`);
+      this.connected = true;
+    });
+    
+    client.on('reconnecting', (params: any) => {
+      console.log(`Redis client for ${clientType} reconnecting:`, params);
+      this.connected = false;
+    });
+    
+    client.on('end', () => {
+      console.log(`Redis client for ${clientType} connection closed`);
+      this.connected = false;
+    });
+  }
+  
+  // Setup queue event listeners
+  private setupQueueEventListeners(): void {
     if (!this.queue || !this.queueEvents) return;
     
     // Queue error events
@@ -87,25 +198,6 @@ export class BullMQQueueService implements QueueServiceInterface {
       console.error(`Queue "${this.queueName}" error:`, error);
       this.connected = false;
     });
-    
-    // Redis client events
-    const client = this.queue.client as unknown as { on: (event: string, listener: (...args: any[]) => void) => void };
-    if (client && typeof client.on === 'function') {
-      client.on('error', (error: Error) => {
-        console.error(`Queue "${this.queueName}" Redis client error:`, error);
-        this.connected = false;
-      });
-      
-      client.on('connect', () => {
-        console.log(`Queue "${this.queueName}" Redis client connected`);
-        this.connected = true;
-      });
-      
-      client.on('reconnecting', (params: any) => {
-        console.log(`Queue "${this.queueName}" Redis client reconnecting:`, params);
-        this.connected = false;
-      });
-    }
     
     // Queue events monitoring
     this.queueEvents.on('completed', ({ jobId }) => {
@@ -221,6 +313,16 @@ export class BullMQQueueService implements QueueServiceInterface {
       await this.queue.close();
     }
     
+    // Close all tracked Redis clients
+    for (const client of this.redisClients) {
+      try {
+        await client.quit();
+      } catch (error) {
+        console.error('Error closing Redis client:', error);
+      }
+    }
+    
+    this.redisClients = [];
     this.connected = false;
   }
 } 
