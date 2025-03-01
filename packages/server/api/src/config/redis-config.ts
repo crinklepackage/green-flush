@@ -60,19 +60,55 @@ export function createRedisConfig(): RedisConnectionConfig {
     enableAutoPipelining: true,
     enableReadyCheck: true,
     retryStrategy: (times: number) => {
+      // Add a maximum retry limit
+      const MAX_RETRY_ATTEMPTS = 15;
+      
+      // Stop retrying after reaching the maximum attempts
+      if (times > MAX_RETRY_ATTEMPTS) {
+        console.log(`Redis reached maximum retry attempts (${MAX_RETRY_ATTEMPTS}), giving up.`);
+        return null; // Return null to stop retrying
+      }
+      
       // More closely match the working implementation's retry strategy
       const delay = Math.min(times * 50, 2000);
-      console.log(`Redis reconnect attempt ${times} with delay ${delay}ms`);
+      console.log(`Redis reconnect attempt ${times}/${MAX_RETRY_ATTEMPTS} with delay ${delay}ms`);
       return delay;
     }
   };
   
   // First priority: Use REDIS_URL for Railway 
-  // *** SIMPLIFIED APPROACH: Pass the URL directly without parsing ***
   if (process.env.REDIS_URL) {
-    console.log(`Using REDIS_URL with family: 0 for dual-stack resolution (direct URL approach)`);
+    let redisUrl = process.env.REDIS_URL;
+    
+    // DIRECT FIX: Replace Railway internal hostname with public hostname if needed
+    // This is the most direct way to handle the DNS resolution failure
+    if (redisUrl.includes('redis.railway.internal')) {
+      try {
+        // Parse the URL
+        const parsedUrl = new URL(redisUrl);
+        
+        // Replace the hostname with Railway's public endpoint
+        // We keep everything else the same (auth, port, etc.)
+        const publicHost = 'roundhouse.proxy.rlwy.net';
+        const publicPort = process.env.REDIS_PUBLIC_PORT ? parseInt(process.env.REDIS_PUBLIC_PORT, 10) : 30105;
+        
+        console.log(`Replacing internal hostname with public endpoint: ${publicHost}:${publicPort}`);
+        
+        // Create a new URL with the public endpoint
+        parsedUrl.hostname = publicHost;
+        parsedUrl.port = publicPort.toString();
+        
+        // Use the modified URL
+        redisUrl = parsedUrl.toString();
+        console.log(`Modified Redis URL to use public endpoint (credentials hidden)`);
+      } catch (e) {
+        console.error('Failed to replace internal hostname, using original URL:', e);
+      }
+    }
+    
+    console.log(`Using Redis URL with family: 0 for dual-stack resolution`);
     return {
-      url: process.env.REDIS_URL,
+      url: redisUrl,
       tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production',
       ...commonOptions
     };
@@ -80,8 +116,14 @@ export function createRedisConfig(): RedisConnectionConfig {
   
   // Second priority: Use individual connection parameters
   if (process.env.REDIS_HOST || process.env.REDISHOST) {
-    const host = process.env.REDIS_HOST || process.env.REDISHOST || 'localhost';
+    let host = process.env.REDIS_HOST || process.env.REDISHOST || 'localhost';
     const port = parseInt(process.env.REDIS_PORT || process.env.REDISPORT || '6379', 10);
+    
+    // Even for direct host connection, replace railway.internal if needed
+    if (host === 'redis.railway.internal') {
+      host = 'roundhouse.proxy.rlwy.net';
+      console.log(`Replacing internal hostname with public endpoint: ${host}`);
+    }
     
     console.log(`Using direct Redis connection to ${host}:${port} with family: 0 for dual-stack resolution`);
     

@@ -51,6 +51,16 @@ export class BullMQQueueService implements QueueServiceInterface {
       console.log(`Initializing queue "${this.queueName}" with connection:`, 
                  getRedisConnectionString(this.connectionConfig));
       
+      // Add a hard timeout to prevent indefinite connection attempts
+      const connectionTimeout = setTimeout(() => {
+        if (!this.connected) {
+          console.error(`Redis connection timeout after 30 seconds for queue "${this.queueName}". Marking queue as failed but allowing application to continue.`);
+          this.connecting = false;
+          // We deliberately don't throw an error here to allow the application to start
+          // even if Redis is down - this allows the API to at least partially function
+        }
+      }, 30000); // 30 seconds
+      
       // Simplified approach based on the working implementation
       // Let IORedis handle the URL parsing internally
       const options: EnhancedRedisOptions = {
@@ -91,83 +101,14 @@ export class BullMQQueueService implements QueueServiceInterface {
         enableReadyCheck: options.enableReadyCheck
       });
       
-      // Setup fallback to public endpoint for Railway
-      let publicEndpoint = null;
-      
-      // If we're in Railway production and using redis.railway.internal, prepare a public fallback
-      if ((process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production') &&
-          this.connectionConfig.url && 
-          this.connectionConfig.url.includes('redis.railway.internal')) {
-          
-        // Try to extract the standard Railway public fallback
-        try {
-          const baseUrl = new URL(this.connectionConfig.url);
-          // Standard Railway public endpoint pattern
-          publicEndpoint = {
-            host: 'roundhouse.proxy.rlwy.net',
-            port: process.env.REDIS_PUBLIC_PORT ? parseInt(process.env.REDIS_PUBLIC_PORT, 10) : 30105, // Default Railway port or override
-            username: baseUrl.username,
-            password: baseUrl.password
-          };
-          console.log(`Found fallback public endpoint: roundhouse.proxy.rlwy.net:${publicEndpoint.port} (will use if internal fails)`);
-        } catch (e) {
-          console.error('Could not set up public fallback:', e);
-        }
-      }
-      
-      // Use createClient option to have full control over client creation
+      // Simplify client creation - URL replacement is now handled in redis-config.ts
       const createClient = (type: string): Redis => {
         console.log(`Creating Redis client for "${type}" in queue "${this.queueName}"`);
         
         let client: Redis;
         
-        // CRITICAL FIX: For Railway's internal Redis, connect using direct host/port/auth to avoid localhost fallback
-        if (this.connectionConfig.url && this.connectionConfig.url.includes('redis.railway.internal')) {
-          try {
-            // Parse URL to get auth details
-            const redisURL = new URL(this.connectionConfig.url);
-            const connectionParams = {
-              ...options,
-              host: 'redis.railway.internal',
-              port: parseInt(redisURL.port, 10) || 6379,
-              username: redisURL.username || undefined,
-              password: redisURL.password || undefined,
-              family: 0 // Explicitly set family parameter for direct connection
-            };
-            
-            console.log(`Using explicit host/port connection (directly to redis.railway.internal:${connectionParams.port})`);
-            client = new Redis(connectionParams);
-            
-            // If the direct connection fails after 5 seconds, try the public endpoint
-            setTimeout(() => {
-              if (!this.connected && publicEndpoint) {
-                console.log(`Internal connection failed, trying public endpoint: roundhouse.proxy.rlwy.net:${publicEndpoint.port}`);
-                try {
-                  const publicClient = new Redis({
-                    ...options,
-                    host: publicEndpoint.host,
-                    port: publicEndpoint.port,
-                    username: publicEndpoint.username,
-                    password: publicEndpoint.password,
-                    family: 0 // Explicitly set family parameter for public endpoint
-                  });
-                  
-                  this.setupRedisClientListeners(publicClient, `${type}-public`);
-                  this.redisClients.push(publicClient);
-                  
-                  // If the main client is still connected, we'll have two clients, but that's better than no connection
-                } catch (e) {
-                  console.error('Failed to connect to public endpoint:', e);
-                }
-              }
-            }, 5000);
-          } catch (e) {
-            console.error('Failed to parse Redis URL for direct connection:', e);
-            // Fall back to direct URL approach
-            client = new Redis(this.connectionConfig.url, options);
-          }
-        } else if (this.connectionConfig.url) {
-          // For non-Railway Redis or explicitly provided URLs, use direct URL approach
+        if (this.connectionConfig.url) {
+          // For URL-based configuration (the hostname replacement is already done in redis-config.ts)
           console.log(`Using direct URL connection approach with family: 0 (credentials hidden)`);
           client = new Redis(this.connectionConfig.url, options);
         } else {
@@ -211,6 +152,9 @@ export class BullMQQueueService implements QueueServiceInterface {
       
       this.connecting = false;
       this.connected = true;
+      
+      // Clear the timeout since we successfully connected
+      clearTimeout(connectionTimeout);
     } catch (error) {
       this.connecting = false;
       this.connected = false;
