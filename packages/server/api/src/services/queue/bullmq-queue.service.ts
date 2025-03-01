@@ -37,15 +37,13 @@ export class BullMQQueueService implements QueueServiceInterface {
       console.log(`Initializing queue "${this.queueName}" with connection:`, 
                  getRedisConnectionString(this.connectionConfig));
       
-      // Add a hard timeout to prevent indefinite connection attempts
+      // Increase timeout to 60 seconds to allow for slower network conditions
       const connectionTimeout = setTimeout(() => {
         if (!this.connected) {
-          console.error(`Redis connection timeout after 30 seconds for queue "${this.queueName}". Marking queue as failed but allowing application to continue.`);
+          console.error(`Redis connection timeout after 60 seconds for queue "${this.queueName}". Marking queue as failed but allowing application to continue.`);
           this.connecting = false;
-          // We deliberately don't throw an error here to allow the application to start
-          // even if Redis is down - this allows the API to at least partially function
         }
-      }, 30000); // 30 seconds
+      }, 60000); // 60 seconds instead of 30
       
       // *** CRITICAL CHANGE: Create a single Redis client for use across all BullMQ components ***
       this.sharedRedisClient = this.createRedisClient('shared');
@@ -107,9 +105,13 @@ export class BullMQQueueService implements QueueServiceInterface {
   private createRedisClient(clientType: string): Redis {
     // Get base URL or connection info
     let redisUrl: string;
-    if (this.connectionConfig.url) {
+    
+    // FIRST: Try to use REDIS_PUBLIC_URL if available (to bypass internal networking issues)
+    if (process.env.REDIS_PUBLIC_URL) {
+      redisUrl = process.env.REDIS_PUBLIC_URL;
+      console.log(`Using REDIS_PUBLIC_URL for ${clientType} client`);
+    } else if (this.connectionConfig.url) {
       redisUrl = this.connectionConfig.url;
-      // Connection URL-based handling is already done in redis-config.ts
       console.log(`Using Redis URL for ${clientType} client (credentials hidden)`);
     } else {
       // For component parameters, construct URL from parts
@@ -117,47 +119,87 @@ export class BullMQQueueService implements QueueServiceInterface {
       console.log(`Using constructed Redis URL for ${clientType} client (credentials hidden)`);
     }
     
+    // Log host/port for debugging (sanitized)
+    try {
+      const parsedUrl = new URL(redisUrl);
+      console.log(`Redis connection details: host=${parsedUrl.hostname}, port=${parsedUrl.port}, protocol=${parsedUrl.protocol}`);
+    } catch (e) {
+      console.warn(`Could not parse Redis URL for logging: ${e}`);
+    }
+    
     // Standardized options for all Redis clients
     const redisOptions: RedisOptions = {
       // Critical to properly handle dual-stack IPv4/IPv6 lookup
       family: 0,
-      connectTimeout: 10000,
+      // Increase timeout significantly - Railway may have network latency
+      connectTimeout: 30000, // 30 seconds (up from 10)
       // BullMQ requires this to be null, not a number
       maxRetriesPerRequest: null,
       // Reliability options
       enableAutoPipelining: true,
       enableReadyCheck: true,
-      // Retry strategy with limits
+      // Add connection/command retry
+      reconnectOnError: (err) => {
+        const targetError = err.message;
+        if (targetError.includes('ETIMEDOUT') || targetError.includes('ECONNRESET')) {
+          // Return 1 or 2 to reconnect for these errors
+          return 1;
+        }
+        return false;
+      },
+      // Retry strategy with limits but longer delays
       retryStrategy: (times: number) => {
-        const MAX_RETRY_ATTEMPTS = 15;
+        const MAX_RETRY_ATTEMPTS = 20; // Increase from 15
         
         if (times > MAX_RETRY_ATTEMPTS) {
           console.log(`Redis ${clientType} reached maximum retry attempts (${MAX_RETRY_ATTEMPTS}), giving up.`);
           return null; // Return null to stop retrying
         }
         
-        const delay = Math.min(times * 50, 2000);
+        // Increase delay to account for potential network latency
+        const delay = Math.min(times * 200, 5000); // Longer delay (up to 5 seconds)
         console.log(`Redis ${clientType} reconnect attempt ${times}/${MAX_RETRY_ATTEMPTS} with delay ${delay}ms`);
         return delay;
       }
     };
     
-    // For Railway production environment, enable TLS
+    // Handling TLS configuration - this is critical for ETIMEDOUT issues
     if (process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production') {
-      redisOptions.tls = {};
+      console.log(`Configuring TLS for Redis in production environment`);
+      
+      // CRITICAL: Relaxed TLS settings to handle Railway's certificates
+      redisOptions.tls = {
+        // Don't reject unauthorized certificates - this can help with self-signed certs
+        rejectUnauthorized: false,
+        // Explicitly set servername to match certificate
+        servername: new URL(redisUrl).hostname
+      };
+      
+      // Force TLS to be used if URL starts with rediss://
+      if (redisUrl.startsWith('rediss://')) {
+        console.log('Using secure Redis connection (rediss://)');
+      } 
+      // If it's not already secure and we're in production, try to make it secure
+      else if (redisUrl.startsWith('redis://') && (process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production')) {
+        console.log('Converting regular redis:// URL to secure rediss:// for production');
+        redisUrl = redisUrl.replace('redis://', 'rediss://');
+      }
     }
     
     // Log connection details for debugging
     console.log(`Creating Redis client for "${clientType}" with options:`, {
       family: redisOptions.family,
       connectTimeout: redisOptions.connectTimeout,
-      tls: !!redisOptions.tls,
+      tls: redisOptions.tls ? {
+        rejectUnauthorized: redisOptions.tls.rejectUnauthorized,
+        servername: redisOptions.tls.servername
+      } : null,
       maxRetriesPerRequest: redisOptions.maxRetriesPerRequest,
       enableAutoPipelining: redisOptions.enableAutoPipelining,
       enableReadyCheck: redisOptions.enableReadyCheck
     });
     
-    // Create the client (the URL replacement is already handled in redis-config.ts)
+    // Create the client
     const client = new Redis(redisUrl, redisOptions);
     
     // Setup listeners
@@ -232,6 +274,22 @@ export class BullMQQueueService implements QueueServiceInterface {
     this.queueEvents.on('error', (error: Error) => {
       console.error(`QueueEvents for "${this.queueName}" error:`, error);
     });
+
+    // After setting up other events, add additional debug info
+    if (this.sharedRedisClient) {
+      setTimeout(() => {
+        if (!this.connected) {
+          console.log('Additional connection debugging info:');
+          this.isTLSConnected(this.sharedRedisClient!);
+          
+          // Try to provide helpful Railway-specific guidance
+          console.log('For Railway deployments, please check:');
+          console.log('1. Redis service is in the same project as your service');
+          console.log('2. Services are properly linked in the Railway dashboard');
+          console.log('3. REDIS_URL environment variable is correctly set and accessible');
+        }
+      }, 10000); // After 10 seconds
+    }
   }
   
   async addJob<T>(name: string, data: T, options: JobOptions = {}): Promise<Job<T>> {
@@ -300,9 +358,33 @@ export class BullMQQueueService implements QueueServiceInterface {
     return this.connected;
   }
   
+  // Add a method to check if a TLS socket is in use
+  private isTLSConnected(client: Redis): boolean {
+    try {
+      const status = (client as any).status || 'unknown';
+      const stream = (client as any).stream;
+      const isTLS = stream && (stream.constructor.name === 'TLSSocket');
+      
+      console.log(`Redis connection status: ${status}, using TLS: ${isTLS}`);
+      return isTLS;
+    } catch (e) {
+      console.error('Error checking TLS status:', e);
+      return false;
+    }
+  }
+  
+  // Override healthCheck to include more diagnostic information
   async healthCheck(): Promise<{ status: string; details?: any }> {
     if (!this.queue) {
-      return { status: 'not_initialized' };
+      return { 
+        status: 'not_initialized',
+        details: {
+          connectorType: 'BullMQ',
+          redisUrl: getRedisConnectionString(this.connectionConfig),
+          environment: process.env.NODE_ENV || 'unknown',
+          railway: process.env.RAILWAY_ENVIRONMENT || 'not_railway'
+        }
+      };
     }
     
     try {
@@ -313,7 +395,10 @@ export class BullMQQueueService implements QueueServiceInterface {
         status: 'healthy',
         details: {
           counts,
-          connection: getRedisConnectionString(this.connectionConfig)
+          connection: getRedisConnectionString(this.connectionConfig),
+          usingTLS: this.sharedRedisClient ? this.isTLSConnected(this.sharedRedisClient) : false,
+          environment: process.env.NODE_ENV || 'unknown',
+          railway: process.env.RAILWAY_ENVIRONMENT || 'not_railway'
         }
       };
     } catch (error: any) {
@@ -322,7 +407,12 @@ export class BullMQQueueService implements QueueServiceInterface {
         details: {
           message: error.message,
           code: error.code,
-          errno: error.errno
+          errno: error.errno,
+          connected: this.connected,
+          connecting: this.connecting,
+          usingTLS: this.sharedRedisClient ? this.isTLSConnected(this.sharedRedisClient) : false,
+          environment: process.env.NODE_ENV || 'unknown',
+          railway: process.env.RAILWAY_ENVIRONMENT || 'not_railway'
         }
       };
     }
