@@ -2,7 +2,22 @@ import { Queue, QueueEvents, QueueOptions, QueueEventsOptions } from 'bullmq';
 import { QueueServiceInterface, JobOptions, Job } from './queue-service.interface';
 import { RedisConnectionConfig, createRedisConfig, getRedisConnectionString } from '../../config/redis-config';
 // Import IORedis directly to have more control over client creation
-import Redis, { RedisOptions } from 'ioredis';
+import Redis, { RedisOptions, ClusterOptions } from 'ioredis';
+
+// BullMQ expects Redis.Redis type for createClient, so extend QueueOptions
+interface EnhancedQueueOptions extends QueueOptions {
+  createClient?: (type: string) => Redis;
+}
+
+// Same for QueueEventsOptions
+interface EnhancedQueueEventsOptions extends QueueEventsOptions {
+  createClient?: (type: string) => Redis;
+}
+
+// Extend RedisOptions to include url property that IORedis supports but isn't in the type
+interface EnhancedRedisOptions extends RedisOptions {
+  url?: string;
+}
 
 /**
  * BullMQ implementation of the QueueServiceInterface
@@ -37,80 +52,78 @@ export class BullMQQueueService implements QueueServiceInterface {
                  getRedisConnectionString(this.connectionConfig));
       
       // Parse URL if available, exactly as recommended by Railway
-      let parsedConnection: Record<string, any> = {};
+      let redisOptions: EnhancedRedisOptions = {
+        maxRetriesPerRequest: null, // BullMQ requires this to be null
+        connectTimeout: this.connectionConfig.connectTimeout,
+        enableAutoPipelining: this.connectionConfig.enableAutoPipelining,
+        enableReadyCheck: this.connectionConfig.enableReadyCheck,
+        retryStrategy: this.connectionConfig.retryStrategy,
+        family: 0, // Critical: Always set family to 0 
+      };
       
       if (this.connectionConfig.url) {
         console.log('Parsing Redis URL into individual components as recommended by Railway');
         try {
           const redisURL = new URL(this.connectionConfig.url);
-          parsedConnection = {
+          redisOptions = {
+            ...redisOptions,
             host: redisURL.hostname,
             port: parseInt(redisURL.port, 10),
             username: redisURL.username || undefined,
             password: redisURL.password || undefined,
-            // Critical: Always set family to 0 for Railway
-            family: 0,
-            tls: this.connectionConfig.tls
+            tls: this.connectionConfig.tls ? {} : undefined,
           };
           console.log('Parsed connection settings (credentials hidden):', {
-            ...parsedConnection,
-            password: parsedConnection.password ? '***' : undefined
+            ...redisOptions,
+            password: redisOptions.password ? '***' : undefined
           });
         } catch (parseError) {
           console.error('Failed to parse Redis URL:', parseError);
-          // Fall back to using direct connection parameters
-          parsedConnection = {
-            ...this.connectionConfig,
-            family: 0 // Ensure family is set regardless
-          };
+          // Use URL directly if we can't parse it
+          redisOptions.url = this.connectionConfig.url;
         }
       } else if (this.connectionConfig.host) {
         // Use direct parameters if provided
-        parsedConnection = {
+        redisOptions = {
+          ...redisOptions,
           host: this.connectionConfig.host,
           port: this.connectionConfig.port,
           username: this.connectionConfig.username,
           password: this.connectionConfig.password,
-          family: 0, // Ensure family is set regardless
-          tls: this.connectionConfig.tls
-        };
-      } else {
-        console.warn('No Redis connection details available, using defaults');
-        parsedConnection = {
-          host: 'localhost',
-          port: 6379,
-          family: 0
+          tls: this.connectionConfig.tls ? {} : undefined,
         };
       }
       
       // Add detailed config logging in Railway environment
       if (process.env.RAILWAY_ENVIRONMENT === 'production') {
         console.log('BullMQ connection config details:', {
-          host: parsedConnection.host,
-          port: parsedConnection.port,
-          family: parsedConnection.family,
-          connectTimeout: this.connectionConfig.connectTimeout,
-          hasUsername: !!parsedConnection.username,
-          hasPassword: !!parsedConnection.password,
-          tls: parsedConnection.tls,
-          maxRetriesPerRequest: null, // BullMQ requires this to be null
-          enableAutoPipelining: this.connectionConfig.enableAutoPipelining,
-          enableReadyCheck: this.connectionConfig.enableReadyCheck
+          host: redisOptions.host,
+          port: redisOptions.port,
+          family: redisOptions.family,
+          connectTimeout: redisOptions.connectTimeout,
+          hasUsername: !!redisOptions.username,
+          hasPassword: !!redisOptions.password,
+          tls: !!redisOptions.tls,
+          maxRetriesPerRequest: redisOptions.maxRetriesPerRequest,
+          enableAutoPipelining: redisOptions.enableAutoPipelining,
+          enableReadyCheck: redisOptions.enableReadyCheck
         });
       }
       
-      // Initialize the queue with the parsed connection parameters
-      // This follows Railway's specific recommendations for BullMQ
-      this.queue = new Queue(this.queueName, {
-        connection: {
-          ...parsedConnection,
-          connectTimeout: this.connectionConfig.connectTimeout,
-          enableAutoPipelining: this.connectionConfig.enableAutoPipelining,
-          enableReadyCheck: this.connectionConfig.enableReadyCheck,
-          retryStrategy: this.connectionConfig.retryStrategy,
-          // BullMQ prefers null for this option
-          maxRetriesPerRequest: null,
-        },
+      // Use createClient option to have full control over Redis client creation
+      const createClient = (type: string): Redis => {
+        console.log(`Creating Redis client for "${type}" in queue "${this.queueName}"`);
+        const client = new Redis(redisOptions);
+        this.setupRedisClientListeners(client, `${type}`);
+        this.redisClients.push(client);
+        return client;
+      };
+      
+      // Initialize the queue with the createClient option
+      // This ensures we have control over client creation
+      const queueOptions: EnhancedQueueOptions = {
+        connection: redisOptions,
+        createClient,
         defaultJobOptions: {
           attempts: 3,
           backoff: {
@@ -118,36 +131,19 @@ export class BullMQQueueService implements QueueServiceInterface {
             delay: 1000
           }
         }
-      });
+      };
       
-      // Initialize queue events with the same connection configuration
-      this.queueEvents = new QueueEvents(this.queueName, {
-        connection: {
-          ...parsedConnection,
-          connectTimeout: this.connectionConfig.connectTimeout,
-          enableAutoPipelining: this.connectionConfig.enableAutoPipelining,
-          enableReadyCheck: this.connectionConfig.enableReadyCheck,
-          retryStrategy: this.connectionConfig.retryStrategy,
-          // BullMQ prefers null for this option
-          maxRetriesPerRequest: null,
-        }
-      });
+      this.queue = new Queue(this.queueName, queueOptions);
       
-      // Access the RedisClient for event handling
-      const queueClient = (this.queue as any).client;
-      const eventsClient = (this.queueEvents as any).client;
+      // Initialize queue events with the same createClient option
+      const queueEventsOptions: EnhancedQueueEventsOptions = {
+        connection: redisOptions,
+        createClient,
+      };
       
-      if (queueClient) {
-        this.setupRedisClientListeners(queueClient, 'queue');
-        this.redisClients.push(queueClient);
-      }
+      this.queueEvents = new QueueEvents(this.queueName, queueEventsOptions);
       
-      if (eventsClient) {
-        this.setupRedisClientListeners(eventsClient, 'events');
-        this.redisClients.push(eventsClient);
-      }
-      
-      // Set up queue event listeners
+      // Set up queue event listeners (separate from Redis client events)
       this.setupQueueEventListeners();
       
       this.connecting = false;
@@ -161,11 +157,13 @@ export class BullMQQueueService implements QueueServiceInterface {
   }
   
   // Setup listeners for a Redis client
-  private setupRedisClientListeners(client: any, clientType: string): void {
-    if (!client || typeof client.on !== 'function') {
-      console.warn(`Cannot attach listeners to ${clientType} Redis client`);
+  private setupRedisClientListeners(client: Redis, clientType: string): void {
+    if (!client) {
+      console.warn(`Cannot attach listeners to ${clientType} Redis client - client is null`);
       return;
     }
+    
+    console.log(`Setting up listeners for ${clientType} Redis client`);
     
     client.on('error', (error: Error) => {
       console.error(`Redis client for ${clientType} error:`, error);
@@ -182,8 +180,8 @@ export class BullMQQueueService implements QueueServiceInterface {
       this.connected = true;
     });
     
-    client.on('reconnecting', (params: any) => {
-      console.log(`Redis client for ${clientType} reconnecting:`, params);
+    client.on('reconnecting', (ms: number) => {
+      console.log(`Redis client for ${clientType} reconnecting in ${ms}ms`);
       this.connected = false;
     });
     
@@ -195,7 +193,12 @@ export class BullMQQueueService implements QueueServiceInterface {
   
   // Setup queue event listeners
   private setupQueueEventListeners(): void {
-    if (!this.queue || !this.queueEvents) return;
+    if (!this.queue || !this.queueEvents) {
+      console.warn(`Cannot set up queue event listeners for "${this.queueName}" - queue or queueEvents is null`);
+      return;
+    }
+    
+    console.log(`Setting up queue event listeners for "${this.queueName}"`);
     
     // Queue error events
     this.queue.on('error', (error: Error) => {
@@ -210,6 +213,11 @@ export class BullMQQueueService implements QueueServiceInterface {
     
     this.queueEvents.on('failed', ({ jobId, failedReason }) => {
       console.error(`Job ${jobId} failed in queue "${this.queueName}":`, failedReason);
+    });
+    
+    // These events can be useful for debugging
+    this.queueEvents.on('error', (error: Error) => {
+      console.error(`QueueEvents for "${this.queueName}" error:`, error);
     });
   }
   
@@ -309,16 +317,32 @@ export class BullMQQueueService implements QueueServiceInterface {
   
   // Cleanup resources
   async close(): Promise<void> {
-    if (this.queueEvents) {
-      await this.queueEvents.close();
-    }
+    console.log(`Closing queue "${this.queueName}" and cleaning up resources`);
     
-    if (this.queue) {
-      await this.queue.close();
+    try {
+      if (this.queueEvents) {
+        await this.queueEvents.close();
+      }
+      
+      if (this.queue) {
+        await this.queue.close();
+      }
+      
+      // Explicitly close any tracked Redis clients
+      // This ensures all connections are properly terminated
+      for (const client of this.redisClients) {
+        try {
+          await client.quit();
+        } catch (error) {
+          console.warn(`Error closing Redis client:`, error);
+        }
+      }
+      
+      this.redisClients = [];
+      this.connected = false;
+    } catch (error) {
+      console.error(`Error during queue "${this.queueName}" cleanup:`, error);
+      throw error;
     }
-    
-    // Note: BullMQ will close its own Redis clients
-    this.redisClients = [];
-    this.connected = false;
   }
 } 
