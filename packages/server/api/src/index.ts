@@ -34,8 +34,27 @@ export const db = new DatabaseService(supabase)
 export { DatabaseService }
 
 async function main() {
+  // Log some important environment variables for debugging
+  console.log('==== ENVIRONMENT INFO ====');
+  console.log({
+    NODE_ENV: process.env.NODE_ENV,
+    RAILWAY_ENVIRONMENT: process.env.RAILWAY_ENVIRONMENT,
+    PORT: config.PORT
+  });
+  
   const db = new DatabaseService(supabase)
-  const queue = new QueueService(config.REDIS_URL)
+  
+  // If we're in a Railway environment, don't pass in REDIS_URL as it might
+  // contain the problematic "redis.railway.internal" hostname
+  let queue: QueueService;
+  if (process.env.RAILWAY_ENVIRONMENT === 'production') {
+    console.log('Creating QueueService without REDIS_URL in Railway environment');
+    queue = new QueueService(); // Let it use individual env variables
+  } else {
+    console.log('Creating QueueService with REDIS_URL:', config.REDIS_URL ? 'provided' : 'not provided');
+    queue = new QueueService(config.REDIS_URL)
+  }
+  
   const api = new ApiService(db, queue)
   
   // Create routers

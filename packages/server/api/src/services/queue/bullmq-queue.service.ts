@@ -33,6 +33,22 @@ export class BullMQQueueService implements QueueServiceInterface {
       console.log(`Initializing queue "${this.queueName}" with connection:`, 
                  getRedisConnectionString(this.connectionConfig));
       
+      // Add detailed config logging in Railway environment
+      if (process.env.RAILWAY_ENVIRONMENT === 'production') {
+        console.log('BullMQ connection config details:', {
+          host: this.connectionConfig.host,
+          port: this.connectionConfig.port,
+          url: this.connectionConfig.url,
+          family: this.connectionConfig.family,
+          hasUsername: !!this.connectionConfig.username,
+          hasPassword: !!this.connectionConfig.password,
+          tls: this.connectionConfig.tls,
+          maxRetriesPerRequest: this.connectionConfig.maxRetriesPerRequest,
+          enableAutoPipelining: this.connectionConfig.enableAutoPipelining,
+          enableReadyCheck: this.connectionConfig.enableReadyCheck
+        });
+      }
+      
       // Initialize the queue
       this.queue = new Queue(this.queueName, {
         connection: this.connectionConfig,
