@@ -1,6 +1,6 @@
 {
     "$schema": "https://openapi.vercel.sh/vercel.json",
-    "buildCommand": "cd ../shared && yarn build && cd ../client && next build",
+    "buildCommand": "cd ../.. && yarn workspace @wavenotes-new/shared build && yarn workspace @wavenotes-new/client build",
     "outputDirectory": ".next",
     "framework": "nextjs",
     "installCommand": "cd ../.. && yarn install"
