@@ -78,6 +78,7 @@ export interface DatabaseService {
   getFeedbackById(id: string): Promise<FeedbackRecord | null>
   updateFeedback(id: string, data: UpdateFeedbackParams): Promise<FeedbackRecord>
   isUserOriginalSummarizer(userId: string, summaryId: string): Promise<boolean>
+  getPodcast(id: string): Promise<DatabasePodcastRecord | null>
 }
 
 export class DatabaseService {
@@ -476,8 +477,10 @@ export class DatabaseService {
         }
         
         // Check if the status allows deletion (must be 'failed' or 'in_queue')
+        // Use case-insensitive comparison to handle both uppercase and lowercase status values
         const allowedStatuses = ['failed', 'in_queue'];
-        if (!allowedStatuses.includes(summary.status)) {
+        const statusLowerCase = summary.status.toLowerCase();
+        if (!allowedStatuses.includes(statusLowerCase)) {
           throw new DatabaseError(
             `Cannot delete summary with status '${summary.status}'. Only summaries with status 'failed' or 'in_queue' can be deleted.`,
             'PERMISSION_DENIED',
@@ -726,6 +729,34 @@ export class DatabaseService {
       } catch (error) {
         console.error('Error checking if user is original summarizer:', error);
         return false;
+      }
+    }
+
+    async getPodcast(id: string): Promise<DatabasePodcastRecord | null> {
+      try {
+        const { data, error } = await this.supabase
+          .from('podcasts')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching podcast:', error);
+          throw new DatabaseError('Failed to fetch podcast', error.code, 'getPodcast', error);
+        }
+
+        return data;
+      } catch (error) {
+        console.error('Error in getPodcast:', error);
+        if (error instanceof DatabaseError) {
+          throw error;
+        }
+        throw new DatabaseError(
+          'Failed to fetch podcast', 
+          'UNKNOWN', 
+          'getPodcast', 
+          error instanceof Error ? { message: error.message } : { message: 'Unknown error' }
+        );
       }
     }
 }

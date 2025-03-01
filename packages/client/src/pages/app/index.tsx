@@ -49,11 +49,13 @@ interface SummaryRecord {
 }
 
 // SummaryCard Component
-function SummaryCard({ summary, onDelete }: { 
+const SummaryCard = ({ summary, onDelete, onRetry }: { 
   summary: SummaryWithPodcast;
   onDelete: (id: string) => Promise<void>;
-}) {
+  onRetry: (id: string) => Promise<void>;
+}) => {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [imgError, setImgError] = useState(false);
   const router = useRouter();
   
@@ -81,14 +83,45 @@ function SummaryCard({ summary, onDelete }: {
       }
     }
   };
+
+  const handleRetry = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (window.confirm('Are you sure you want to retry this summary?')) {
+      setIsRetrying(true);
+      try {
+        // Call the retry function provided by the parent component
+        await onRetry(summary.id);
+      } catch (error) {
+        console.error('Failed to retry summary:', error);
+      } finally {
+        setIsRetrying(false);
+      }
+    }
+  };
   
   const handleCardClick = () => {
     router.push(`/app/${summary.id}`);
   };
   
-  const showDeleteButton = 
-    summary.status === 'failed' || 
-    summary.status === 'in_queue';
+  // Force buttons to be visible for any failed items regardless of exact status
+  const isFailed = summary.status === 'failed' || summary.status === 'FAILED' || 
+                  summary.status.toLowerCase().includes('fail');
+  
+  const isInQueue = summary.status === 'in_queue' || summary.status === 'IN_QUEUE' || 
+                   summary.status.toLowerCase().includes('queue');
+  
+  const showDeleteButton = isFailed || isInQueue;
+  const showRetryButton = isFailed;
+  
+  console.log('Button visibility check:', {
+    status: summary.status,
+    isFailed,
+    isInQueue,
+    showDeleteButton,
+    showRetryButton
+  });
   
   return (
     <Card 
@@ -128,12 +161,12 @@ function SummaryCard({ summary, onDelete }: {
             </div>
           </div>
           <div className="flex-shrink-0 ml-4 w-[100px] text-right">
-            <StatusBadge status={summary.status as ProcessingStatus} />
+            <StatusBadge status={summary.status as unknown as ProcessingStatus} />
           </div>
         </div>
         
-        {showDeleteButton && (
-          <div className="mt-3">
+        <div className="mt-3 flex gap-4">
+          {showDeleteButton && (
             <Button 
               variant="ghost" 
               size="sm" 
@@ -143,8 +176,20 @@ function SummaryCard({ summary, onDelete }: {
             >
               {isDeleting ? 'Removing...' : 'Remove'}
             </Button>
-          </div>
-        )}
+          )}
+          
+          {showRetryButton && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-0 h-auto" 
+              onClick={handleRetry}
+              disabled={isRetrying}
+            >
+              {isRetrying ? 'Retrying...' : 'Retry'}
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -287,7 +332,7 @@ export default withAuth(function AppDashboard() {
     setHasMoreCompleted(true);
     
     // Check if we need to set hasMoreCompleted to false initially
-    const completedSummaries = summaries.filter(s => s.status === ProcessingStatus.COMPLETED);
+    const completedSummaries = summaries.filter(s => s.status === 'completed');
     if (completedSummaries.length <= 10) {
       setHasMoreCompleted(false);
     }
@@ -326,7 +371,7 @@ export default withAuth(function AppDashboard() {
     
     // Simulate a delay to prevent rapid loading
     setTimeout(() => {
-      const completedSummaries = summaries.filter(s => s.status === ProcessingStatus.COMPLETED);
+      const completedSummaries = summaries.filter(s => s.status === 'completed');
       const newVisibleCount = visibleCompletedCount + 10;
       
       setVisibleCompletedCount(newVisibleCount);
@@ -407,9 +452,9 @@ export default withAuth(function AppDashboard() {
             created_at: summary.created_at,
             updated_at: summary.updated_at,
             podcast: summary.podcast || {
-              title: summary.status === ProcessingStatus.IN_QUEUE || 
-                     summary.status === ProcessingStatus.FETCHING_TRANSCRIPT || 
-                     summary.status === ProcessingStatus.GENERATING_SUMMARY 
+              title: summary.status === 'in_queue' || 
+                     summary.status === 'fetching_transcript' || 
+                     summary.status === 'generating_summary' 
                      ? 'Processing Podcast' : 'Unknown Podcast',
               show_name: 'Please wait...',
             }
@@ -477,7 +522,7 @@ export default withAuth(function AppDashboard() {
       // This ensures a card appears immediately
       const optimisticSummary: SummaryWithPodcast = {
         id: data.id,
-        status: ProcessingStatus.IN_QUEUE,
+        status: 'in_queue',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         podcast: {
@@ -536,9 +581,51 @@ export default withAuth(function AppDashboard() {
     }
   };
 
+  // Add handleRetrySummary function
+  const handleRetrySummary = async (id: string) => {
+    try {
+      const response = await fetch(`/api/summaries/${id}/retry`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        // Try to extract detailed error information
+        let errorMessage = 'Failed to retry summary';
+        try {
+          const errorData = await response.json();
+          console.error('Retry summary error details:', errorData);
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          console.error('Could not parse error response:', parseError);
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      // Update the status of this summary in the UI
+      setSummaries(prevSummaries => prevSummaries.map(s => 
+        s.id === id 
+          ? { ...s, status: 'pending' }
+          : s
+      ));
+      
+      // Refresh after a short delay to ensure server processing is complete
+      setTimeout(() => {
+        fetchSummaries();
+      }, 500);
+      
+    } catch (error) {
+      console.error('Error retrying summary:', error);
+      throw error;
+    }
+  };
+
   // Filter summaries based on status
-  const inProgressSummaries = summaries.filter(s => s.status !== ProcessingStatus.COMPLETED && s.status !== ProcessingStatus.FAILED);
-  const completedSummaries = summaries.filter(s => s.status === ProcessingStatus.COMPLETED);
+  const inProgressSummaries = summaries.filter(s => s.status !== 'completed' && s.status !== 'failed');
+  const completedSummaries = summaries.filter(s => s.status === 'completed');
   // Get only the visible completed summaries
   const visibleCompletedSummaries = completedSummaries.slice(0, visibleCompletedCount);
 
@@ -604,7 +691,12 @@ export default withAuth(function AppDashboard() {
                 {loadingSummaries ? <p>Loading summaries...</p> : (
                   <div className="grid grid-cols-1 gap-4">
                     {inProgressSummaries.map(summary => (
-                      <SummaryCard key={summary.id} summary={summary} onDelete={handleDeleteSummary} />
+                      <SummaryCard 
+                        key={summary.id} 
+                        summary={summary} 
+                        onDelete={handleDeleteSummary}
+                        onRetry={handleRetrySummary}
+                      />
                     ))}
                   </div>
                 )}
@@ -622,7 +714,12 @@ export default withAuth(function AppDashboard() {
                 completedSummaries.length > 0 ? (
                   <div ref={completedContainerRef} className="grid grid-cols-1 gap-4">
                     {visibleCompletedSummaries.map(summary => (
-                      <SummaryCard key={summary.id} summary={summary} onDelete={handleDeleteSummary} />
+                      <SummaryCard 
+                        key={summary.id} 
+                        summary={summary} 
+                        onDelete={handleDeleteSummary}
+                        onRetry={handleRetrySummary}
+                      />
                     ))}
                     
                     {/* Load more indicator */}

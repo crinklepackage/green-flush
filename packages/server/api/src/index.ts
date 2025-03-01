@@ -70,7 +70,7 @@ async function main() {
   
   // Create routers
   const podcastRouter = podcastRoutes(db, queue)
-  const summariesRouter = createSummariesRouter(db)
+  const summariesRouter = createSummariesRouter(db, queue)
   const feedbackRouter = feedbackRoutes(db)
   
   // Create a root router and mount the other routers with path prefixes

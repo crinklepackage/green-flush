@@ -1,14 +1,15 @@
 // packages/server/api/src/routes/summaries.ts
 import { Router, Request, Response } from 'express'
 import { SummaryService } from '../services/summary'
-import { mapStatusToClient } from '@wavenotes-new/shared'
+import { mapStatusToClient, ProcessingStatus } from '@wavenotes-new/shared'
 import { DatabaseService } from '../lib/database'
 import { config } from '../config/environment'
 import { authMiddleware } from '../middleware/auth'
 import { DatabaseError } from '@wavenotes-new/shared'
+import { QueueService } from '../services/queue'
 
 // Create router with database service injection
-export function createSummariesRouter(db: DatabaseService): Router {
+export function createSummariesRouter(db: DatabaseService, queue?: QueueService): Router {
   const router = Router()
 
   // Apply auth middleware to all routes
@@ -125,6 +126,69 @@ export function createSummariesRouter(db: DatabaseService): Router {
       });
     }
   })
+
+  /**
+   * POST /:id/retry - Retry a failed summary
+   */
+  router.post('/:id/retry', async (req, res) => {
+    try {
+      const { id: summaryId } = req.params;
+      const userId = req.user.id;
+
+      if (!summaryId) {
+        return res.status(400).json({ error: 'Missing summary ID' });
+      }
+
+      console.log(`RETRY request received for summary ${summaryId} by user ${userId}`);
+
+      // Get the summary to retry
+      const summary = await db.getSummary(summaryId);
+      if (!summary) {
+        return res.status(404).json({ error: 'Summary not found' });
+      }
+
+      // Check if the user has access to this summary
+      const hasAccess = await db.userHasAccessToSummary(userId, summaryId);
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'Access denied: You do not have permission to retry this summary' });
+      }
+
+      // Verify summary status is 'failed' (case-insensitive)
+      if (summary.status.toLowerCase() !== 'failed') {
+        return res.status(400).json({ 
+          error: `Cannot retry summary with status '${summary.status}'. Only summaries with status 'failed' can be retried.`
+        });
+      }
+
+      // Get the podcast associated with the summary
+      const podcast = await db.getPodcast(summary.podcast_id);
+      if (!podcast) {
+        return res.status(404).json({ error: 'Associated podcast not found' });
+      }
+
+      // Update the summary status to pending
+      await db.updateSummaryStatus(summaryId, 'pending');
+
+      // Add the job to the queue
+      if (!queue) {
+        return res.status(500).json({ error: 'Queue service unavailable' });
+      }
+      
+      await queue.add('PROCESS_PODCAST', {
+        summaryId,
+        podcastId: summary.podcast_id,
+        url: podcast.url,
+        type: podcast.platform,
+        userId
+      });
+
+      console.log(`Summary retry successful: summaryId=${summaryId}, userId=${userId}`);
+      return res.status(200).json({ message: 'Summary queued for retry' });
+    } catch (error) {
+      console.error('Error retrying summary:', error);
+      return res.status(500).json({ error: 'Failed to retry summary' });
+    }
+  });
 
   return router
 }
