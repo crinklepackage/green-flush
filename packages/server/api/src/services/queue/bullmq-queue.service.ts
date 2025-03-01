@@ -91,19 +91,92 @@ export class BullMQQueueService implements QueueServiceInterface {
         enableReadyCheck: options.enableReadyCheck
       });
       
+      // Setup fallback to public endpoint for Railway
+      let publicEndpoint = null;
+      
+      // If we're in Railway production and using redis.railway.internal, prepare a public fallback
+      if ((process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production') &&
+          this.connectionConfig.url && 
+          this.connectionConfig.url.includes('redis.railway.internal')) {
+          
+        // Try to extract the standard Railway public fallback
+        try {
+          const baseUrl = new URL(this.connectionConfig.url);
+          // Standard Railway public endpoint pattern
+          publicEndpoint = {
+            host: 'roundhouse.proxy.rlwy.net',
+            port: process.env.REDIS_PUBLIC_PORT ? parseInt(process.env.REDIS_PUBLIC_PORT, 10) : 30105, // Default Railway port or override
+            username: baseUrl.username,
+            password: baseUrl.password
+          };
+          console.log(`Found fallback public endpoint: roundhouse.proxy.rlwy.net:${publicEndpoint.port} (will use if internal fails)`);
+        } catch (e) {
+          console.error('Could not set up public fallback:', e);
+        }
+      }
+      
       // Use createClient option to have full control over client creation
-      // This directly mirrors the approach from your working implementation
       const createClient = (type: string): Redis => {
         console.log(`Creating Redis client for "${type}" in queue "${this.queueName}"`);
         
-        // Critical difference: Use the full REDIS_URL directly like the working implementation did
-        // Don't manually parse or manipulate the URL - let IORedis handle it with family: 0
-        const redisUrl = this.connectionConfig.url || 
-                         `redis://${this.connectionConfig.username || ''}:${this.connectionConfig.password || ''}@${this.connectionConfig.host || 'localhost'}:${this.connectionConfig.port || 6379}`;
+        let client: Redis;
         
-        console.log(`Using direct URL connection approach with family: 0 (credentials hidden)`);
+        // CRITICAL FIX: For Railway's internal Redis, connect using direct host/port/auth to avoid localhost fallback
+        if (this.connectionConfig.url && this.connectionConfig.url.includes('redis.railway.internal')) {
+          try {
+            // Parse URL to get auth details
+            const redisURL = new URL(this.connectionConfig.url);
+            const connectionParams = {
+              ...options,
+              host: 'redis.railway.internal',
+              port: parseInt(redisURL.port, 10) || 6379,
+              username: redisURL.username || undefined,
+              password: redisURL.password || undefined,
+              family: 0 // Explicitly set family parameter for direct connection
+            };
+            
+            console.log(`Using explicit host/port connection (directly to redis.railway.internal:${connectionParams.port})`);
+            client = new Redis(connectionParams);
+            
+            // If the direct connection fails after 5 seconds, try the public endpoint
+            setTimeout(() => {
+              if (!this.connected && publicEndpoint) {
+                console.log(`Internal connection failed, trying public endpoint: roundhouse.proxy.rlwy.net:${publicEndpoint.port}`);
+                try {
+                  const publicClient = new Redis({
+                    ...options,
+                    host: publicEndpoint.host,
+                    port: publicEndpoint.port,
+                    username: publicEndpoint.username,
+                    password: publicEndpoint.password,
+                    family: 0 // Explicitly set family parameter for public endpoint
+                  });
+                  
+                  this.setupRedisClientListeners(publicClient, `${type}-public`);
+                  this.redisClients.push(publicClient);
+                  
+                  // If the main client is still connected, we'll have two clients, but that's better than no connection
+                } catch (e) {
+                  console.error('Failed to connect to public endpoint:', e);
+                }
+              }
+            }, 5000);
+          } catch (e) {
+            console.error('Failed to parse Redis URL for direct connection:', e);
+            // Fall back to direct URL approach
+            client = new Redis(this.connectionConfig.url, options);
+          }
+        } else if (this.connectionConfig.url) {
+          // For non-Railway Redis or explicitly provided URLs, use direct URL approach
+          console.log(`Using direct URL connection approach with family: 0 (credentials hidden)`);
+          client = new Redis(this.connectionConfig.url, options);
+        } else {
+          // For component parameters, construct from parts
+          const redisUrl = `redis://${this.connectionConfig.username || ''}:${this.connectionConfig.password || ''}@${this.connectionConfig.host || 'localhost'}:${this.connectionConfig.port || 6379}`;
+          console.log(`Using constructed URL connection with family: 0 (credentials hidden)`);
+          client = new Redis(redisUrl, options);
+        }
         
-        const client = new Redis(redisUrl, options);
         this.setupRedisClientListeners(client, `${type}`);
         this.redisClients.push(client);
         return client;
