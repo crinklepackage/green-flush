@@ -44,16 +44,9 @@ async function main() {
   
   const db = new DatabaseService(supabase)
   
-  // If we're in a Railway environment, don't pass in REDIS_URL as it might
-  // contain the problematic "redis.railway.internal" hostname
-  let queue: QueueService;
-  if (process.env.RAILWAY_ENVIRONMENT === 'production') {
-    console.log('Creating QueueService without REDIS_URL in Railway environment');
-    queue = new QueueService(); // Let it use individual env variables
-  } else {
-    console.log('Creating QueueService with REDIS_URL:', config.REDIS_URL ? 'provided' : 'not provided');
-    queue = new QueueService(config.REDIS_URL)
-  }
+  // Initialize the queue service using our centralized Redis configuration
+  console.log('Creating QueueService with centralized Redis configuration');
+  const queue = new QueueService();
   
   const api = new ApiService(db, queue)
   

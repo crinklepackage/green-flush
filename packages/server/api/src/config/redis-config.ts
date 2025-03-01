@@ -51,109 +51,53 @@ export function createRedisConfig(): RedisConnectionConfig {
     RAILWAY_PUBLIC_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN
   }, null, 2));
   
-  // For Railway environments, ensure family: 0 is set to enable IPv6 resolution
-  if (process.env.RAILWAY_ENVIRONMENT === 'production') {
-    console.log('Railway production environment detected');
-    
-    // If using REDIS_URL (which might contain redis.railway.internal)
-    if (process.env.REDIS_URL) {
-      console.log('Using REDIS_URL with family: 0 to enable IPv6 resolution');
-      return {
-        url: process.env.REDIS_URL,
-        family: 0, // Critical: Enable dual-stack IPv4/IPv6 lookup
-        tls: true, // Railway Redis typically requires TLS
-        maxRetriesPerRequest: 3,
-        enableAutoPipelining: true,
-        enableReadyCheck: true,
-        retryStrategy: (times: number) => {
-          const delay = Math.min(times * 100, 3000);
-          console.log(`Redis reconnect attempt ${times} with delay ${delay}ms`);
-          return delay;
-        }
-      };
+  // Common configuration options for all environments
+  const commonOptions = {
+    family: 0, // Critical: Enable dual-stack IPv4/IPv6 lookup for all environments
+    maxRetriesPerRequest: 3,
+    enableAutoPipelining: true,
+    enableReadyCheck: true,
+    retryStrategy: (times: number) => {
+      const delay = Math.min(times * 100, 3000);
+      console.log(`Redis reconnect attempt ${times} with delay ${delay}ms`);
+      return delay;
     }
-    
-    // If individual environment variables are provided
-    if (process.env.REDIS_HOST || process.env.REDISHOST) {
-      const host = process.env.REDIS_HOST || process.env.REDISHOST;
-      console.log(`Using direct connection to ${host} with family: 0`);
-      
-      return {
-        host: host,
-        port: parseInt(process.env.REDIS_PORT || process.env.REDISPORT || '6379', 10),
-        username: process.env.REDIS_USERNAME || process.env.REDISUSER || undefined,
-        password: process.env.REDIS_PASSWORD || process.env.REDISPASSWORD || undefined,
-        family: 0, // Critical: Enable dual-stack IPv4/IPv6 lookup
-        tls: true, // Railway Redis typically requires TLS
-        maxRetriesPerRequest: 3,
-        enableAutoPipelining: true,
-        enableReadyCheck: true,
-        retryStrategy: (times: number) => {
-          const delay = Math.min(times * 100, 3000);
-          console.log(`Redis reconnect attempt ${times} with delay ${delay}ms`);
-          return delay;
-        }
-      };
-    }
+  };
+  
+  // First priority: Use REDIS_URL if available
+  if (process.env.REDIS_URL) {
+    console.log(`Using REDIS_URL with family: 0 for dual-stack resolution: ${process.env.REDIS_URL.replace(/redis:\/\/(.*):(.*)@/, 'redis://$1:***@')}`);
+    return {
+      url: process.env.REDIS_URL,
+      tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production',
+      ...commonOptions
+    };
   }
   
-  // Regular environment (non-Railway or development)
-  
-  // Direct connection parameters
+  // Second priority: Use individual connection parameters
   if (process.env.REDIS_HOST || process.env.REDISHOST) {
-    console.log('Using Redis direct connection parameters from environment variables');
+    const host = process.env.REDIS_HOST || process.env.REDISHOST || 'localhost';
+    const port = parseInt(process.env.REDIS_PORT || process.env.REDISPORT || '6379', 10);
+    
+    console.log(`Using direct Redis connection to ${host}:${port} with family: 0 for dual-stack resolution`);
     
     return {
-      host: process.env.REDIS_HOST || process.env.REDISHOST,
-      port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 
-            process.env.REDISPORT ? parseInt(process.env.REDISPORT, 10) : 6379,
+      host,
+      port,
       username: process.env.REDIS_USERNAME || process.env.REDISUSER || undefined,
       password: process.env.REDIS_PASSWORD || process.env.REDISPASSWORD || undefined,
-      family: 0, // Use dual-stack for all environments for consistency
+      tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production',
       db: process.env.REDIS_DB ? parseInt(process.env.REDIS_DB, 10) : 0,
-      // Enable TLS if specified or in production
-      tls: process.env.REDIS_TLS === 'true' || 
-           process.env.REDIS_TLS === undefined && (
-             process.env.RAILWAY_ENVIRONMENT === 'production' || 
-             process.env.NODE_ENV === 'production'
-           ),
-      maxRetriesPerRequest: 3,
-      enableAutoPipelining: true,
-      enableReadyCheck: true,
-      retryStrategy: (times: number) => {
-        const delay = Math.min(times * 100, 3000);
-        console.log(`Redis reconnect attempt ${times} with delay ${delay}ms`);
-        return delay;
-      }
+      ...commonOptions
     };
   }
   
-  // REDIS_URL available
-  if (process.env.REDIS_URL) {
-    console.log('Using Redis URL from environment variables');
-    
-    return { 
-      url: process.env.REDIS_URL,
-      family: 0, // Always use dual-stack for all environments
-      maxRetriesPerRequest: 3,
-      enableAutoPipelining: true,
-      enableReadyCheck: true,
-      retryStrategy: (times: number) => {
-        const delay = Math.min(times * 100, 3000);
-        console.log(`Redis reconnect attempt ${times} with delay ${delay}ms`);
-        return delay;
-      }
-    };
-  }
-  
-  // Fallback to localhost for development
+  // Fallback for local development
   console.warn('No Redis configuration found in environment, using localhost:6379');
-  
   return {
     host: 'localhost',
     port: 6379,
-    family: 0, // Use dual-stack for all environments for consistency
-    maxRetriesPerRequest: 3
+    ...commonOptions
   };
 }
 
