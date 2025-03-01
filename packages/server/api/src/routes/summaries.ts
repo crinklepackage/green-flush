@@ -154,7 +154,7 @@ export function createSummariesRouter(db: DatabaseService, queue?: QueueService)
       }
 
       // Verify summary status is 'failed' (case-insensitive)
-      if (summary.status.toLowerCase() !== 'failed') {
+      if (summary.status !== 'failed') {
         return res.status(400).json({ 
           error: `Cannot retry summary with status '${summary.status}'. Only summaries with status 'failed' can be retried.`
         });

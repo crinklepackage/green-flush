@@ -477,10 +477,8 @@ export class DatabaseService {
         }
         
         // Check if the status allows deletion (must be 'failed' or 'in_queue')
-        // Use case-insensitive comparison to handle both uppercase and lowercase status values
         const allowedStatuses = ['failed', 'in_queue'];
-        const statusLowerCase = summary.status.toLowerCase();
-        if (!allowedStatuses.includes(statusLowerCase)) {
+        if (!allowedStatuses.includes(summary.status)) {
           throw new DatabaseError(
             `Cannot delete summary with status '${summary.status}'. Only summaries with status 'failed' or 'in_queue' can be deleted.`,
             'PERMISSION_DENIED',

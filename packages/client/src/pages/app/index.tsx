@@ -106,11 +106,8 @@ const SummaryCard = ({ summary, onDelete, onRetry }: {
   };
   
   // Force buttons to be visible for any failed items regardless of exact status
-  const isFailed = summary.status === 'failed' || summary.status === 'FAILED' || 
-                  summary.status.toLowerCase().includes('fail');
-  
-  const isInQueue = summary.status === 'in_queue' || summary.status === 'IN_QUEUE' || 
-                   summary.status.toLowerCase().includes('queue');
+  const isFailed = summary.status === 'failed';
+  const isInQueue = summary.status === 'in_queue';
   
   const showDeleteButton = isFailed || isInQueue;
   const showRetryButton = isFailed;
