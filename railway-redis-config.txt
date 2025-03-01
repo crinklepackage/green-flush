@@ -59,7 +59,7 @@ export function createRedisConfig(): RedisConnectionConfig {
         console.error('Failed to replace internal hostname, using original URL:', e);
       }
     }
-    
+     
     return {
       url: redisUrl,
       tls: process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production',
