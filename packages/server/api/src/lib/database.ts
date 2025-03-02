@@ -54,6 +54,7 @@ export interface DatabaseService {
   createSummary(data: {
     podcastId: string
     status: ProcessingStatus
+    creatorId: string
   }): Promise<SummaryRecord>
   findPodcastByUrl(url: string): Promise<DatabasePodcastRecord | null>
   createUserSummary(data: { user_id: string, summary_id: string }): Promise<any>
@@ -79,6 +80,13 @@ export interface DatabaseService {
   updateFeedback(id: string, data: UpdateFeedbackParams): Promise<FeedbackRecord>
   isUserOriginalSummarizer(userId: string, summaryId: string): Promise<boolean>
   getPodcast(id: string): Promise<DatabasePodcastRecord | null>
+  logSummaryRetryError(data: {
+    summaryId: string,
+    userId: string,
+    originalPodcastUrl: string,
+    error: string,
+    errorDetails?: any
+  }): Promise<void>
 }
 
 export class DatabaseService {
@@ -231,12 +239,14 @@ export class DatabaseService {
     async createSummary(data: {
       podcastId: string
       status: ProcessingStatus
+      creatorId: string
     }): Promise<SummaryRecord> {
       const { data: summary, error } = await this.supabase
         .from('summaries')
         .insert({
           podcast_id: data.podcastId,
           status: data.status,
+          creator_id: data.creatorId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -755,6 +765,80 @@ export class DatabaseService {
           'getPodcast', 
           error instanceof Error ? { message: error.message } : { message: 'Unknown error' }
         );
+      }
+    }
+
+    async getSummary(id: string): Promise<Summary> {
+      try {
+        const { data, error } = await this.supabase
+          .from('summaries')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching summary:', error);
+          throw new DatabaseError('Failed to fetch summary', error.code, 'getSummary', error);
+        }
+
+        return data;
+      } catch (error) {
+        console.error('Error in getSummary:', error);
+        if (error instanceof DatabaseError) {
+          throw error;
+        }
+        throw new DatabaseError(
+          'Failed to fetch summary', 
+          'UNKNOWN', 
+          'getSummary', 
+          error instanceof Error ? { message: error.message } : { message: 'Unknown error' }
+        );
+      }
+    }
+
+    // New method to log summary retry errors to the job_history table
+    async logSummaryRetryError(data: {
+      summaryId: string,
+      userId: string,
+      originalPodcastUrl: string,
+      error: string,
+      errorDetails?: any
+    }): Promise<void> {
+      try {
+        const { summaryId, userId, originalPodcastUrl, error, errorDetails } = data;
+        
+        // Create a structured error log record
+        const logEntry = {
+          job_type: 'summary_retry',
+          source_service: 'api',
+          target_service: 'worker',
+          status: 'error',
+          created_at: new Date().toISOString(),
+          input_payload: {
+            summaryId,
+            userId,
+            originalPodcastUrl
+          },
+          error_message: error,
+          output_payload: errorDetails ? { details: errorDetails } : null
+        };
+        
+        // Insert the log record
+        const { data: result, error: insertError } = await this.supabase
+          .from('job_history')
+          .insert(logEntry)
+          .select();
+          
+        if (insertError) {
+          console.error('Failed to log summary retry error:', insertError);
+          // We don't throw here as this is a logging operation that shouldn't
+          // interrupt the main flow if it fails
+        } else {
+          console.info('Successfully logged summary retry error');
+        }
+      } catch (err) {
+        // Just log to console if database logging fails
+        console.error('Error in logSummaryRetryError:', err);
       }
     }
 }

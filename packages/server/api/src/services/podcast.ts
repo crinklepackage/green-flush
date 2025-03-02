@@ -51,7 +51,8 @@ export class PodcastService {
         // No summary exists, so create a new summary for this podcast
         summary = await this.db.createSummary({
           podcastId: podcast.id,
-          status: ProcessingStatus.IN_QUEUE
+          status: ProcessingStatus.IN_QUEUE,
+          creatorId: userId
         });
         // Associate the summary with the user
         await this.db.createUserSummary({ user_id: userId, summary_id: summary.id });
@@ -90,7 +91,8 @@ export class PodcastService {
       // Create a new summary for the newly created podcast
       summary = await this.db.createSummary({
         podcastId: podcast.id,
-        status: ProcessingStatus.IN_QUEUE
+        status: ProcessingStatus.IN_QUEUE,
+        creatorId: userId
       });
 
       // Create the user association for the summary

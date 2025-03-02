@@ -1,41 +1,26 @@
 // packages/server/api/src/routes/summaries.ts
-import { Router, Request, Response } from 'express'
+import express, { Router, Request, Response } from 'express'
 import { SummaryService } from '../services/summary'
-import { mapStatusToClient, ProcessingStatus, PodcastJob } from '@wavenotes-new/shared'
+import { mapStatusToClient, ProcessingStatus, PodcastJob, SummaryRecord, DatabasePodcastRecord } from '@wavenotes-new/shared'
 import { DatabaseService } from '../lib/database'
 import { config } from '../config/environment'
 import { authMiddleware } from '../middleware/auth'
 import { DatabaseError } from '@wavenotes-new/shared'
 import { QueueService } from '../services/queue'
+import { YouTubeService } from '../platforms/youtube/service'
+import { SpotifyService } from '../platforms/spotify/service'
+import { PodcastService } from '../services/podcast'
 
-// Define the types locally to match the database structure
-interface SummaryRecord {
+// Create a more specific type definition that matches the actual structure
+interface DetailedSummaryRecord {
   id: string;
   podcast_id: string;
-  status: string;
-  summary_text: string | null;
-  error_message: string | null;
+  status: ProcessingStatus;
+  summary_text?: string | null;
+  error_message?: string | null;
   created_at: string;
   updated_at: string;
-  completed_at: string | null;
-  failed_at: string | null;
-}
-
-interface DatabasePodcastRecord {
-  id: string;
-  url: string;
-  platform: 'spotify' | 'youtube';
-  youtube_url: string | null;
-  title: string;
-  show_name: string;
-  transcript: string | null;
-  has_transcript: boolean;
-  created_at: string;
-  updated_at: string;
-  thumbnail_url: string | null;
-  duration: number | null;
-  platform_specific_id: string | null;
-  created_by: string;
+  creator_id?: string;
 }
 
 // Create router with database service injection
@@ -158,21 +143,17 @@ export function createSummariesRouter(db: DatabaseService, queue?: QueueService)
   })
 
   /**
-   * POST /:id/retry - Retry a failed summary
+   * POST /:id/retry - Retry a failed summary by creating a new request
    */
   router.post('/:id/retry', async (req, res) => {
     try {
       const { id: summaryId } = req.params;
       const userId = req.user.id;
 
-      if (!summaryId) {
-        return res.status(400).json({ error: 'Missing summary ID' });
-      }
-
       console.log(`RETRY request received for summary ${summaryId} by user ${userId}`);
 
-      // Get the summary to retry
-      const summary = await db.getSummary(summaryId) as SummaryRecord;
+      // Get the summary to retry - with explicit casting to our detailed type
+      const summary = await db.getSummary(summaryId) as DetailedSummaryRecord;
       if (!summary) {
         return res.status(404).json({ error: 'Summary not found' });
       }
@@ -184,41 +165,129 @@ export function createSummariesRouter(db: DatabaseService, queue?: QueueService)
       }
 
       // Verify summary status is 'failed' (case-insensitive)
-      if (summary.status !== 'failed') {
+      if (summary.status !== ProcessingStatus.FAILED) {
         return res.status(400).json({ 
           error: `Cannot retry summary with status '${summary.status}'. Only summaries with status 'failed' can be retried.`
         });
       }
 
       // Get the podcast associated with the summary
-      const podcast = await db.getPodcast(summary.podcast_id) as DatabasePodcastRecord;
+      const podcast = await db.getPodcast(summary.podcast_id);
       if (!podcast) {
         return res.status(404).json({ error: 'Associated podcast not found' });
       }
 
-      // Update the summary status to pending
-      await db.updateSummaryStatus(summaryId, 'pending');
-
-      // Add the job to the queue
-      if (!queue) {
-        return res.status(500).json({ error: 'Queue service unavailable' });
-      }
+      // Store the URL we need to reprocess
+      const originalUrl = podcast.url;
       
-      await queue.add('PROCESS_PODCAST', {
-        id: `retry_${summaryId}_${Date.now()}`,
-        status: 'in_queue',
-        summaryId,
-        podcastId: summary.podcast_id,
-        url: podcast.url,
-        type: podcast.platform,
-        userId
-      } as PodcastJob);
+      // Import config from environment
+      const { config } = require('../config/environment');
 
-      console.log(`Summary retry successful: summaryId=${summaryId}, userId=${userId}`);
-      return res.status(200).json({ message: 'Summary queued for retry' });
+      // Instantiate platform services
+      const ytService = new YouTubeService(config.YOUTUBE_API_KEY);
+      const spotifyService = new SpotifyService({
+        clientId: config.SPOTIFY_CLIENT_ID,
+        clientSecret: config.SPOTIFY_CLIENT_SECRET
+      });
+
+      // Perform basic validation on the URL before proceeding
+      try {
+        // Determine platform and validate URL format
+        if (originalUrl.includes('spotify.com')) {
+          // Validate Spotify URL and extract episode ID
+          const episodeId = spotifyService.getEpisodeId(originalUrl);
+          console.log(`Validated Spotify URL with episode ID: ${episodeId}`);
+        } else if (originalUrl.includes('youtube.com') || originalUrl.includes('youtu.be')) {
+          // Basic YouTube URL validation could go here if needed
+          console.log(`Validated YouTube URL: ${originalUrl}`);
+        } else {
+          return res.status(400).json({ 
+            error: 'Invalid URL format. URL must be from Spotify or YouTube.' 
+          });
+        }
+      } catch (validationError) {
+        console.error('URL validation error:', validationError);
+        return res.status(400).json({ 
+          error: 'Invalid URL format. Please check that the URL is correctly formatted.' 
+        });
+      }
+
+      // Check if queue service is available
+      if (!queue) {
+        return res.status(500).json({ 
+          error: 'Queue service not available. Cannot retry summary without a queue service.' 
+        });
+      }
+
+      // Instantiate PodcastService with dependencies
+      const podcastService = new PodcastService(db, ytService, spotifyService, queue);
+      
+      try {
+        // Delete the existing summary (this will clean up everything)
+        // If this is the only user, it will also delete the podcast
+        await db.deleteSummary(summaryId, userId);
+        
+        // Use the existing podcast processing flow to create a new summary from scratch
+        // This is the same flow used when a user enters a new URL
+        const newSummaryId = await podcastService.createPodcastRequest(originalUrl, userId);
+        
+        console.log(`Summary retry successful. Old summaryId=${summaryId}, New summaryId=${newSummaryId}, userId=${userId}`);
+        
+        // Return the new summary ID for redirection
+        return res.status(200).json({ 
+          message: 'Summary queued for retry',
+          newSummaryId 
+        });
+      } catch (processingError: any) {
+        console.error('Error during podcast processing:', processingError);
+        
+        // Log retry error to database
+        await db.logSummaryRetryError({
+          summaryId,
+          userId,
+          originalPodcastUrl: originalUrl,
+          error: processingError.message || 'Error during podcast processing',
+          errorDetails: processingError
+        });
+        
+        // Handle specific Spotify API errors
+        if (processingError.message && processingError.message.includes('Resource not found')) {
+          return res.status(404).json({ 
+            error: 'The link to this podcast has expired. Copy it from Spotify and try again.',
+            details: processingError.message
+          });
+        }
+        
+        // Generic processing error
+        return res.status(500).json({ 
+          error: 'Failed to process podcast for retry',
+          details: processingError.message
+        });
+      }
     } catch (error) {
       console.error('Error retrying summary:', error);
-      return res.status(500).json({ error: 'Failed to retry summary' });
+      
+      // Log general retry error to database
+      try {
+        // For general errors, we still have access to req.params.id and req.user.id
+        const errorSummaryId = req.params.id;
+        const errorUserId = req.user.id;
+        
+        await db.logSummaryRetryError({
+          summaryId: errorSummaryId,
+          userId: errorUserId,
+          originalPodcastUrl: 'Unknown URL', // We don't have access to originalUrl here
+          error: error instanceof Error ? error.message : 'Unknown error',
+          errorDetails: error
+        });
+      } catch (logError) {
+        console.error('Failed to log retry error:', logError);
+      }
+      
+      return res.status(500).json({ 
+        error: 'Failed to retry summary',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 

@@ -20,6 +20,7 @@ import { Label } from '../../components/ui/label'
 import { StatusBadge } from '../../components/StatusBadge'
 import { PlatformLinks } from '../../components/PlatformLinks'
 import withAuth from '../../components/withAuth'
+import { showToast } from '../../lib/toast'
 
 // Define type for summary with podcast details
 interface SummaryWithPodcast {
@@ -28,6 +29,7 @@ interface SummaryWithPodcast {
   error_message?: string | null;
   created_at: string;
   updated_at: string;
+  creator_id?: string | null;
   podcast?: {
     title: string;
     show_name: string;
@@ -36,6 +38,7 @@ interface SummaryWithPodcast {
     youtube_url?: string | null;
     platform?: string;
   };
+  isRetrying: boolean;
 }
 
 // Add this interface at the top of the file with other interfaces
@@ -46,16 +49,18 @@ interface SummaryRecord {
   created_at: string;
   updated_at: string;
   podcast_id?: string;
+  creator_id?: string | null;
 }
 
 // SummaryCard Component
-const SummaryCard = ({ summary, onDelete, onRetry }: { 
+const SummaryCard = ({ summary, onDelete, onRetry, allSummaries = [], currentUserId }: { 
   summary: SummaryWithPodcast;
   onDelete: (id: string) => Promise<void>;
   onRetry: (id: string) => Promise<void>;
+  allSummaries?: SummaryWithPodcast[];
+  currentUserId?: string;
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isRetrying, setIsRetrying] = useState(false);
   const [imgError, setImgError] = useState(false);
   const router = useRouter();
   
@@ -65,7 +70,9 @@ const SummaryCard = ({ summary, onDelete, onRetry }: {
       id: summary.id,
       status: summary.status,
       podcast: summary.podcast || 'No podcast data',
-      hasThumbnail: summary.podcast?.thumbnail_url ? true : false
+      hasThumbnail: summary.podcast?.thumbnail_url ? true : false,
+      isRetrying: summary.isRetrying,
+      creator: summary.creator_id || 'Unknown'
     });
   }, [summary]);
   
@@ -87,34 +94,88 @@ const SummaryCard = ({ summary, onDelete, onRetry }: {
     e.preventDefault();
     e.stopPropagation();
     
-    // Remove confirmation dialog and proceed directly
-    setIsRetrying(true);
+    // Prevent event bubbling
+    e.nativeEvent.stopImmediatePropagation();
+    
+    // Call the retry function provided by the parent component
+    // Wrap in a try/catch to prevent any errors from bubbling up to React
     try {
-      // Call the retry function provided by the parent component
       await onRetry(summary.id);
     } catch (error) {
-      console.error('Failed to retry summary:', error);
-    } finally {
-      setIsRetrying(false);
+      // Log the error but DON'T rethrow it - error is already handled in parent component
+      console.error('Error caught in SummaryCard handleRetry:', error);
+      // Error is already handled in the parent's onRetry function, so we don't need
+      // to do anything else here
     }
   };
   
-  const handleCardClick = () => {
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Always prevent default to stop automatic navigation
+    e.preventDefault();
+
+    // Don't navigate if we're retrying or this is a failed summary
+    if (summary.isRetrying || isFailed) {
+      return;
+    }
+
+    // Look for the most advanced summary for this podcast
+    if (summary.podcast?.id && allSummaries.length > 0) {
+      // Get all summaries for this podcast
+      const relatedSummaries = allSummaries.filter(s => 
+        s.podcast?.id === summary.podcast?.id &&
+        String(s.status).toLowerCase() !== 'failed'
+      );
+      
+      if (relatedSummaries.length > 1) {
+        console.log('Found multiple summaries for podcast:', summary.podcast.id);
+        
+        // Find the most advanced one based on status priority
+        const statusPriority = {
+          'completed': 5,
+          'generating_summary': 4, 
+          'fetching_transcript': 3,
+          'in_queue': 2,
+          'failed': 1
+        };
+        
+        // Sort by priority (highest first)
+        relatedSummaries.sort((a, b) => {
+          const aPriority = statusPriority[a.status.toLowerCase() as keyof typeof statusPriority] || 0;
+          const bPriority = statusPriority[b.status.toLowerCase() as keyof typeof statusPriority] || 0;
+          return bPriority - aPriority;
+        });
+        
+        // Use the most advanced summary's ID
+        const bestSummary = relatedSummaries[0];
+        console.log(`Navigating to best summary ${bestSummary.id} with status ${bestSummary.status} instead of ${summary.id}`);
+        
+        // Navigate to the best summary
+        router.push(`/app/${bestSummary.id}`);
+        return;
+      }
+    }
+
+    // If no related summaries found or only one exists, navigate to this summary
     router.push(`/app/${summary.id}`);
   };
   
   // Force buttons to be visible for any failed items regardless of exact status
   const isFailed = String(summary.status).toLowerCase() === 'failed';
   const isInQueue = String(summary.status).toLowerCase() === 'in_queue';
+  const isCreator = summary.creator_id === currentUserId;
   
   const showDeleteButton = isFailed || isInQueue;
-  const showRetryButton = isFailed;
+  const showRetryButton = isFailed && !summary.isRetrying; // Don't show retry button while retrying
+  
+  // Get appropriate button text based on whether user is creator
+  const deleteButtonText = isDeleting ? 'Processing...' : (isCreator ? 'Delete' : 'Remove');
   
   console.log('Button visibility check:', {
     status: summary.status,
     statusLower: String(summary.status).toLowerCase(),
     isFailed,
     isInQueue,
+    isRetrying: summary.isRetrying,
     showDeleteButton,
     showRetryButton
   });
@@ -157,7 +218,7 @@ const SummaryCard = ({ summary, onDelete, onRetry }: {
             </div>
           </div>
           <div className="flex-shrink-0 ml-4 w-[100px] text-right">
-            <StatusBadge status={summary.status as unknown as ProcessingStatus} />
+            <StatusBadge status={summary.status} className="ml-0" />
           </div>
         </div>
         
@@ -165,25 +226,33 @@ const SummaryCard = ({ summary, onDelete, onRetry }: {
           {showDeleteButton && (
             <Button 
               variant="ghost" 
-              size="sm" 
               className="text-red-600 hover:text-red-800 hover:bg-red-50 p-0 h-auto" 
               onClick={handleDelete}
-              disabled={isDeleting}
+              disabled={isDeleting || summary.isRetrying}
             >
-              {isDeleting ? 'Removing...' : 'Remove'}
+              {deleteButtonText}
             </Button>
           )}
           
           {showRetryButton && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-0 h-auto" 
-              onClick={handleRetry}
-              disabled={isRetrying}
-            >
-              {isRetrying ? 'Retrying...' : 'Retry'}
-            </Button>
+            <div onClick={(e) => e.stopPropagation()}>
+              <Button 
+                variant="ghost" 
+                className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-0 h-auto" 
+                onClick={handleRetry}
+                disabled={summary.isRetrying}
+              >
+                  {summary.isRetrying ? (
+                    <span className="flex items-center gap-1">
+                      <svg className="animate-spin h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Retrying...
+                    </span>
+                  ) : 'Retry'}
+                </Button>
+            </div>
           )}
         </div>
       </CardContent>
@@ -206,6 +275,11 @@ export default withAuth(function AppDashboard() {
   const [hasMoreCompleted, setHasMoreCompleted] = useState<boolean>(true);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const completedContainerRef = useRef<HTMLDivElement>(null);
+  // Add a ref to track previous completed count for pagination optimization
+  const prevCompletedCountRef = useRef<number>(0);
+
+  // Add a ref to track when deduplication is in progress to prevent loops
+  const deduplicatingRef = useRef(false);
 
   // Load user session on component mount
   useEffect(() => {
@@ -225,19 +299,12 @@ export default withAuth(function AppDashboard() {
   useEffect(() => {
     if (!user || !user.id) return;
     
-    // Keep the debounced fetch for situations where we need a full refresh
-    let debounceTimer: NodeJS.Timeout | null = null;
+    // Track summaries we've already handled optimistically
+    // This will help prevent double-processing
+    const optimisticSummaryIds = new Set<string>();
     
-    const debouncedFetch = () => {
-      // Clear any existing timer
-      if (debounceTimer) clearTimeout(debounceTimer);
-      
-      // Set a new timer
-      debounceTimer = setTimeout(() => {
-        console.log('Debounced fetch triggered');
-        fetchSummaries();
-      }, 1000); // 1 second debounce
-    };
+    // Also track podcast_ids to prevent duplicates showing for the same podcast
+    const podcastToSummaryMap = new Map<string, string>();
     
     // Set up subscriptions to listen for changes
     const subscription = supabase
@@ -287,13 +354,28 @@ export default withAuth(function AppDashboard() {
             // For new summaries, we may need to fetch the podcast data
             // But we can skip this if it was our optimistic update
             const newSummary = payload.new as SummaryRecord;
-            if (newSummary?.id && summaries.some(s => s.id === newSummary.id)) {
-              console.log('Ignoring INSERT for summary we already have:', newSummary.id);
-              return;
-            }
             
-            // For truly new summaries, we can do a targeted fetch
-            debouncedFetch();
+            if (newSummary?.id) {
+              console.log('INSERT event for summary ID:', newSummary.id, 'with podcast_id:', newSummary.podcast_id);
+              
+              // Check if we already have this summary in our state
+              if (summaries.some(s => s.id === newSummary.id)) {
+                console.log('Ignoring INSERT for summary we already have:', newSummary.id);
+                return;
+              }
+              
+              // Check if this is a summary we've handled optimistically
+              if (optimisticSummaryIds.has(newSummary.id)) {
+                console.log('Ignoring INSERT for optimistically handled summary:', newSummary.id);
+                // Remove from the set so we don't accumulate old IDs
+                optimisticSummaryIds.delete(newSummary.id);
+                return;
+              }
+              
+              // For truly new summaries from other sources, do a targeted fetch
+              // instead of fetching everything
+              fetchSingleSummary(newSummary.id);
+            }
           } else if (payload.eventType === 'DELETE') {
             // Remove the summary from state
             const oldSummary = payload.old as SummaryRecord;
@@ -307,12 +389,185 @@ export default withAuth(function AppDashboard() {
       )
       .subscribe();
     
+    // Expose optimisticSummaryIds to our component scope
+    // This way we can add IDs when we create optimistic updates
+    (window as any).__optimisticSummaryIds = optimisticSummaryIds;
+    
     // Cleanup subscription and timer on unmount
     return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(subscription);
+      delete (window as any).__optimisticSummaryIds;
     };
   }, [user]);
+
+  // New function to fetch a single summary without loading states
+  const fetchSingleSummary = async (summaryId: string) => {
+    if (!user || !user.id) return;
+    
+    try {
+      // Define the type for our nested query response
+      type SupabaseSingleSummaryResponse = {
+        summary_id: string;
+        summaries: {
+          id: string;
+          status: string;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+          creator_id: string | null;
+          podcast: {
+            id: string;
+            title: string;
+            show_name: string;
+            thumbnail_url: string | null;
+            url: string | null;
+            youtube_url: string | null;
+            platform: string | null;
+          } | null;
+        } | null;
+      };
+
+      // Get just this specific summary with its podcast data
+      const { data: userSummaryWithPodcast, error: summaryError } = await supabase
+        .from('user_summaries')
+        .select(`
+          summary_id,
+          added_at,
+          summaries:summary_id (
+            id,
+            status,
+            error_message,
+            created_at,
+            updated_at,
+            creator_id,
+            podcast:podcast_id (
+              id,
+              title,
+              show_name,
+              thumbnail_url,
+              url,
+              youtube_url,
+              platform
+            )
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('summary_id', summaryId)
+        .single();
+
+      if (summaryError || !userSummaryWithPodcast) {
+        console.error('Error fetching single summary:', summaryError);
+        return;
+      }
+
+      // Transform to match our expected format
+      const summary = userSummaryWithPodcast.summaries;
+      if (!summary) return;
+
+      const newSummaryItem: SummaryWithPodcast = {
+        id: summary.id,
+        status: summary.status,
+        error_message: summary.error_message,
+        created_at: summary.created_at,
+        updated_at: summary.updated_at,
+        creator_id: summary.creator_id,
+        podcast: summary.podcast || {
+          title: summary.status === 'in_queue' || 
+                 summary.status === 'fetching_transcript' || 
+                 summary.status === 'generating_summary' 
+                 ? 'Processing Podcast' : 'Unknown Podcast',
+          show_name: 'Please wait...',
+        },
+        isRetrying: false
+      };
+
+      // Update summaries with extra aggressive deduplication
+      setSummaries(prev => {
+        // First, we need to see if this new summary has podcast data
+        const podcastId = summary.podcast?.id;
+        
+        if (podcastId) {
+          // First, check if we already have this exact summary
+          const exactSummaryIndex = prev.findIndex(s => s.id === summary.id);
+          if (exactSummaryIndex !== -1) {
+            // We already have this exact summary, just update its status
+            console.log(`Updating existing summary ${summary.id} status to ${summary.status}`);
+            const updatedSummaries = [...prev];
+            updatedSummaries[exactSummaryIndex] = {
+              ...updatedSummaries[exactSummaryIndex],
+              status: summary.status,
+              error_message: summary.error_message,
+              updated_at: summary.updated_at
+            };
+            
+            // Deduplicate after the update
+            return removeDuplicatePodcasts(updatedSummaries);
+          }
+          
+          // Second, look for any existing summary in the "in progress" section that has the same podcast
+          const existingInProgressIndices = prev
+            .map((s, index) => s.podcast?.id === podcastId && 
+                 String(s.status).toLowerCase() !== 'completed' ? index : -1)
+            .filter(index => index !== -1);
+          
+          if (existingInProgressIndices.length > 0) {
+            // We found duplicates! Log them
+            console.log('Detected duplicate podcasts:', {
+              existingIndices: existingInProgressIndices,
+              newId: newSummaryItem.id,
+              podcastId
+            });
+            
+            // Make a copy of the array
+            const updatedSummaries = [...prev];
+            
+            // Status priority to decide which one to keep
+            const statusPriority = {
+              'completed': 5,
+              'generating_summary': 4, 
+              'fetching_transcript': 3,
+              'in_queue': 2,
+              'failed': 1
+            };
+            
+            // Get priority of new summary
+            const newPriority = 
+              statusPriority[newSummaryItem.status.toLowerCase() as keyof typeof statusPriority] || 0;
+              
+            // Check if our new summary has higher priority than any existing ones
+            let shouldKeepNew = true;
+            for (const index of existingInProgressIndices) {
+              const existingStatus = prev[index].status.toLowerCase();
+              const existingPriority = statusPriority[existingStatus as keyof typeof statusPriority] || 0;
+              
+              // If existing has higher or equal priority, we might not need this new one
+              if (existingPriority >= newPriority) {
+                shouldKeepNew = false;
+                break;
+              }
+            }
+            
+            if (shouldKeepNew) {
+              // Add the new one and remove all others
+              return removeDuplicatePodcasts([
+                newSummaryItem, 
+                ...prev.filter((_, index) => !existingInProgressIndices.includes(index))
+              ]);
+            } else {
+              // Don't add this new one, but ensure we only have one of the existing ones
+              return removeDuplicatePodcasts(prev);
+            }
+          }
+        }
+        
+        // No duplicate found, add as new and still deduplicate result
+        return removeDuplicatePodcasts([newSummaryItem, ...prev]);
+      });
+      
+    } catch (err) {
+      console.error('Error in fetchSingleSummary:', err);
+    }
+  };
 
   // Fetch summaries when user changes
   useEffect(() => {
@@ -323,18 +578,29 @@ export default withAuth(function AppDashboard() {
   
   // Set up intersection observer for infinite scrolling
   useEffect(() => {
-    // Reset visible count when summaries change
-    setVisibleCompletedCount(10);
-    setHasMoreCompleted(true);
-    
-    // Check if we need to set hasMoreCompleted to false initially
+    // Instead of automatically resetting on every summaries change,
+    // only reset when there's a significant change in the completed section
     const completedSummaries = summaries.filter(s => 
       String(s.status).toLowerCase() === 'completed'
     );
-    if (completedSummaries.length <= 10) {
-      setHasMoreCompleted(false);
+    
+    // Only reset pagination if the number of completed summaries has changed significantly
+    // This prevents resets when we're just updating in-progress summaries
+    const currentCompletedCount = completedSummaries.length;
+    
+    // Using the ref that's already declared at the component level
+    if (Math.abs(currentCompletedCount - prevCompletedCountRef.current) > 1) {
+      // Only reset if the count has changed by more than 1 (significant change)
+      console.log('Resetting pagination due to significant change in completed summaries count');
+      setVisibleCompletedCount(10);
+      setHasMoreCompleted(currentCompletedCount > 10);
+      prevCompletedCountRef.current = currentCompletedCount;
+    } else {
+      // Just update the hasMore flag based on current state
+      setHasMoreCompleted(currentCompletedCount > visibleCompletedCount);
+      prevCompletedCountRef.current = currentCompletedCount;
     }
-  }, [summaries]);
+  }, [summaries, visibleCompletedCount]);
   
   // Intersection observer for infinite scrolling
   useEffect(() => {
@@ -384,7 +650,12 @@ export default withAuth(function AppDashboard() {
   const fetchSummaries = async () => {
     if (!user || !user.id) return;
     
-    setLoadingSummaries(true);
+    // Only show loading state if we don't already have data
+    // This prevents the UI from "flashing" during refreshes
+    if (summaries.length === 0) {
+      setLoadingSummaries(true);
+    }
+    
     try {
       // Define the type for our nested query response
       type SupabaseSummaryResponse = {
@@ -395,6 +666,7 @@ export default withAuth(function AppDashboard() {
           error_message: string | null;
           created_at: string;
           updated_at: string;
+          creator_id: string | null;
           podcast: {
             id: string;
             title: string;
@@ -419,6 +691,7 @@ export default withAuth(function AppDashboard() {
             error_message,
             created_at,
             updated_at,
+            creator_id,
             podcast:podcast_id (
               id,
               title,
@@ -451,24 +724,139 @@ export default withAuth(function AppDashboard() {
             error_message: summary.error_message,
             created_at: summary.created_at,
             updated_at: summary.updated_at,
+            creator_id: summary.creator_id,
             podcast: summary.podcast || {
               title: summary.status === 'in_queue' || 
                      summary.status === 'fetching_transcript' || 
                      summary.status === 'generating_summary' 
                      ? 'Processing Podcast' : 'Unknown Podcast',
               show_name: 'Please wait...',
-            }
+            },
+            isRetrying: false
           } as SummaryWithPodcast;
         })
         .filter((item): item is SummaryWithPodcast => item !== null);
       
-      setSummaries(transformedData);
+      // Preserve isRetrying state for any summaries that are currently retrying
+      const updatedData = transformedData.map(newSummary => {
+        const existingSummary = summaries.find(s => s.id === newSummary.id);
+        if (existingSummary && existingSummary.isRetrying) {
+          return { ...newSummary, isRetrying: true };
+        }
+        return newSummary;
+      });
+      
+      // Deduplicate summaries for the same podcast in the "in progress" section
+      // We'll keep the most recent summary for each podcast
+      const deduplicated = removeDuplicatePodcasts(updatedData);
+      
+      setSummaries(deduplicated);
     } catch (err) {
       console.error('Error in summaries fetch flow:', err);
       setSummaries([]);
     } finally {
       setLoadingSummaries(false);
     }
+  };
+  
+  // After all useEffect hooks, add a new effect to ensure we never have duplicates
+  useEffect(() => {
+    // Skip if already deduplicating to prevent infinite loops
+    if (deduplicatingRef.current) {
+      deduplicatingRef.current = false;
+      return;
+    }
+    
+    // This effect will run after every summaries state update
+    // to ensure we never have duplicates in the "in progress" section
+    if (summaries.length > 0) {
+      const deduplicated = removeDuplicatePodcasts(summaries);
+      
+      // Only update state if we actually removed duplicates
+      if (deduplicated.length < summaries.length) {
+        console.log(`Auto-deduplication effect removed ${summaries.length - deduplicated.length} duplicate summaries`);
+        // Set flag to indicate we're doing a deduplication update
+        deduplicatingRef.current = true;
+        setSummaries(deduplicated);
+      }
+    }
+  }, [summaries]);
+  
+  // Improve the removeDuplicatePodcasts function to be more aggressive
+  const removeDuplicatePodcasts = (summaryList: SummaryWithPodcast[]): SummaryWithPodcast[] => {
+    // Keep track of podcast IDs we've seen and the best summary ID to keep for each
+    const inProgressMap = new Map<string, string>();
+    const inProgress: SummaryWithPodcast[] = [];
+    const completed: SummaryWithPodcast[] = [];
+    
+    // First pass - separate completed and in-progress, and track the best summary for each podcast
+    summaryList.forEach(summary => {
+      if (String(summary.status).toLowerCase() === 'completed') {
+        // Keep all completed summaries
+        completed.push(summary);
+      } else {
+        // For in-progress, track by podcast ID
+        const podcastId = summary.podcast?.id;
+        
+        if (podcastId) {
+          // If we already have a summary for this podcast
+          if (inProgressMap.has(podcastId)) {
+            // Choose which one to keep based on the status priority
+            const existingSummaryId = inProgressMap.get(podcastId)!;
+            const existingSummary = summaryList.find(s => s.id === existingSummaryId)!;
+            
+            // Prefer to keep the most advanced status summary
+            const statusPriority = {
+              'generating_summary': 4, 
+              'fetching_transcript': 3,
+              'in_queue': 2,
+              'failed': 1
+            };
+            
+            const existingPriority = statusPriority[existingSummary.status.toLowerCase() as keyof typeof statusPriority] || 0;
+            const currentPriority = statusPriority[summary.status.toLowerCase() as keyof typeof statusPriority] || 0;
+            
+            // If this summary has higher priority, replace it in our map
+            if (currentPriority > existingPriority) {
+              inProgressMap.set(podcastId, summary.id);
+              console.log(`Preferring ${summary.status} over ${existingSummary.status} for podcast ${podcastId}`);
+            }
+          } else {
+            // First time seeing this podcast, just track it
+            inProgressMap.set(podcastId, summary.id);
+          }
+        } else {
+          // If there's no podcast ID, keep it anyway (rare case)
+          inProgress.push(summary);
+        }
+      }
+    });
+    
+    // Second pass - collect all in-progress summaries we want to keep
+    summaryList.forEach(summary => {
+      if (String(summary.status).toLowerCase() !== 'completed') {
+        const podcastId = summary.podcast?.id;
+        
+        // If this is the summary we decided to keep for this podcast, add it
+        if (podcastId && inProgressMap.get(podcastId) === summary.id) {
+          inProgress.push(summary);
+        }
+      }
+    });
+    
+    // Sort in-progress summaries by timestamp (newest first)
+    inProgress.sort((a, b) => 
+      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+    
+    // Log what we're doing
+    const numRemoved = summaryList.length - (inProgress.length + completed.length);
+    if (numRemoved > 0) {
+      console.log(`De-duplication: ${summaryList.length} total → ${inProgress.length + completed.length} (removed ${numRemoved} duplicates)`);
+    }
+    
+    // Combine and return, with in-progress summaries first
+    return [...inProgress, ...completed];
   };
 
   // URL submission handler
@@ -515,6 +903,12 @@ export default withAuth(function AppDashboard() {
       const data = await response.json()
       console.log('Podcast submitted successfully:', data)
       
+      // Register this ID as something we've handled optimistically
+      // This prevents the Supabase subscription from triggering a refetch
+      if ((window as any).__optimisticSummaryIds && data.id) {
+        (window as any).__optimisticSummaryIds.add(data.id);
+      }
+      
       // Clear the form
       setUrl('')
       
@@ -525,10 +919,12 @@ export default withAuth(function AppDashboard() {
         status: 'in_queue',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        creator_id: user?.id,
         podcast: {
           title: 'Processing Podcast',
           show_name: 'Please wait...',
-        }
+        },
+        isRetrying: false
       };
       
       setSummaries(prev => [optimisticSummary, ...prev]);
@@ -543,10 +939,20 @@ export default withAuth(function AppDashboard() {
     }
   }
 
-  // Add handleDeleteSummary function
+  // Updated handleDeleteSummary function
   const handleDeleteSummary = async (id: string) => {
     try {
-      const response = await fetch(`/api/summaries/${id}`, {
+      // Find the summary to check if the current user is the creator
+      const summaryToDelete = summaries.find(s => s.id === id);
+      
+      // We'll send the action type to the API based on whether the user is the creator
+      // This assumes our API supports a query parameter to specify the action
+      const isCreator = summaryToDelete?.creator_id === user?.id;
+      const actionType = isCreator ? 'delete' : 'remove';
+      
+      console.log(`Deleting summary ${id}, user is ${isCreator ? 'creator' : 'not creator'}, action: ${actionType}`);
+      
+      const response = await fetch(`/api/summaries/${id}?action=${actionType}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${accessToken}`
@@ -567,59 +973,187 @@ export default withAuth(function AppDashboard() {
         throw new Error(errorMessage);
       }
       
-      // Remove the deleted summary from state and refresh data
+      // Remove the deleted summary from state immediately
+      // The supabase subscription will handle it if needed
       setSummaries(prevSummaries => prevSummaries.filter(s => s.id !== id));
       
-      // Refresh after a short delay to ensure server processing is complete
-      setTimeout(() => {
-        fetchSummaries();
-      }, 500);
+      // Show a toast notification with appropriate message
+      const successMessage = isCreator ? 
+        'Summary deleted successfully' : 
+        'Summary removed from your list';
+      showToast.success(successMessage);
       
     } catch (error) {
       console.error('Error deleting summary:', error);
+      showToast.error('Failed to delete summary');
       throw error;
     }
   };
 
   // Add handleRetrySummary function
   const handleRetrySummary = async (id: string) => {
+    // Show loading state on this summary
+    setSummaries(prevSummaries => prevSummaries.map(s => 
+      s.id === id ? { ...s, isRetrying: true } : s
+    ));
+    
     try {
-      const response = await fetch(`/api/summaries/${id}/retry`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
-      
-      if (!response.ok) {
-        // Try to extract detailed error information
-        let errorMessage = 'Failed to retry summary';
-        try {
-          const errorData = await response.json();
-          console.error('Retry summary error details:', errorData);
-          errorMessage = errorData.error || errorMessage;
-        } catch (parseError) {
-          console.error('Could not parse error response:', parseError);
-        }
-        
-        throw new Error(errorMessage);
+      // Attempt the retry operation
+      let response;
+      try {
+        response = await fetch(`/api/summaries/${id}/retry`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+      } catch (fetchError) {
+        console.error('Network error during retry:', fetchError);
+        showToast.error('Network error. Please check your connection and try again.');
+        // Reset retrying state
+        setSummaries(prevSummaries => prevSummaries.map(s => 
+          s.id === id ? { ...s, isRetrying: false } : s
+        ));
+        return; // Exit early
       }
       
-      // Update the status of this summary in the UI
-      setSummaries(prevSummaries => prevSummaries.map(s => 
-        s.id === id 
-          ? { ...s, status: 'in_queue' }
-          : s
-      ));
+      // Get the response text for debugging
+      let responseText = '';
+      try {
+        responseText = await response.text();
+        console.log(`Retry response for summary ${id}:`, responseText);
+      } catch (textError) {
+        console.error('Error reading response text:', textError);
+        showToast.error('Error reading server response');
+        // Reset retrying state
+        setSummaries(prevSummaries => prevSummaries.map(s => 
+          s.id === id ? { ...s, isRetrying: false } : s
+        ));
+        return; // Exit early
+      }
       
-      // Refresh after a short delay to ensure server processing is complete
-      setTimeout(() => {
+      // Parse JSON if possible, otherwise use empty object
+      let data = {};
+      try {
+        if (responseText) {
+          data = JSON.parse(responseText);
+        }
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError);
+        
+        // Handle expired Spotify link error specially
+        if (responseText && responseText.includes('podcast has expired')) {
+          showToast.error('The link to this podcast has expired. Copy it from Spotify and try again.');
+          // Reset retrying state
+          setSummaries(prevSummaries => prevSummaries.map(s => 
+            s.id === id ? { ...s, isRetrying: false } : s
+          ));
+          return; // Exit early
+        }
+        
+        // Generic parsing error
+        showToast.error('Server returned an invalid response');
+        // Reset retrying state
+        setSummaries(prevSummaries => prevSummaries.map(s => 
+          s.id === id ? { ...s, isRetrying: false } : s
+        ));
+        return; // Exit early
+      }
+      
+      // Check for error responses
+      if (!response.ok) {
+        const errorMessage = data.error || 'Failed to retry summary';
+        console.error('Error response from server:', data);
+        showToast.error(errorMessage);
+        // Reset retrying state
+        setSummaries(prevSummaries => prevSummaries.map(s => 
+          s.id === id ? { ...s, isRetrying: false } : s
+        ));
+        return; // Exit early
+      }
+      
+      // If we got here, the retry was successful
+      const newSummaryId = data.newSummaryId;
+      console.log(`Summary retry successful. New summary ID: ${newSummaryId || 'unknown'}`);
+      
+      // Get the podcast data from the old summary to use in the optimistic update
+      const oldSummary = summaries.find(s => s.id === id);
+      
+      if (oldSummary && newSummaryId) {
+        // Register this ID as something we've handled optimistically
+        // This prevents the Supabase subscription from triggering a refetch
+        if ((window as any).__optimisticSummaryIds) {
+          console.log('Registering optimistic summary ID:', newSummaryId);
+          (window as any).__optimisticSummaryIds.add(newSummaryId);
+        }
+        
+        // Store the podcast ID if available to prevent duplicates
+        const podcastId = oldSummary.podcast?.id;
+        if (podcastId) {
+          console.log('Tracking podcast ID for summary:', { podcastId, summaryId: newSummaryId });
+        }
+        
+        // Create an optimistic entry for the new summary with podcast data from the old one
+        const optimisticNewSummary: SummaryWithPodcast = {
+          id: newSummaryId,
+          status: 'in_queue',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          creator_id: user?.id,
+          podcast: oldSummary.podcast, // Copy podcast data from the old summary
+          isRetrying: false
+        };
+        
+        // Update the summaries state in a single operation:
+        // 1. Remove the old summary
+        // 2. Add the new optimistic summary at the top
+        setSummaries(prevSummaries => {
+          // First remove any other summaries that might be for the same podcast and are in progress
+          const podcastId = oldSummary.podcast?.id;
+          let filtered = prevSummaries.filter(s => s.id !== id);
+          
+          if (podcastId) {
+            // Check if there are any other summaries for this podcast that are in progress
+            const duplicateIndex = filtered.findIndex(s => 
+              s.podcast?.id === podcastId && 
+              String(s.status).toLowerCase() !== 'completed'
+            );
+            
+            if (duplicateIndex !== -1) {
+              console.log('Found duplicate in handleRetry, removing:', filtered[duplicateIndex].id);
+              // Remove the duplicate
+              filtered = filtered.filter((_, index) => index !== duplicateIndex);
+            }
+          }
+          
+          // Add the new optimistic summary at the top
+          return [optimisticNewSummary, ...filtered];
+        });
+        
+        // Show success message
+        showToast.success('Summary successfully queued for retry');
+      } else {
+        // If we don't have the necessary data, fall back to a full refresh
+        // Show success message first
+        showToast.success('Summary successfully queued for retry');
+        
+        // Remove the old summary
+        setSummaries(prevSummaries => prevSummaries.filter(s => s.id !== id));
+        
+        // Fetch the updated list (try to avoid this path)
         fetchSummaries();
-      }, 500);
-      
+      }
     } catch (error) {
-      console.error('Error retrying summary:', error);
-      throw error;
+      // Catch-all for any unhandled errors
+      console.error('Unexpected error in handleRetrySummary:', error);
+      
+      // Display generic error message
+      showToast.error('An unexpected error occurred');
+      
+      // Reset retrying state
+      setSummaries(prevSummaries => prevSummaries.map(s => 
+        s.id === id ? { ...s, isRetrying: false } : s
+      ));
     }
   };
 
@@ -700,6 +1234,8 @@ export default withAuth(function AppDashboard() {
                         summary={summary} 
                         onDelete={handleDeleteSummary}
                         onRetry={handleRetrySummary}
+                        allSummaries={summaries}
+                        currentUserId={user?.id}
                       />
                     ))}
                   </div>
@@ -723,6 +1259,8 @@ export default withAuth(function AppDashboard() {
                         summary={summary} 
                         onDelete={handleDeleteSummary}
                         onRetry={handleRetrySummary}
+                        allSummaries={summaries}
+                        currentUserId={user?.id}
                       />
                     ))}
                     

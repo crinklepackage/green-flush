@@ -42,115 +42,260 @@ The main flows show that:
 - Failed searches are tracked separately
 - Everything ties back to the authenticated user (auth.users.id)
 
-| table_name              | column_name          | data_type                |
-| ----------------------- | -------------------- | ------------------------ |
-| failed_youtube_searches | id                   | uuid                     |
-| failed_youtube_searches | search_query         | text                     |
-| failed_youtube_searches | spotify_show_name    | text                     |
-| failed_youtube_searches | spotify_title        | text                     |
-| failed_youtube_searches | spotify_url          | text                     |
-| failed_youtube_searches | resolved_youtube_url | text                     |
-| failed_youtube_searches | resolved_at          | timestamp with time zone |
-| failed_youtube_searches | resolved             | boolean                  |
-| failed_youtube_searches | created_at           | timestamp with time zone |
-| job_history             | input_payload        | jsonb                    |
-| job_history             | error_message        | text                     |
-| job_history             | status               | text                     |
-| job_history             | target_service       | text                     |
-| job_history             | source_service       | text                     |
-| job_history             | job_type             | text                     |
-| job_history             | updated_at           | timestamp with time zone |
-| job_history             | created_at           | timestamp with time zone |
-| job_history             | completed_at         | timestamp with time zone |
-| job_history             | started_at           | timestamp with time zone |
-| job_history             | output_payload       | jsonb                    |
-| job_history             | id                   | uuid                     |
-| job_statistics          | source_service       | text                     |
-| job_statistics          | target_service       | text                     |
-| job_statistics          | status               | text                     |
-| job_statistics          | avg_duration_seconds | numeric                  |
-| job_statistics          | job_count            | bigint                   |
-| metadata_fetch_failures | podcast_id           | uuid                     |
-| metadata_fetch_failures | attempted_at         | timestamp with time zone |
-| metadata_fetch_failures | created_at           | timestamp with time zone |
-| metadata_fetch_failures | retry_count          | integer                  |
-| metadata_fetch_failures | resolved_at          | timestamp with time zone |
-| metadata_fetch_failures | error_message        | text                     |
-| metadata_fetch_failures | id                   | uuid                     |
-| metadata_fetch_failures | url                  | text                     |
-| metadata_fetch_failures | resolution_notes     | text                     |
-| podcasts                | duration             | integer                  |
-| podcasts                | id                   | uuid                     |
-| podcasts                | created_at           | timestamp with time zone |
-| podcasts                | updated_at           | timestamp with time zone |
-| podcasts                | has_transcript       | boolean                  |
-| podcasts                | created_by           | uuid                     |
-| podcasts                | url                  | text                     |
-| podcasts                | title                | text                     |
-| podcasts                | show_name            | text                     |
-| podcasts                | platform             | text                     |
-| podcasts                | thumbnail_url        | text                     |
-| podcasts                | transcript           | text                     |
-| podcasts                | platform_specific_id | character varying        |
-| podcasts                | youtube_url          | text                     |
-| profiles                | updated_at           | timestamp with time zone |
-| profiles                | email                | text                     |
-| profiles                | id                   | uuid                     |
-| profiles                | created_at           | timestamp with time zone |
-| profiles                | username             | text                     |
-| reading_list            | summary_id           | uuid                     |
-| reading_list            | user_id              | uuid                     |
-| reading_list            | created_at           | timestamp with time zone |
-| reading_list            | id                   | uuid                     |
-| service_health          | id                   | uuid                     |
-| service_health          | last_heartbeat       | timestamp with time zone |
-| service_health          | updated_at           | timestamp with time zone |
-| service_health          | created_at           | timestamp with time zone |
-| service_health          | metadata             | jsonb                    |
-| service_health          | status               | text                     |
-| service_health          | version              | text                     |
-| service_health          | service_name         | text                     |
-| service_metrics         | service_name         | text                     |
-| service_metrics         | id                   | uuid                     |
-| service_metrics         | metric_name          | text                     |
-| service_metrics         | recorded_at          | timestamp with time zone |
-| service_metrics         | metadata             | jsonb                    |
-| service_metrics         | metric_value         | numeric                  |
-| service_status_summary  | service_name         | text                     |
-| service_status_summary  | time_since_heartbeat | interval                 |
-| service_status_summary  | last_heartbeat       | timestamp with time zone |
-| service_status_summary  | current_load         | text                     |
-| service_status_summary  | status               | text                     |
-| service_status_summary  | version              | text                     |
-| summaries               | status               | text                     |
-| summaries               | created_at           | timestamp with time zone |
-| summaries               | view_count           | integer                  |
-| summaries               | last_viewed_at       | timestamp with time zone |
-| summaries               | cost_estimate        | numeric                  |
-| summaries               | topic_breakdown      | jsonb                    |
-| summaries               | notable_quotes       | jsonb                    |
-| summaries               | error_message        | text                     |
-| summaries               | processing_metadata  | jsonb                    |
-| summaries               | status_history       | jsonb                    |
-| summaries               | summary_text         | text                     |
-| summaries               | failed_at            | timestamp with time zone |
-| summaries               | completed_at         | timestamp with time zone |
-| summaries               | processing_since     | timestamp with time zone |
-| summaries               | pending_since        | timestamp with time zone |
-| summaries               | cost_usd             | numeric                  |
-| summaries               | key_points           | jsonb                    |
-| summaries               | input_tokens         | integer                  |
-| summaries               | podcast_id           | uuid                     |
-| summaries               | id                   | uuid                     |
-| summaries               | service_version      | text                     |
-| summaries               | updated_at           | timestamp with time zone |
-| summaries               | output_tokens        | integer                  |
-| user_summaries          | id                   | uuid                     |
-| user_summaries          | user_id              | uuid                     |
-| user_summaries          | summary_id           | uuid                     |
-| user_summaries          | added_at             | timestamp with time zone |
-| users                   | id                   | uuid                     |
-| users                   | created_at           | timestamp with time zone |
+[
+  {
+    "schemaname": "public",
+    "tablename": "job_history",
+    "policyname": "job_history_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "job_history",
+    "policyname": "job_history_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "job_history",
+    "policyname": "job_history_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "podcasts",
+    "policyname": "Authenticated users can create podcasts",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.role() = 'authenticated'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "podcasts",
+    "policyname": "Enable select for anonymous users",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "podcasts",
+    "policyname": "Podcasts are viewable by everyone",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "podcasts",
+    "policyname": "Users can create podcasts if authenticated",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.role() = 'authenticated'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "podcasts",
+    "policyname": "Users can insert their own podcasts",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(created_by = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "podcasts",
+    "policyname": "Users can view any podcast",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "podcasts",
+    "policyname": "Users can view their own podcasts",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(created_by = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles",
+    "policyname": "Public profiles are viewable by everyone",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles",
+    "policyname": "Service role can manage all profiles",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.role() = 'service_role'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles",
+    "policyname": "Users can insert own profile",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles",
+    "policyname": "Users can update own profile",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reading_list",
+    "policyname": "Users can manage their reading list",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "summaries",
+    "policyname": "Service role can manage summaries",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.role() = 'service_role'::text)",
+    "with_check": "(auth.role() = 'service_role'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "summaries",
+    "policyname": "Users can create summaries",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.role() = 'authenticated'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "summaries",
+    "policyname": "Users can delete failed or pending summaries",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "DELETE",
+    "qual": "((status = ANY (ARRAY['failed'::text, 'in_queue'::text])) AND (EXISTS ( SELECT 1\n   FROM user_summaries\n  WHERE ((user_summaries.summary_id = summaries.id) AND (user_summaries.user_id = auth.uid())))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "summaries",
+    "policyname": "Users can update failed or pending summaries",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "((status = ANY (ARRAY['failed'::text, 'in_queue'::text])) AND (EXISTS ( SELECT 1\n   FROM user_summaries\n  WHERE ((user_summaries.summary_id = summaries.id) AND (user_summaries.user_id = auth.uid())))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "summaries",
+    "policyname": "Users can view accessible summaries",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM user_summaries\n  WHERE ((user_summaries.summary_id = summaries.id) AND (user_summaries.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "user_feedback",
+    "policyname": "user_feedback_delete_policy",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "DELETE",
+    "qual": "(auth.email() = 'robert@wavenotes.fm'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "user_feedback",
+    "policyname": "user_feedback_insert_policy",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "user_feedback",
+    "policyname": "user_feedback_select_policy",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "user_feedback",
+    "policyname": "user_feedback_update_policy",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "((auth.uid() = user_id) OR (auth.email() = 'robert@wavenotes.fm'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "user_summaries",
+    "policyname": "Users can view their own summary relationships",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  }
+]
+
+
 
 RLS Policies as of 2025-01-03
 | schemaname | tablename      | policyname                                     | permissive | roles           | cmd    | qual                                                                                                                                                                                                      | with_check                            |
