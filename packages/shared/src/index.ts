@@ -95,9 +95,20 @@ export {
 } from './utils/redis';
 
 // Debug statement to confirm Redis exports (will be removed in production)
-console.log('Redis utilities exported: createRedisConfig, createBullMQConnection available:', 
-            typeof require('./utils/redis').createRedisConfig !== 'undefined',
-            typeof require('./utils/redis').createBullMQConnection !== 'undefined');
+if (process.env.NODE_ENV !== 'production') {
+  console.log('Redis utilities exported from shared package:', 
+              typeof require('./utils/redis').createRedisConfig !== 'undefined',
+              typeof require('./utils/redis').createBullMQConnection !== 'undefined');
+  
+  // Additional debugging for Railway environment
+  if (process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PUBLIC_DOMAIN) {
+    console.log('CRITICAL: Detected Railway environment in shared package');
+    console.log('CRITICAL: REDIS_URL value check (sanitized):', 
+                process.env.REDIS_URL ? 
+                process.env.REDIS_URL.replace(/redis:\/\/(.*):(.*)@/, 'redis://$1:***@') : 
+                'not set');
+  }
+}
 
 // Export browser types
 export * from './browser/types';
