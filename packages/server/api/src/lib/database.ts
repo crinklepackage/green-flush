@@ -87,6 +87,7 @@ export interface DatabaseService {
     error: string,
     errorDetails?: any
   }): Promise<void>
+  getInProgressSummaries(statuses: ProcessingStatus[]): Promise<SummaryRecord[]>
 }
 
 export class DatabaseService {
@@ -840,6 +841,28 @@ export class DatabaseService {
         // Just log to console if database logging fails
         console.error('Error in logSummaryRetryError:', err);
       }
+    }
+
+    /**
+     * Gets summaries with specified processing statuses
+     */
+    async getInProgressSummaries(statuses: ProcessingStatus[]): Promise<SummaryRecord[]> {
+      const { data, error } = await this.supabase
+        .from('summaries')
+        .select('*') // Select all fields to match SummaryRecord type
+        .in('status', statuses);
+
+      if (error) {
+        console.error('Database error fetching in-progress summaries:', error);
+        throw new DatabaseError(
+          'Failed to fetch in-progress summaries', 
+          error.code || 'UNKNOWN',
+          'getInProgressSummaries',
+          { statuses }
+        );
+      }
+
+      return data || [];
     }
 }
 

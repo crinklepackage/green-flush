@@ -45,7 +45,7 @@ import { feedbackRoutes } from './routes/feedback'
 import { supabase } from './lib/supabase';
 import adminRouter from './routes/admin';
 import { validateStatusMiddleware } from './middleware/validate-status';
-import { checkStalledSummaries } from './services/timeout-service';
+import { checkStalledSummaries, setDatabaseService } from './services/timeout-service';
 import { healthRouter } from './routes/health';
 
 export const db = new DatabaseService(supabase)
@@ -61,6 +61,12 @@ async function main() {
   });
   
   const db = new DatabaseService(supabase)
+  
+  // IMPORTANT: Set the database service for the timeout service
+  // This ensures the timeout service uses the centralized database service
+  // that properly handles Redis connections
+  setDatabaseService(db);
+  console.log('Database service registered with timeout service');
   
   // Initialize the queue service using our centralized Redis configuration
   console.log('Creating QueueService with centralized Redis configuration');
