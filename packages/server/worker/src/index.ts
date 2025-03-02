@@ -3,7 +3,7 @@ import { WorkerService } from './services/worker-service';
 import { config } from './config/environment';
 import { YouTubeApiClient } from './platforms/youtube/api-client';
 import { ContentProcessorService } from './services/content-processor';
-import { PodcastJob } from '@wavenotes-new/shared';
+import { PodcastJob, createBullMQConnection } from '@wavenotes-new/shared';
 import http from 'http';
 import { createRedisConfig } from './config/redis-config';
 
@@ -35,9 +35,10 @@ const startWorker = async () => {
     // Create worker service with YouTube client
     const worker = new WorkerService(youtube);
 
-    // Get Redis connection configuration with family: 0
-    const redisConfig = createRedisConfig(config.REDIS_URL);
-    console.log('CRITICAL: Worker Redis configuration set with family:', redisConfig.family);
+    // Get Redis connection configuration
+    // Using local implementation directly
+    const redisConfig = createRedisConfig(process.env.REDIS_URL || '');
+    console.log(`[Worker] Using Redis configuration with family: ${redisConfig.family}`);
 
     // Create BullMQ worker
     const podcastWorker = new Worker(

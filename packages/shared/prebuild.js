@@ -513,6 +513,7 @@ const errorsFile = require('./server/errors/errors');
 const transcriptTypes = require('./server/types/transcript');
 const urlUtils = require('./utils/url-utils');
 const claudePrompts = require('./common/prompts/claude-prompts');
+const redisUtils = require('./utils/redis');
 
 // Export everything
 Object.assign(exports, 
@@ -534,6 +535,16 @@ Object.assign(exports,
   urlUtils,
   { CLAUDE_PROMPTS: claudePrompts.CLAUDE_PROMPTS }
 );
+
+// Explicitly export Redis utilities
+exports.createRedisConfig = redisUtils.createRedisConfig;
+exports.createRedisClient = redisUtils.createRedisClient;
+exports.getRedisClient = redisUtils.getRedisClient;
+exports.closeRedisConnection = redisUtils.closeRedisConnection;
+exports.checkRedisHealth = redisUtils.checkRedisHealth;
+exports.createBullMQConnection = redisUtils.createBullMQConnection;
+exports.getRedisConnectionString = redisUtils.getRedisConnectionString;
+exports.RedisConnectionConfig = redisUtils.RedisConnectionConfig;
 
 // Namespace exports
 exports.types = { 
@@ -585,6 +596,7 @@ export * from './server/types/transcript';
 export * from './types/jobs';
 export * from './utils/url-utils';
 export * from './common/prompts/claude-prompts';
+export * from './utils/redis';
 
 // Namespace exports
 export * as types from './server/types';
@@ -617,5 +629,264 @@ const transcriptModule = require('./server/types/transcript');
 exports.TranscriptSource = transcriptModule.TranscriptSource;
 console.log('TranscriptSource available:', exports.TranscriptSource);
 `);
+
+// Add the Redis utility files
+console.log('Creating file: utils/redis.js');
+if (fs.existsSync(path.join(__dirname, 'src/utils/redis.ts'))) {
+  console.log('Ensuring Redis utility files are copied...');
+  try {
+    const redisJsPath = path.join(distDir, 'utils/redis.js');
+    const redisDtsPath = path.join(distDir, 'utils/redis.d.ts');
+    const srcRedisPath = path.join(__dirname, 'src/utils/redis.ts');
+    
+    // Manually copy the TypeScript file to the dist directory 
+    // This is a temporary workaround until we fix the TypeScript compilation
+    console.log('Manually copying Redis utility files');
+    fs.copyFileSync(srcRedisPath, path.join(distDir, 'utils/redis.ts'));
+    
+    // Create a simple JS version as a workaround
+    const redisJsContent = `"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.createBullMQConnection = exports.checkRedisHealth = exports.getRedisConnectionString = exports.closeRedisConnection = exports.getRedisClient = exports.createRedisClient = exports.createRedisConfig = void 0;
+
+const ioredis_1 = require("ioredis");
+
+// Global Redis client for singleton pattern
+let globalRedisClient = null;
+
+/**
+ * Creates a Redis connection configuration object from environment variables.
+ */
+function createRedisConfig() {
+    // Common configuration options for all environments
+    const commonOptions = {
+        // CRITICAL: Force IPv4 for all environments to prevent "ENOTFOUND" errors
+        family: 0,
+        // Connection timeout
+        connectTimeout: 10000,
+        // BullMQ requires this to be null, not a number
+        maxRetriesPerRequest: null,
+        // Performance and reliability options
+        enableAutoPipelining: true,
+        enableReadyCheck: true,
+        // Retry strategy with exponential backoff
+        retryStrategy: (times) => {
+            const MAX_RETRY_ATTEMPTS = 15;
+            if (times > MAX_RETRY_ATTEMPTS) {
+                console.log("Redis reached maximum retry attempts (".concat(MAX_RETRY_ATTEMPTS, "), giving up."));
+                return null; // Return null to stop retrying
+            }
+            const delay = Math.min(times * 50, 2000);
+            console.log("Redis reconnect attempt ".concat(times, "/").concat(MAX_RETRY_ATTEMPTS, " with delay ").concat(delay, "ms"));
+            return delay;
+        }
+    };
+    
+    // First priority: Use REDIS_URL
+    if (process.env.REDIS_URL) {
+        console.log("Using Redis URL with family: 0 for dual-stack resolution");
+        const config = {
+            url: process.env.REDIS_URL,
+            tls: process.env.NODE_ENV === 'production',
+            ...commonOptions // Contains family: 0
+        };
+        console.log("CRITICAL: Final family setting for Redis URL config: ".concat(config.family, " (should be 0)"));
+        return config;
+    }
+    
+    // Fallback for local development
+    console.warn('No Redis configuration found in environment, using localhost:6379');
+    const config = {
+        host: 'localhost',
+        port: 6379,
+        ...commonOptions // Contains family: 0
+    };
+    console.log("CRITICAL: Final family setting for fallback config: ".concat(config.family, " (should be 0)"));
+    return config;
+}
+exports.createRedisConfig = createRedisConfig;
+
+/**
+ * Creates a new Redis client with standardized configuration.
+ */
+function createRedisClient(clientName = 'default', customConfig) {
+    // Merge provided config with environment config
+    const envConfig = createRedisConfig();
+    const mergedConfig = Object.assign(Object.assign({}, envConfig), customConfig);
+    // Ensure family is always set to 0 regardless of custom config
+    mergedConfig.family = 0;
+    // Create client options from config
+    const clientOptions = Object.assign(Object.assign({}, mergedConfig), { 
+        // Handle TLS properly - pass undefined or a tls settings object, not a boolean
+        tls: mergedConfig.tls === true ? {} : undefined,
+        // Override with explicit values for BullMQ compatibility
+        family: 0, // Force IPv4
+        maxRetriesPerRequest: null // Required by BullMQ
+    });
+    
+    // For URL-based connections
+    if (mergedConfig.url) {
+        console.log("Using URL connection for Redis client");
+        return new ioredis_1.default(mergedConfig.url, clientOptions);
+    }
+    
+    // For direct host/port connections
+    console.log("Using direct connection for Redis client");
+    return new ioredis_1.default(clientOptions);
+}
+exports.createRedisClient = createRedisClient;
+
+/**
+ * Gets a Redis client using the singleton pattern.
+ */
+function getRedisClient() {
+    if (!globalRedisClient) {
+        globalRedisClient = createRedisClient('global');
+        console.log('Created global Redis client singleton');
+    }
+    return globalRedisClient;
+}
+exports.getRedisClient = getRedisClient;
+
+/**
+ * Closes the global Redis client if it exists.
+ */
+async function closeRedisConnection() {
+    if (globalRedisClient) {
+        console.log('Closing global Redis connection');
+        await globalRedisClient.quit();
+        globalRedisClient = null;
+    }
+}
+exports.closeRedisConnection = closeRedisConnection;
+
+/**
+ * Gets a sanitized string representation of the Redis connection
+ */
+function getRedisConnectionString(config) {
+    if (config.url) {
+        // Hide password in URL if present
+        return config.url.replace(/redis:\\/\\/(.*):(.*)@/, 'redis://$1:***@');
+    }
+    
+    const host = config.host || 'localhost';
+    const port = config.port || 6379;
+    return "redis://".concat(host, ":").concat(port);
+}
+exports.getRedisConnectionString = getRedisConnectionString;
+
+/**
+ * Checks Redis health by attempting to ping the server
+ */
+async function checkRedisHealth() {
+    const client = createRedisClient('health-check');
+    try {
+        await client.ping();
+        return { status: 'healthy', message: 'Redis connection successful' };
+    }
+    catch (error) {
+        return {
+            status: 'unhealthy',
+            message: error instanceof Error ? error.message : 'Unknown error',
+            details: error
+        };
+    }
+    finally {
+        await client.quit();
+    }
+}
+exports.checkRedisHealth = checkRedisHealth;
+
+/**
+ * Creates a BullMQ-compatible connection object from Redis configuration
+ */
+function createBullMQConnection(config) {
+    const baseConfig = config || createRedisConfig();
+    
+    // Ensure critical BullMQ settings
+    const bullMQConfig = Object.assign(Object.assign({}, baseConfig), { 
+        // Force these settings for BullMQ compatibility
+        family: 0, // CRITICAL: Use IPv4 only
+        maxRetriesPerRequest: null // BullMQ requires this to be null, not a number
+    });
+    
+    // Log the configuration
+    console.log("BullMQ Redis configuration created with family=".concat(bullMQConfig.family, " (should be 0)"));
+    
+    return bullMQConfig;
+}
+exports.createBullMQConnection = createBullMQConnection;
+`;
+
+    const redisDtsContent = `import Redis, { RedisOptions } from 'ioredis';
+
+/**
+ * Redis connection configuration options
+ */
+export interface RedisConnectionConfig {
+    host?: string;
+    port?: number;
+    username?: string;
+    password?: string;
+    db?: number;
+    tls?: boolean;
+    family?: number;
+    url?: string;
+    maxRetriesPerRequest?: number | null;
+    enableAutoPipelining?: boolean;
+    enableReadyCheck?: boolean;
+    connectTimeout?: number;
+    retryStrategy?: (times: number) => number | null;
+}
+
+/**
+ * Creates a Redis connection configuration object from environment variables.
+ */
+export declare function createRedisConfig(): RedisConnectionConfig;
+
+/**
+ * Creates a new Redis client with standardized configuration.
+ */
+export declare function createRedisClient(clientName?: string, customConfig?: RedisConnectionConfig): Redis;
+
+/**
+ * Gets a Redis client using the singleton pattern.
+ */
+export declare function getRedisClient(): Redis;
+
+/**
+ * Closes the global Redis client if it exists.
+ */
+export declare function closeRedisConnection(): Promise<void>;
+
+/**
+ * Gets a sanitized string representation of the Redis connection
+ */
+export declare function getRedisConnectionString(config: RedisConnectionConfig): string;
+
+/**
+ * Checks Redis health by attempting to ping the server
+ */
+export declare function checkRedisHealth(): Promise<{
+    status: string;
+    message: string;
+    details?: any;
+}>;
+
+/**
+ * Creates a BullMQ-compatible connection object from Redis configuration
+ */
+export declare function createBullMQConnection(config?: RedisConnectionConfig): RedisConnectionConfig;
+`;
+
+    // Write the files
+    fs.writeFileSync(redisJsPath, redisJsContent, 'utf8');
+    fs.writeFileSync(redisDtsPath, redisDtsContent, 'utf8');
+    
+    console.log('Redis utility files successfully created by manual workaround');
+  } catch (error) {
+    console.error('Error handling Redis utility files:', error);
+  }
+}
 
 console.log('Prebuild completed successfully.'); 

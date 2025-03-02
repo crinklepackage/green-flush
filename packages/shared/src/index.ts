@@ -82,6 +82,23 @@ export {
   buildYouTubeUrl
 } from './utils/url-utils';
 
+// Export Redis utilities
+export {
+  createRedisConfig,
+  createRedisClient,
+  getRedisClient,
+  closeRedisConnection,
+  checkRedisHealth,
+  createBullMQConnection,
+  getRedisConnectionString,
+  type RedisConnectionConfig
+} from './utils/redis';
+
+// Debug statement to confirm Redis exports (will be removed in production)
+console.log('Redis utilities exported: createRedisConfig, createBullMQConnection available:', 
+            typeof require('./utils/redis').createRedisConfig !== 'undefined',
+            typeof require('./utils/redis').createBullMQConnection !== 'undefined');
+
 // Export browser types
 export * from './browser/types';
 

@@ -3,6 +3,8 @@ import { QueueServiceInterface, JobOptions, Job } from './queue-service.interfac
 import { RedisConnectionConfig, createRedisConfig, getRedisConnectionString } from '../../config/redis-config';
 // Import IORedis directly to have more control over client creation
 import Redis, { RedisOptions } from 'ioredis';
+// Import shared Redis utilities
+import { createRedisClient as createSharedRedisClient } from '@wavenotes-new/shared';
 
 /**
  * BullMQ implementation of the QueueServiceInterface
@@ -103,118 +105,11 @@ export class BullMQQueueService implements QueueServiceInterface {
    * Centralized creation point for all Redis clients to ensure consistency
    */
   private createRedisClient(clientType: string): Redis {
-    // Get base URL or connection info
-    let redisUrl: string;
+    // Use the shared Redis client implementation for consistency
+    console.log(`[BullMQQueueService] Creating Redis client for "${clientType}" using shared implementation`);
     
-    // FIRST: Try to use REDIS_PUBLIC_URL if available (to bypass internal networking issues)
-    if (process.env.REDIS_PUBLIC_URL) {
-      redisUrl = process.env.REDIS_PUBLIC_URL;
-      console.log(`Using REDIS_PUBLIC_URL for ${clientType} client`);
-    } else if (this.connectionConfig.url) {
-      redisUrl = this.connectionConfig.url;
-      console.log(`Using Redis URL for ${clientType} client (credentials hidden)`);
-    } else {
-      // For component parameters, construct URL from parts
-      redisUrl = `redis://${this.connectionConfig.username || ''}:${this.connectionConfig.password || ''}@${this.connectionConfig.host || 'localhost'}:${this.connectionConfig.port || 6379}`;
-      console.log(`Using constructed Redis URL for ${clientType} client (credentials hidden)`);
-    }
-    
-    // Log host/port for debugging (sanitized)
-    try {
-      const parsedUrl = new URL(redisUrl);
-      console.log(`Redis connection details: host=${parsedUrl.hostname}, port=${parsedUrl.port}, protocol=${parsedUrl.protocol}`);
-    } catch (e) {
-      console.warn(`Could not parse Redis URL for logging: ${e}`);
-    }
-    
-    // Standardized options for all Redis clients
-    const redisOptions: RedisOptions = {
-      // Critical to properly handle dual-stack IPv4/IPv6 lookup
-      family: 0,
-      // Increase timeout significantly - Railway may have network latency
-      connectTimeout: 30000, // 30 seconds (up from 10)
-      // BullMQ requires this to be null, not a number
-      maxRetriesPerRequest: null,
-      // Reliability options
-      enableAutoPipelining: true,
-      enableReadyCheck: true,
-      // Add connection/command retry
-      reconnectOnError: (err) => {
-        const targetError = err.message;
-        if (targetError.includes('ETIMEDOUT') || targetError.includes('ECONNRESET')) {
-          // Return 1 or 2 to reconnect for these errors
-          return 1;
-        }
-        return false;
-      },
-      // Retry strategy with limits but longer delays
-      retryStrategy: (times: number) => {
-        const MAX_RETRY_ATTEMPTS = 20; // Increase from 15
-        
-        if (times > MAX_RETRY_ATTEMPTS) {
-          console.log(`Redis ${clientType} reached maximum retry attempts (${MAX_RETRY_ATTEMPTS}), giving up.`);
-          return null; // Return null to stop retrying
-        }
-        
-        // Increase delay to account for potential network latency
-        const delay = Math.min(times * 200, 5000); // Longer delay (up to 5 seconds)
-        console.log(`Redis ${clientType} reconnect attempt ${times}/${MAX_RETRY_ATTEMPTS} with delay ${delay}ms`);
-        return delay;
-      }
-    };
-    
-    // Handling TLS configuration - this is critical for ETIMEDOUT issues
-    if (process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production') {
-      console.log(`Configuring TLS for Redis in production environment`);
-      
-      // CRITICAL: Relaxed TLS settings to handle Railway's certificates
-      redisOptions.tls = {
-        // Don't reject unauthorized certificates - this can help with self-signed certs
-        rejectUnauthorized: false,
-        // Explicitly set servername to match certificate
-        servername: new URL(redisUrl).hostname
-      };
-      
-      // Force TLS to be used if URL starts with rediss://
-      if (redisUrl.startsWith('rediss://')) {
-        console.log('Using secure Redis connection (rediss://)');
-      } 
-      // If it's not already secure and we're in production, try to make it secure
-      else if (redisUrl.startsWith('redis://') && (process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production')) {
-        console.log('Converting regular redis:// URL to secure rediss:// for production');
-        redisUrl = redisUrl.replace('redis://', 'rediss://');
-      }
-    }
-    
-    // Log connection details for debugging
-    console.log(`Creating Redis client for "${clientType}" with options:`, {
-      family: redisOptions.family,
-      connectTimeout: redisOptions.connectTimeout,
-      tls: redisOptions.tls ? {
-        rejectUnauthorized: redisOptions.tls.rejectUnauthorized,
-        servername: redisOptions.tls.servername
-      } : null,
-      maxRetriesPerRequest: redisOptions.maxRetriesPerRequest,
-      enableAutoPipelining: redisOptions.enableAutoPipelining,
-      enableReadyCheck: redisOptions.enableReadyCheck
-    });
-    
-    // Create the client - explicitly pass family:0 to ensure it's applied
-    console.log(`Creating Redis client with family:0 for ${clientType}`);
-    
-    // CRITICAL FIX: Explicitly create a new options object to ensure family:0 is set
-    const finalOptions: RedisOptions = {
-      ...redisOptions,
-      family: 0 // Ensure this is explicitly set during client creation
-    };
-    
-    // Log the final family setting to confirm it's correctly set to 0
-    console.log(`FINAL Redis family setting: ${finalOptions.family} (should be 0)`);
-    
-    const client = new Redis(redisUrl, finalOptions);
-    
-    // Setup listeners
-    this.setupRedisClientListeners(client, clientType);
+    // Create client using shared implementation which handles all the family:0 settings
+    const client = createSharedRedisClient(`bullmq-${this.queueName}-${clientType}`, this.connectionConfig);
     
     // Track for proper cleanup
     this.redisClients.push(client);
@@ -224,37 +119,10 @@ export class BullMQQueueService implements QueueServiceInterface {
   
   // Setup listeners for a Redis client
   private setupRedisClientListeners(client: Redis, clientType: string): void {
-    if (!client) {
-      console.warn(`Cannot attach listeners to ${clientType} Redis client - client is null`);
-      return;
-    }
-    
-    console.log(`Setting up listeners for ${clientType} Redis client`);
-    
-    client.on('error', (error: Error) => {
-      console.error(`Redis client for ${clientType} error:`, error);
-      this.connected = false;
-    });
-    
-    client.on('connect', () => {
-      console.log(`Redis client for ${clientType} connected`);
-      this.connected = true;
-    });
-    
-    client.on('ready', () => {
-      console.log(`Redis client for ${clientType} ready`);
-      this.connected = true;
-    });
-    
-    client.on('reconnecting', (ms: number) => {
-      console.log(`Redis client for ${clientType} reconnecting in ${ms}ms`);
-      this.connected = false;
-    });
-    
-    client.on('end', () => {
-      console.log(`Redis client for ${clientType} connection closed`);
-      this.connected = false;
-    });
+    // This method is now a no-op since shared Redis client implementation 
+    // already sets up the necessary listeners
+    // We're keeping it to maintain backward compatibility
+    console.log(`[BullMQQueueService] Skipping listener setup for ${clientType} - handled by shared implementation`);
   }
   
   // Setup queue event listeners
