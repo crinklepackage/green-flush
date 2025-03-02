@@ -2,6 +2,14 @@ import { ProcessingStatus } from '@wavenotes-new/shared'
 import { createStatusUpdatePayload } from '@wavenotes-new/shared'
 import { DatabaseService } from '../lib/database'
 
+// Define a type for the summary object we're working with
+interface Summary {
+  id: string
+  status: ProcessingStatus
+  updated_at: string
+  // Add other properties as needed
+}
+
 // Configuration for timeout thresholds (in hours)
 const TIMEOUT_CONFIG: Partial<Record<ProcessingStatus, number>> = {
   [ProcessingStatus.IN_QUEUE]: 1, // 1 hour
@@ -72,8 +80,8 @@ export async function checkStalledSummaries(): Promise<number> {
     let updatedCount = 0
     
     for (const summary of inProgressSummaries) {
-      const status = summary.status as ProcessingStatus
-      const updatedAt = new Date(summary.updated_at)
+      const status = (summary as Summary).status as ProcessingStatus
+      const updatedAt = new Date((summary as Summary).updated_at)
       const timeoutThreshold = getTimeoutThreshold(status)
       
       // Check if the summary has exceeded its timeout threshold
@@ -144,11 +152,11 @@ export async function getTimeoutStatistics() {
     
     // Count summaries by status
     for (const summary of inProgressSummaries) {
-      const status = summary.status
+      const status = (summary as Summary).status
       stats.byStatus[status] = (stats.byStatus[status] || 0) + 1
       
       // Check timeout risk
-      const updatedAt = new Date(summary.updated_at)
+      const updatedAt = new Date((summary as Summary).updated_at)
       const timeoutThreshold = getTimeoutThreshold(status as ProcessingStatus)
       const timeDifference = now.getTime() - updatedAt.getTime()
       
