@@ -9,6 +9,8 @@
  * 1. Within Railway network: Use internal hostnames (redis.railway.internal)
  * 2. Outside Railway network: Use proxy hostnames (roundhouse.proxy.rlwy.net)
  * 3. Always use family: 0 to force IPv4 resolution (required for reliable connection)
+ * 4. Add ?family=0 parameter to Redis URLs (redundant but Railway-recommended)
+ * 5. Handle DNS resolution errors with retry + fallback strategy
  */
 
 import Redis, { RedisOptions } from 'ioredis';
@@ -22,7 +24,7 @@ export interface RedisConnectionConfig {
   username?: string;
   password?: string;
   db?: number;
-  tls?: boolean;
+  tls?: boolean | Record<string, any>;
   family?: number;
   url?: string;
   maxRetriesPerRequest?: number | null;
@@ -34,6 +36,15 @@ export interface RedisConnectionConfig {
 
 // Global Redis client for singleton pattern
 let globalRedisClient: Redis | null = null;
+
+// Track attempts to connect to Railway's internal hostnames
+const railwayConnectAttempts = {
+  internalHostnameAttempts: 0,
+  maxInternalHostnameAttempts: 3,
+  hasSuccessfulConnection: false,
+  lastFailedHostname: '',
+  shouldUseProxyHostname: false
+};
 
 /**
  * Determines whether we're running inside Railway's network
@@ -69,6 +80,57 @@ function extractRailwayProxyHostname(url: string): string | null {
     return proxyHostMatches[2];
   }
   return null;
+}
+
+/**
+ * Ensures that the URL string has the family=0 parameter
+ * This is the exact method recommended by Railway documentation
+ * 
+ * @param url The Redis URL
+ * @returns URL with family=0 parameter added
+ */
+function ensureFamilyParameter(url: string): string {
+  // Check if URL already has parameters
+  if (url.includes('?')) {
+    // Check if family parameter is already present
+    if (url.includes('family=')) {
+      // Replace existing family parameter with family=0
+      return url.replace(/family=\d+/, 'family=0');
+    } else {
+      // Add family parameter to existing parameters
+      return `${url}&family=0`;
+    }
+  } else {
+    // Add family parameter as first parameter
+    return `${url}?family=0`;
+  }
+}
+
+/**
+ * Convert internal Railway hostname to proxy hostname
+ * 
+ * @param url The Redis URL with internal hostname
+ * @returns The same URL but with proxy hostname
+ */
+function convertToProxyHostname(url: string): string {
+  try {
+    const parsedUrl = new URL(url);
+    if (isRailwayInternalHostname(parsedUrl.hostname)) {
+      // Extract the non-internal portion of the hostname
+      const baseName = parsedUrl.hostname.replace('.railway.internal', '');
+      
+      // Create the proxy hostname
+      parsedUrl.hostname = `${baseName}.proxy.rlwy.net`;
+      
+      console.log(`CRITICAL: Converted internal hostname to proxy hostname: ${getRedisConnectionString({ url: parsedUrl.toString() })}`);
+      
+      return parsedUrl.toString();
+    }
+    return url;
+  } catch (e) {
+    console.error('Error converting to proxy hostname:', e);
+    return url;
+  }
 }
 
 /**
@@ -148,39 +210,54 @@ export function createRedisConfig(): RedisConnectionConfig {
       const parsedUrl = new URL(redisUrl);
       const isInternalHostname = isRailwayInternalHostname(parsedUrl.hostname);
       
+      // Check if we should use proxy hostname based on connection history
+      let shouldUseProxyHostname = railwayConnectAttempts.shouldUseProxyHostname;
+      
+      // If we've failed to connect multiple times to internal hostnames,
+      // switch to proxy hostname
+      if (
+        isInternalHostname && 
+        railwayConnectAttempts.internalHostnameAttempts >= railwayConnectAttempts.maxInternalHostnameAttempts && 
+        !railwayConnectAttempts.hasSuccessfulConnection
+      ) {
+        shouldUseProxyHostname = true;
+        console.log(`CRITICAL: Switching to proxy hostname after ${railwayConnectAttempts.internalHostnameAttempts} failed internal hostname attempts`);
+      }
+            
       // Running inside Railway network - use internal hostname by default
-      if (isInsideRailwayNetwork()) {
+      if (isInsideRailwayNetwork() && !shouldUseProxyHostname) {
         console.log('Running inside Railway network');
         
         // If internal hostname exists and we haven't had errors with it, use it
         if (isInternalHostname && !connectionState.hadInternalHostnameError) {
           console.log('Using Railway internal hostname for Redis');
+          // Track attempted connections to internal hostnames
+          railwayConnectAttempts.internalHostnameAttempts++;
+          console.log(`Internal hostname connection attempt: ${railwayConnectAttempts.internalHostnameAttempts}/${railwayConnectAttempts.maxInternalHostnameAttempts}`);
         } 
         // If we've had errors with internal hostname, try proxy hostname
         else if (isInternalHostname && connectionState.hadInternalHostnameError) {
           console.log('CRITICAL: Previous errors with internal hostname, trying proxy hostname');
           
-          // Extract proxy hostname and use it if available
-          const proxyHostname = extractRailwayProxyHostname(redisUrl);
-          if (proxyHostname) {
-            parsedUrl.hostname = proxyHostname;
-            redisUrl = parsedUrl.toString();
-            console.log(`Switched to proxy hostname: ${getRedisConnectionString({ url: redisUrl })}`);
-          }
+          // Try to convert to proxy hostname
+          redisUrl = convertToProxyHostname(redisUrl);
+          console.log(`Switched to proxy hostname: ${getRedisConnectionString({ url: redisUrl })}`);
         }
       } 
-      // Running outside Railway - always use proxy hostname
+      // Running outside Railway or should use proxy - ensure proxy hostname
       else if (isInternalHostname) {
-        console.log('Running outside Railway network, must use proxy hostname');
+        console.log(shouldUseProxyHostname 
+          ? 'Using proxy hostname due to previous connection failures' 
+          : 'Running outside Railway network, must use proxy hostname');
         
-        // Extract proxy hostname and use it if available
-        const proxyHostname = extractRailwayProxyHostname(redisUrl);
-        if (proxyHostname) {
-          parsedUrl.hostname = proxyHostname;
-          redisUrl = parsedUrl.toString();
-          console.log(`Using proxy hostname: ${getRedisConnectionString({ url: redisUrl })}`);
-        }
+        // Try to convert to proxy hostname
+        redisUrl = convertToProxyHostname(redisUrl);
+        console.log(`Using proxy hostname: ${getRedisConnectionString({ url: redisUrl })}`);
       }
+      
+      // CRITICAL: Ensure family=0 parameter is added to URL exactly as Railway docs recommend
+      redisUrl = ensureFamilyParameter(redisUrl);
+      
     } catch (e) {
       console.error('Error processing Redis URL:', e);
     }
@@ -209,15 +286,24 @@ export function createRedisConfig(): RedisConnectionConfig {
     
     // Handle internal hostnames for direct connection too
     if (isRailwayInternalHostname(host)) {
-      if (!isInsideRailwayNetwork() || connectionState.hadInternalHostnameError) {
+      // Check if we should use proxy hostname
+      const shouldUseProxyHostname = !isInsideRailwayNetwork() || 
+                                    connectionState.hadInternalHostnameError ||
+                                    railwayConnectAttempts.shouldUseProxyHostname;
+    
+      if (shouldUseProxyHostname) {
         // If we're outside Railway or had errors, try alternate hostname
         const alternateHost = process.env.REDIS_PUBLIC_HOST || 
-                             host.replace('.railway.internal', '.proxy.rlwy.net');
+                            host.replace('.railway.internal', '.proxy.rlwy.net');
         
         if (alternateHost && alternateHost !== host) {
           console.log(`CRITICAL: Using alternate hostname: ${alternateHost} instead of ${host}`);
           host = alternateHost;
         }
+      } else {
+        // Track attempted connections to internal hostnames
+        railwayConnectAttempts.internalHostnameAttempts++;
+        console.log(`Internal hostname connection attempt: ${railwayConnectAttempts.internalHostnameAttempts}/${railwayConnectAttempts.maxInternalHostnameAttempts}`);
       }
     }
     
@@ -271,6 +357,11 @@ export function createRedisClient(clientName: string = 'default', customConfig?:
   // CRITICAL: Ensure family is always set to 0 regardless of custom config
   mergedConfig.family = 0;
   
+  // If URL is provided, ensure it has family=0 parameter
+  if (mergedConfig.url) {
+    mergedConfig.url = ensureFamilyParameter(mergedConfig.url);
+  }
+  
   // Get the connection string for logging (without credentials)
   const connectionString = getRedisConnectionString(mergedConfig);
   console.log(`Creating Redis client "${clientName}" with connection: ${connectionString}`);
@@ -310,6 +401,7 @@ export function createRedisClient(clientName: string = 'default', customConfig?:
   // For URL-based connections
   if (mergedConfig.url) {
     console.log(`Using URL connection for "${clientName}" Redis client`);
+    // Create the Redis client directly using the URL with family=0 parameter - following Railway docs exactly
     const client = new Redis(mergedConfig.url, clientOptions);
     setupRedisClientListeners(client, clientName, hostname);
     return client;
@@ -372,6 +464,15 @@ function setupRedisClientListeners(client: Redis, clientName: string, hostname?:
         connectionState.failedHosts.add(hostname);
         connectionState.useProxyHostnames = true;
         
+        // Update railway-specific tracking
+        railwayConnectAttempts.lastFailedHostname = hostname;
+        
+        // If we've failed too many times, permanently switch to proxy hostnames
+        if (railwayConnectAttempts.internalHostnameAttempts >= railwayConnectAttempts.maxInternalHostnameAttempts) {
+          railwayConnectAttempts.shouldUseProxyHostname = true;
+          console.error(`CRITICAL: Permanently switching to proxy hostnames after ${railwayConnectAttempts.internalHostnameAttempts} failures`);
+        }
+        
         // Log the change in strategy
         console.error('CRITICAL: Switching to use proxy hostnames for future connections');
       }
@@ -398,6 +499,15 @@ function setupRedisClientListeners(client: Redis, clientName: string, hostname?:
   
   client.on('connect', () => {
     console.log(`Redis client "${clientName}" connected successfully`);
+    
+    // If this is an internal hostname, mark it as successful
+    if (hostname && isRailwayInternalHostname(hostname)) {
+      console.log(`CRITICAL: Successfully connected to Railway internal hostname (${hostname})`);
+      railwayConnectAttempts.hasSuccessfulConnection = true;
+      
+      // If we've had a successful connection, reset the attempt counter
+      railwayConnectAttempts.internalHostnameAttempts = 0;
+    }
     
     // If we've successfully connected to a hostname that previously failed, clear the error state
     if (hostname && connectionState.failedHosts.has(hostname)) {
@@ -468,16 +578,70 @@ export async function checkRedisHealth(): Promise<{ status: string; message: str
 
 /**
  * Creates a BullMQ-compatible connection object from Redis configuration
- * Ensures the family: 0 setting is applied
+ * Follows Railway docs exactly for BullMQ connections
  * 
  * @param config Optional custom Redis configuration
  * @returns A configuration object suitable for BullMQ
  */
 export function createBullMQConnection(config?: RedisConnectionConfig): RedisConnectionConfig {
-  // Start with base configuration from environment or passed config
+  // BullMQ requires a specific format for Redis connection
+  // Following Railway docs exactly as they recommend
+  
+  if (process.env.REDIS_URL) {
+    try {
+      console.log('Creating BullMQ connection using REDIS_URL from environment');
+      const redisURL = new URL(process.env.REDIS_URL);
+      
+      // Create the configuration exactly as shown in Railway docs
+      // https://docs.railway.app/reference/errors/enotfound-redis-railway-internal
+      const bullMQConfig: RedisConnectionConfig = {
+        family: 0, // CRITICAL: Force IPv4
+        host: redisURL.hostname,
+        port: parseInt(redisURL.port, 10) || 6379,
+        // Only add username and password if they exist
+        ...(redisURL.username ? { username: redisURL.username } : {}),
+        ...(redisURL.password ? { password: redisURL.password } : {}),
+        // Add TLS settings for production
+        tls: (process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production') 
+          ? true
+          : undefined,
+        // Add BullMQ compatibility settings
+        maxRetriesPerRequest: null
+      };
+      
+      // Apply hostname conversion if needed
+      if (isRailwayInternalHostname(bullMQConfig.host as string)) {
+        // Apply our internal/proxy hostname switching logic 
+        if (
+          !isInsideRailwayNetwork() || 
+          connectionState.hadInternalHostnameError || 
+          railwayConnectAttempts.shouldUseProxyHostname
+        ) {
+          const originalHost = bullMQConfig.host;
+          bullMQConfig.host = (originalHost as string).replace('.railway.internal', '.proxy.rlwy.net');
+          console.log(`CRITICAL: BullMQ connection - switching from internal hostname ${originalHost} to proxy hostname ${bullMQConfig.host}`);
+        } else {
+          console.log(`CRITICAL: BullMQ connection - using internal hostname ${bullMQConfig.host}`);
+          // Track attempted connections to internal hostnames
+          railwayConnectAttempts.internalHostnameAttempts++;
+        }
+      }
+      
+      // Log the BullMQ configuration (sanitized)
+      console.log(`CRITICAL: BullMQ connection created with family=${bullMQConfig.family} (should be 0)`);
+      console.log(`CRITICAL: BullMQ connection host: ${bullMQConfig.host}:${bullMQConfig.port}`);
+      
+      return bullMQConfig;
+    } catch (e) {
+      console.error('Error creating BullMQ connection from URL:', e);
+      // Fall back to standard config if URL parsing fails
+    }
+  }
+  
+  // Start with base configuration from environment or passed config if URL parsing failed
   const baseConfig = config || createRedisConfig();
   
-  // Ensure critical BullMQ settings
+  // Ensure critical BullMQ settings if not using URL parsing
   const bullMQConfig = {
     ...baseConfig,
     // Force these settings for BullMQ compatibility
@@ -485,12 +649,42 @@ export function createBullMQConnection(config?: RedisConnectionConfig): RedisCon
     maxRetriesPerRequest: null // BullMQ requires this to be null, not a number
   };
   
-  // Log the configuration
-  console.log(`BullMQ Redis configuration created with family=${bullMQConfig.family} (should be 0)`);
+  // Remove the URL to force use of host/port for BullMQ
   if (bullMQConfig.url) {
-    console.log(`BullMQ Redis URL: ${getRedisConnectionString(bullMQConfig)}`);
-  } else if (bullMQConfig.host) {
-    console.log(`BullMQ Redis host: ${bullMQConfig.host}:${bullMQConfig.port}`);
+    console.log('CRITICAL: Converting URL config to host/port for BullMQ compatibility');
+    try {
+      const parsedUrl = new URL(bullMQConfig.url);
+      
+      // Extract components from URL
+      bullMQConfig.host = parsedUrl.hostname;
+      bullMQConfig.port = parseInt(parsedUrl.port, 10) || 6379;
+      if (parsedUrl.username) bullMQConfig.username = parsedUrl.username;
+      if (parsedUrl.password) bullMQConfig.password = parsedUrl.password;
+      
+      // Apply same internal/proxy hostname conversion if needed
+      if (isRailwayInternalHostname(bullMQConfig.host as string)) {
+        if (
+          !isInsideRailwayNetwork() || 
+          connectionState.hadInternalHostnameError || 
+          railwayConnectAttempts.shouldUseProxyHostname
+        ) {
+          const originalHost = bullMQConfig.host;
+          bullMQConfig.host = (originalHost as string).replace('.railway.internal', '.proxy.rlwy.net');
+          console.log(`CRITICAL: BullMQ connection - switching from internal hostname ${originalHost} to proxy hostname ${bullMQConfig.host}`);
+        }
+      }
+      
+      // Remove URL property to ensure host/port are used
+      delete bullMQConfig.url;
+    } catch (e) {
+      console.error('Error parsing URL for BullMQ config:', e);
+    }
+  }
+  
+  // Log the configuration
+  console.log(`CRITICAL: BullMQ Redis configuration created with family=${bullMQConfig.family} (should be 0)`);
+  if (bullMQConfig.host) {
+    console.log(`CRITICAL: BullMQ Redis host: ${bullMQConfig.host}:${bullMQConfig.port}`);
   }
   
   return bullMQConfig;
